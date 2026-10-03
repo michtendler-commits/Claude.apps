@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>COSMOLYTE</title>
-<meta name="description" content="COSMOLYTE — official site. New music, tour dates, and news.">
+<meta name="description" content="COSMOLYTE: darkwave electronic music. Stream Almost Home, D.E.M.O., and more.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
@@ -62,6 +62,7 @@
     display: grid; place-items: center; text-align: center;
     padding: 120px 16px 80px;
     position: relative;
+    overflow: hidden;
   }
   .orbit {
     position: absolute; width: min(80vw, 620px); aspect-ratio: 1;
@@ -149,42 +150,10 @@
   @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 18px; } }
   .dur { color: var(--muted); font-variant-numeric: tabular-nums; }
 
-  /* Tour */
-  .tour-list { border-top: 1px solid var(--line); }
-  .show {
-    display: grid; grid-template-columns: 110px 1fr 1fr auto; gap: 20px; align-items: center;
-    padding: 22px 4px; border-bottom: 1px solid var(--line);
-  }
-  .date { font-family: "Unbounded", sans-serif; font-size: 1.1rem; }
-  .date small { display: block; font-family: "Space Grotesk"; color: var(--muted); font-size: 0.8rem; }
-  .venue { color: var(--muted); }
-  .show .btn { padding: 10px 20px; font-size: 0.9rem; }
-  .sold { color: var(--muted); font-size: 0.9rem; text-decoration: line-through; }
-
   /* About */
   .about { display: grid; grid-template-columns: 1.2fr 1fr; gap: 56px; align-items: center; }
   .about p { color: var(--muted); margin-bottom: 18px; font-size: 1.05rem; }
   .about p strong { color: var(--text); }
-  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-  .stat { padding: 26px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); }
-  .stat b { font-family: "Unbounded", sans-serif; font-size: 2rem; display: block; background: linear-gradient(120deg, var(--accent-2), var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .stat span { color: var(--muted); font-size: 0.9rem; }
-
-  /* Newsletter */
-  .signup {
-    text-align: center; padding: 64px clamp(20px, 5vw, 64px); border-radius: 28px;
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(34, 211, 238, 0.08));
-    border: 1px solid var(--line);
-  }
-  .signup form { display: flex; gap: 10px; max-width: 480px; margin: 28px auto 0; }
-  .signup input {
-    flex: 1; min-width: 0; padding: 14px 20px; border-radius: 999px; border: 1px solid var(--line);
-    background: rgba(0, 0, 0, 0.35); color: var(--text); font: inherit;
-  }
-  .signup input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .signup button { border: 0; cursor: pointer; color: var(--text); font: inherit; font-weight: 700; }
-  .thanks { margin-top: 16px; color: var(--accent-2); min-height: 1.6em; }
-
   /* Footer */
   footer { padding: 60px clamp(16px, 4vw, 40px) 40px; border-top: 1px solid var(--line); text-align: center; }
   .socials { display: flex; justify-content: center; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
@@ -195,7 +164,20 @@
   .socials a:hover { border-color: var(--accent); transform: translateY(-3px); }
   .socials svg { width: 20px; height: 20px; fill: currentColor; }
   footer p { color: var(--muted); font-size: 0.85rem; }
-  footer .contact { margin-bottom: 12px; color: var(--text); }
+
+  .cover img { width: 100%; height: 100%; object-fit: cover; }
+  .tagline em { color: var(--text); font-style: normal; font-weight: 700; }
+  .embed { width: 100%; border: 0; border-radius: 12px; display: block; }
+  .track { grid-template-columns: 44px 1fr auto auto; }
+  .ext { color: var(--muted); padding: 6px 10px; border-radius: 8px; }
+  .ext:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+  .disco { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 22px; }
+  .album { display: block; padding: 12px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); transition: transform 0.2s, border-color 0.2s; }
+  .album:hover { transform: translateY(-4px); border-color: var(--accent); }
+  .album img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; margin-bottom: 12px; }
+  .album b { display: block; line-height: 1.3; }
+  .album small { color: var(--muted); }
+  @media (max-width: 800px) { .disco { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
 
   /* Mobile */
   @media (max-width: 800px) {
@@ -208,10 +190,6 @@
     .nav-links.open { max-height: 400px; border-bottom: 1px solid var(--line); }
     .nav-links a { display: block; padding: 16px 24px; }
     .release, .about { grid-template-columns: 1fr; gap: 32px; }
-    .show { grid-template-columns: 80px 1fr; gap: 6px 16px; }
-    .show .venue { grid-column: 2; }
-    .show > :last-child { grid-column: 2; justify-self: start; margin-top: 8px; }
-    .signup form { flex-direction: column; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -227,10 +205,10 @@
   <a href="#top" class="logo">COSMOLYTE</a>
   <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
   <ul class="nav-links" id="navLinks">
-    <li><a href="#music">Music</a></li>
-    <li><a href="#tour">Tour</a></li>
+    <li><a href="#latest">Latest</a></li>
+    <li><a href="#tracks">Tracks</a></li>
+    <li><a href="#discography">Discography</a></li>
     <li><a href="#about">About</a></li>
-    <li><a href="#join">Join</a></li>
   </ul>
 </nav>
 
@@ -238,63 +216,58 @@
   <div class="orbit" aria-hidden="true"></div>
   <div class="orbit two" aria-hidden="true"></div>
   <div class="hero-inner">
-    <p class="eyebrow">New single out now</p>
+    <p class="eyebrow">Darkwave · Electronic · Melodic · Orbital</p>
     <h1>COSMOLYTE</h1>
-    <!-- TODO: replace with the artist's own tagline -->
-    <p class="tagline">Sounds from somewhere past the edge of the map. Turn it up and drift.</p>
+    <p class="tagline">New EP <em>Almost Home</em> out now.</p>
     <div class="btns">
-      <a href="#music" class="btn primary">▶ Listen now</a>
-      <a href="#tour" class="btn ghost">See tour dates</a>
+      <a href="https://open.spotify.com/artist/15KRk2iN5YMhAiJpDaIVYY" target="_blank" rel="noopener" class="btn primary">▶ Listen on Spotify</a>
+      <a href="#discography" class="btn ghost">All releases</a>
     </div>
   </div>
   <div class="scroll-hint">SCROLL</div>
 </header>
 
 <main>
-  <section id="music">
+  <section id="latest">
     <div class="wrap">
-      <h2 class="section-title reveal">Music</h2>
-      <p class="section-sub reveal">The latest from COSMOLYTE.</p>
-
+      <h2 class="section-title reveal">Latest release</h2>
+      <p class="section-sub reveal">Press play right here.</p>
       <div class="release reveal">
-        <!-- TODO: swap this gradient for real cover art: <img src="cover.jpg" alt="..."> -->
-        <div class="cover"><span>COSMOLYTE</span></div>
+        <a href="https://open.spotify.com/album/6hYlZMcX5XxQtrXY1P5mH8" target="_blank" rel="noopener" class="cover">
+          <img onerror="this.style.visibility='hidden'" src="https://i.scdn.co/image/ab67616d0000b273e69876faacf277a400479b2f" alt="Almost Home EP cover art">
+        </a>
         <div>
-          <span class="tag">Latest release</span>
-          <h3>Gravity Well</h3>
-          <p>A new single built from late-night synths, heavy low end, and a hook that won't leave your orbit. Out now everywhere.</p>
-          <!-- TODO: replace # with the real streaming links -->
-          <div class="platforms">
-            <a href="#" target="_blank" rel="noopener">Spotify</a>
-            <a href="#" target="_blank" rel="noopener">Apple Music</a>
-            <a href="#" target="_blank" rel="noopener">YouTube</a>
-            <a href="#" target="_blank" rel="noopener">SoundCloud</a>
-            <a href="#" target="_blank" rel="noopener">Bandcamp</a>
-          </div>
+          <span class="tag">EP</span>
+          <h3>Almost Home</h3>
+          <iframe class="embed" title="Almost Home on Spotify" src="https://open.spotify.com/embed/album/6hYlZMcX5XxQtrXY1P5mH8?utm_source=generator&theme=0" height="352" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
         </div>
-      </div>
-
-      <div style="height:56px"></div>
-      <!-- TODO: replace with real track names and lengths -->
-      <div class="tracks reveal" id="tracks">
-        <div class="track"><button class="play" aria-label="Play">▶</button><div><b>Gravity Well</b><small>Single · 2026</small></div><span class="dur">3:24</span><span class="bars"><i></i><i></i><i></i><i></i></span></div>
-        <div class="track"><button class="play" aria-label="Play">▶</button><div><b>Neon Satellites</b><small>Single · 2026</small></div><span class="dur">2:58</span><span class="bars"><i></i><i></i><i></i><i></i></span></div>
-        <div class="track"><button class="play" aria-label="Play">▶</button><div><b>Afterglow Protocol</b><small>EP · 2025</small></div><span class="dur">4:11</span><span class="bars"><i></i><i></i><i></i><i></i></span></div>
-        <div class="track"><button class="play" aria-label="Play">▶</button><div><b>Static Bloom</b><small>EP · 2025</small></div><span class="dur">3:37</span><span class="bars"><i></i><i></i><i></i><i></i></span></div>
       </div>
     </div>
   </section>
 
-  <section id="tour">
+  <section id="tracks">
     <div class="wrap">
-      <h2 class="section-title reveal">Tour</h2>
-      <p class="section-sub reveal">Catch COSMOLYTE live.</p>
-      <!-- TODO: replace with real dates, venues, and ticket links -->
-      <div class="tour-list reveal">
-        <div class="show"><div class="date">NOV 14<small>Fri</small></div><div><b>Los Angeles, CA</b></div><div class="venue">The Echo</div><a href="#" class="btn primary">Tickets</a></div>
-        <div class="show"><div class="date">NOV 21<small>Fri</small></div><div><b>Brooklyn, NY</b></div><div class="venue">Elsewhere</div><a href="#" class="btn primary">Tickets</a></div>
-        <div class="show"><div class="date">DEC 05<small>Fri</small></div><div><b>Chicago, IL</b></div><div class="venue">Lincoln Hall</div><span class="sold">Sold out</span></div>
-        <div class="show"><div class="date">DEC 12<small>Fri</small></div><div><b>London, UK</b></div><div class="venue">Village Underground</div><a href="#" class="btn primary">Tickets</a></div>
+      <h2 class="section-title reveal">Top tracks</h2>
+      <p class="section-sub reveal">Tap a track to hear a preview. Tap ↗ to open it in Spotify.</p>
+      <div class="tracks reveal">
+        <div class="track" data-preview="https://p.scdn.co/mp3-preview/5057d956de23df0aed54df36d44dd419543fa332.mp3"><button class="play" aria-label="Play preview of bubble.">▶</button><div><b>bubble.</b><small>COSMOLYTE</small></div><span class="dur">1:34</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/3R5nOg3dotO6D8mKZvoNaq" target="_blank" rel="noopener" aria-label="Open bubble. on Spotify">↗</a></div>
+        <div class="track" data-preview="https://p.scdn.co/mp3-preview/8f39289556edc9deb172a46ccd6f8e9b76db0209.mp3"><button class="play" aria-label="Play preview of fall...">▶</button><div><b>fall...</b><small>Single</small></div><span class="dur">3:08</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/2Qb37PUyLd3Va5hoJUSqWh" target="_blank" rel="noopener" aria-label="Open fall... on Spotify">↗</a></div>
+        <div class="track" data-preview="https://p.scdn.co/mp3-preview/1932be6d191fdcb71ee2675d0b8e345a5f8fdef0.mp3"><button class="play" aria-label="Play preview of Yesterday's Tomorrow">▶</button><div><b>Yesterday's Tomorrow</b><small>Before EP</small></div><span class="dur">2:20</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/20b2VlGl9n5YMmdwgsBZ5l" target="_blank" rel="noopener" aria-label="Open Yesterday's Tomorrow on Spotify">↗</a></div>
+        <div class="track" data-preview="https://p.scdn.co/mp3-preview/78ca2ea5cfdd8dd90b9d7eff4f289bb0f4bebb9e.mp3"><button class="play" aria-label="Play preview of Goodbye">▶</button><div><b>Goodbye</b><small>Before EP</small></div><span class="dur">1:37</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/5FW5X6Z36hW3LMD9X3B01O" target="_blank" rel="noopener" aria-label="Open Goodbye on Spotify">↗</a></div>
+        <div class="track" data-preview="https://p.scdn.co/mp3-preview/a02f2832098f3de917e99e087ee4ea1f07645c25.mp3"><button class="play" aria-label="Play preview of Ride">▶</button><div><b>Ride</b><small>Before EP</small></div><span class="dur">3:44</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/45zzfbdN4519ziG7y1TKIw" target="_blank" rel="noopener" aria-label="Open Ride on Spotify">↗</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="discography">
+    <div class="wrap">
+      <h2 class="section-title reveal">Discography</h2>
+      <p class="section-sub reveal">Every release, streaming now.</p>
+      <div class="disco reveal">
+        <a href="https://open.spotify.com/album/6hYlZMcX5XxQtrXY1P5mH8" target="_blank" rel="noopener" class="album"><img onerror="this.style.visibility='hidden'" src="https://i.scdn.co/image/ab67616d00001e02e69876faacf277a400479b2f" alt="" loading="lazy"><b>Almost Home</b><small>EP</small></a>
+        <a href="https://open.spotify.com/album/0hCp8mrUgmPyrkpxJTxe9a" target="_blank" rel="noopener" class="album"><img onerror="this.style.visibility='hidden'" src="https://i.scdn.co/image/ab67616d00001e02791774e02c8a773f141f58ba" alt="" loading="lazy"><b>D.E.M.O. (Darkwave Electronic Melodic Orbital)</b><small>Album</small></a>
+        <a href="https://open.spotify.com/album/67cL3bHEmJrthLTuILxNc4" target="_blank" rel="noopener" class="album"><img onerror="this.style.visibility='hidden'" src="https://i.scdn.co/image/ab67616d00001e02c8d8abed15d7ecf31e938c40" alt="" loading="lazy"><b>COSMOLYTE</b><small>Album</small></a>
+        <a href="https://open.spotify.com/album/0g9ZS0hfwrVseNnKja0BXP" target="_blank" rel="noopener" class="album"><img onerror="this.style.visibility='hidden'" src="https://i.scdn.co/image/ab67616d00001e0234f16f4ef0129dd0fd9a789a" alt="" loading="lazy"><b>Before EP</b><small>EP</small></a>
       </div>
     </div>
   </section>
@@ -303,46 +276,23 @@
     <div class="wrap about">
       <div class="reveal">
         <h2 class="section-title">About</h2>
-        <!-- TODO: replace with the artist's real bio -->
-        <p><strong>COSMOLYTE</strong> makes music for the space between stars — glowing synths, cinematic drops, and melodies that feel like a late-night drive through the cosmos.</p>
-        <p>Blending electronic production with raw emotion, every track is built to be felt as much as heard. Whether it's headphones at 2am or a packed room with the bass rattling the walls, COSMOLYTE is about getting lost and finding something on the way back.</p>
+        <!-- TODO: swap in COSMOLYTE's own bio -->
+        <p><strong>COSMOLYTE</strong> makes darkwave electronic music: melodic, moody, and a little out of this world. Their album title sums it up: <em>Darkwave Electronic Melodic Orbital</em>.</p>
+        <p>From the <em>Before EP</em> to the self-titled album and the new <em>Almost Home</em> EP, every release is streaming now.</p>
       </div>
-      <!-- TODO: replace with real numbers, or remove -->
-      <div class="stats reveal">
-        <div class="stat"><b>10M+</b><span>Streams</span></div>
-        <div class="stat"><b>40+</b><span>Shows played</span></div>
-        <div class="stat"><b>12</b><span>Releases</span></div>
-        <div class="stat"><b>∞</b><span>Light-years traveled</span></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="join">
-    <div class="wrap">
-      <div class="signup reveal">
-        <h2 class="section-title">Join the orbit</h2>
-        <p class="section-sub" style="margin-bottom:0">Get new music, tour presales, and secret drops first.</p>
-        <!-- TODO: connect to a real mailing list (Mailchimp, Laylo, etc.) -->
-        <form id="signupForm">
-          <input type="email" required placeholder="you@email.com" aria-label="Email address">
-          <button type="submit" class="btn primary">Sign up</button>
-        </form>
-        <p class="thanks" id="thanks" aria-live="polite"></p>
+      <div class="reveal">
+        <iframe class="embed" title="COSMOLYTE on Spotify" src="https://open.spotify.com/embed/artist/15KRk2iN5YMhAiJpDaIVYY?utm_source=generator&theme=0" height="352" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
       </div>
     </div>
   </section>
 </main>
 
 <footer>
-  <!-- TODO: replace # with real social profile links -->
+  <!-- TODO: add Instagram / TikTok / YouTube links here when available -->
   <div class="socials">
-    <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0 8.2a3.2 3.2 0 1 1 0-6.4 3.2 3.2 0 0 1 0 6.4ZM17.3 5.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4ZM12 2c-2.7 0-3 0-4.1.1C4.3 2.2 2.2 4.3 2.1 7.9 2 9 2 9.3 2 12s0 3 .1 4.1c.1 3.6 2.2 5.7 5.8 5.8 1.1.1 1.4.1 4.1.1s3 0 4.1-.1c3.6-.1 5.7-2.2 5.8-5.8.1-1.1.1-1.4.1-4.1s0-3-.1-4.1c-.1-3.6-2.2-5.7-5.8-5.8C15 2 14.7 2 12 2Zm0 1.8c2.7 0 3 0 4 .1 2.6.1 3.9 1.4 4 4 .1 1 .1 1.3.1 4s0 3-.1 4c-.1 2.6-1.4 3.9-4 4-1 .1-1.3.1-4 .1s-3 0-4-.1c-2.6-.1-3.9-1.4-4-4-.1-1-.1-1.3-.1-4s0-3 .1-4c.1-2.6 1.4-3.9 4-4 1-.1 1.3-.1 4-.1Z"/></svg></a>
-    <a href="#" aria-label="TikTok"><svg viewBox="0 0 24 24"><path d="M16.6 5.8A4.3 4.3 0 0 1 15.5 3h-3.1v12.4a2.6 2.6 0 1 1-2.6-2.6c.3 0 .5 0 .8.1V9.7a5.8 5.8 0 1 0 4.9 5.7V9.1a7.4 7.4 0 0 0 4.4 1.4V7.4a4.3 4.3 0 0 1-3.3-1.6Z"/></svg></a>
-    <a href="#" aria-label="YouTube"><svg viewBox="0 0 24 24"><path d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12 31 31 0 0 0 1 16.8a3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1c.4-1.6.5-3.2.5-4.8s-.1-3.2-.5-4.8ZM9.8 15.1V8.9L15.5 12l-5.7 3.1Z"/></svg></a>
-    <a href="#" aria-label="Spotify"><svg viewBox="0 0 24 24"><path d="M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22Zm5 15.9a.7.7 0 0 1-.9.2c-2.6-1.6-5.9-2-9.7-1.1a.7.7 0 1 1-.3-1.3c4.2-1 7.8-.6 10.7 1.2.3.2.4.6.2 1Zm1.3-3a.9.9 0 0 1-1.2.3c-3-1.8-7.5-2.4-11-1.3a.9.9 0 0 1-.5-1.7c4-1.2 9-.6 12.4 1.5.4.3.5.8.3 1.2Zm.1-3.1C14.8 8.7 8.9 8.5 5.5 9.5a1 1 0 1 1-.6-2c3.9-1.2 10.4-1 14.5 1.5a1 1 0 0 1-1 1.8Z"/></svg></a>
+    <a href="https://open.spotify.com/artist/15KRk2iN5YMhAiJpDaIVYY" target="_blank" rel="noopener" aria-label="COSMOLYTE on Spotify"><svg viewBox="0 0 24 24"><path d="M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22Zm5 15.9a.7.7 0 0 1-.9.2c-2.6-1.6-5.9-2-9.7-1.1a.7.7 0 1 1-.3-1.3c4.2-1 7.8-.6 10.7 1.2.3.2.4.6.2 1Zm1.3-3a.9.9 0 0 1-1.2.3c-3-1.8-7.5-2.4-11-1.3a.9.9 0 0 1-.5-1.7c4-1.2 9-.6 12.4 1.5.4.3.5.8.3 1.2Zm.1-3.1C14.8 8.7 8.9 8.5 5.5 9.5a1 1 0 1 1-.6-2c3.9-1.2 10.4-1 14.5 1.5a1 1 0 0 1-1 1.8Z"/></svg></a>
+    <a href="https://www.iheart.com/artist/cosmolyte-51457914/" target="_blank" rel="noopener" aria-label="COSMOLYTE on iHeartRadio"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.4C1 8.3 3 4.5 6.6 4.5c2.1 0 3.6 1.2 5.4 3 1.8-1.8 3.3-3 5.4-3 3.6 0 5.6 3.8 4.2 7.1C19.5 16.4 12 21 12 21Z"/></svg></a>
   </div>
-  <!-- TODO: replace with real booking/management email -->
-  <p class="contact">Booking &amp; management: <a href="mailto:booking@example.com">booking@example.com</a></p>
   <p>© <span id="year"></span> COSMOLYTE. All rights reserved.</p>
 </footer>
 
@@ -400,28 +350,30 @@
   }, { threshold: 0.15 });
   document.querySelectorAll('.reveal').forEach(el => io.observe(el));
 
-  // Track "playing" state (visual only until real audio/embeds are added)
-  document.querySelectorAll('.track').forEach(track => {
-    track.addEventListener('click', () => {
-      const wasPlaying = track.classList.contains('playing');
-      document.querySelectorAll('.track').forEach(t => {
-        t.classList.remove('playing');
-        t.querySelector('.play').textContent = '▶';
-        t.querySelector('.play').setAttribute('aria-label', 'Play');
-      });
-      if (!wasPlaying) {
-        track.classList.add('playing');
-        track.querySelector('.play').textContent = '❚❚';
-        track.querySelector('.play').setAttribute('aria-label', 'Pause');
-      }
-    });
-  });
 
-  // Newsletter (demo only)
-  document.getElementById('signupForm').addEventListener('submit', e => {
-    e.preventDefault();
-    document.getElementById('thanks').textContent = "You're in the orbit. 🚀";
-    e.target.reset();
+
+  // Track previews: play the 30s Spotify preview; fall back to opening the track
+  const audio = new Audio();
+  let current = null;
+  function reset(t) {
+    t.classList.remove('playing');
+    const b = t.querySelector('.play'); b.textContent = '▶';
+    b.setAttribute('aria-label', b.getAttribute('aria-label').replace('Pause', 'Play'));
+  }
+  audio.addEventListener('ended', () => { if (current) reset(current); current = null; });
+  document.querySelectorAll('.track').forEach(track => {
+    track.addEventListener('click', e => {
+      if (e.target.closest('.ext')) return;
+      if (current === track) { audio.pause(); reset(track); current = null; return; }
+      if (current) reset(current);
+      current = track;
+      audio.src = track.dataset.preview;
+      audio.play().then(() => {
+        track.classList.add('playing');
+        const b = track.querySelector('.play'); b.textContent = '❚❚';
+        b.setAttribute('aria-label', b.getAttribute('aria-label').replace('Play', 'Pause'));
+      }).catch(() => { current = null; window.open(track.querySelector('.ext').href, '_blank', 'noopener'); });
+    });
   });
 
   document.getElementById('year').textContent = new Date().getFullYear();
