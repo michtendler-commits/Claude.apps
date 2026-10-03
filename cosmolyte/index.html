@@ -140,7 +140,6 @@
   }
   .track:hover { border-color: var(--accent); transform: translateX(4px); }
   .play { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,0.06); border: 0; color: var(--text); cursor: pointer; }
-  .track.playing .play { background: var(--accent); }
   .track small { color: var(--muted); display: block; }
   .bars { display: none; gap: 3px; height: 18px; align-items: flex-end; }
   .track.playing .bars { display: flex; }
@@ -171,7 +170,7 @@
   .track { grid-template-columns: 44px 1fr auto auto; }
   .ext { color: var(--muted); padding: 6px 10px; border-radius: 8px; }
   .ext:hover { color: var(--text); background: rgba(255,255,255,0.06); }
-  .disco { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 22px; }
+  .disco { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
   .album { display: block; padding: 12px; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); transition: transform 0.2s, border-color 0.2s; }
   .album:hover { transform: translateY(-4px); border-color: var(--accent); }
   .album img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; margin-bottom: 12px; }
@@ -181,6 +180,9 @@
 
   .video { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--panel); box-shadow: 0 30px 80px rgba(25, 18, 80, 0.35); }
   .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+  .play { background-size: cover; background-position: center; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); box-shadow: inset 0 0 0 44px rgba(0, 0, 0, 0.25); }
+  .track.playing .play { box-shadow: inset 0 0 0 44px rgba(231, 105, 29, 0.55); }
 
   /* Mobile */
   @media (max-width: 800px) {
@@ -238,7 +240,7 @@
       <p class="section-sub reveal">Press play right here.</p>
       <div class="release reveal">
         <a href="https://open.spotify.com/album/6hYlZMcX5XxQtrXY1P5mH8" target="_blank" rel="noopener" class="cover">
-          <img onerror="this.style.visibility='hidden'" src="https://i.scdn.co/image/ab67616d0000b273e69876faacf277a400479b2f" alt="Almost Home EP cover art">
+          <img src="covers/almost-home.jpg" alt="Almost Home EP cover art">
         </a>
         <div>
           <span class="tag">EP</span>
@@ -254,11 +256,11 @@
       <h2 class="section-title reveal">Top tracks</h2>
       <p class="section-sub reveal">Tap a track to hear a preview. Tap ↗ to open it in Spotify.</p>
       <div class="tracks reveal">
-        <div class="track" data-preview="https://p.scdn.co/mp3-preview/5057d956de23df0aed54df36d44dd419543fa332.mp3"><button class="play" aria-label="Play preview of bubble.">▶</button><div><b>bubble.</b><small>COSMOLYTE</small></div><span class="dur">1:34</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/3R5nOg3dotO6D8mKZvoNaq" target="_blank" rel="noopener" aria-label="Open bubble. on Spotify">↗</a></div>
-        <div class="track" data-preview="https://p.scdn.co/mp3-preview/8f39289556edc9deb172a46ccd6f8e9b76db0209.mp3"><button class="play" aria-label="Play preview of fall...">▶</button><div><b>fall...</b><small>Single</small></div><span class="dur">3:08</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/2Qb37PUyLd3Va5hoJUSqWh" target="_blank" rel="noopener" aria-label="Open fall... on Spotify">↗</a></div>
-        <div class="track" data-preview="https://p.scdn.co/mp3-preview/1932be6d191fdcb71ee2675d0b8e345a5f8fdef0.mp3"><button class="play" aria-label="Play preview of Yesterday's Tomorrow">▶</button><div><b>Yesterday's Tomorrow</b><small>Before EP</small></div><span class="dur">2:20</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/20b2VlGl9n5YMmdwgsBZ5l" target="_blank" rel="noopener" aria-label="Open Yesterday's Tomorrow on Spotify">↗</a></div>
-        <div class="track" data-preview="https://p.scdn.co/mp3-preview/78ca2ea5cfdd8dd90b9d7eff4f289bb0f4bebb9e.mp3"><button class="play" aria-label="Play preview of Goodbye">▶</button><div><b>Goodbye</b><small>Before EP</small></div><span class="dur">1:37</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/5FW5X6Z36hW3LMD9X3B01O" target="_blank" rel="noopener" aria-label="Open Goodbye on Spotify">↗</a></div>
-        <div class="track" data-preview="https://p.scdn.co/mp3-preview/a02f2832098f3de917e99e087ee4ea1f07645c25.mp3"><button class="play" aria-label="Play preview of Ride">▶</button><div><b>Ride</b><small>Before EP</small></div><span class="dur">3:44</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/45zzfbdN4519ziG7y1TKIw" target="_blank" rel="noopener" aria-label="Open Ride on Spotify">↗</a></div>
+        <div class="track" data-preview="https://p.scdn.co/mp3-preview/5057d956de23df0aed54df36d44dd419543fa332.mp3"><button class="play" style="background-image:url(covers/cosmolyte.jpg)" aria-label="Play preview of bubble.">▶</button><div><b>bubble.</b><small>COSMOLYTE</small></div><span class="dur">1:34</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/3R5nOg3dotO6D8mKZvoNaq" target="_blank" rel="noopener" aria-label="Open bubble. on Spotify">↗</a></div>
+        <div class="track" data-preview="https://p.scdn.co/mp3-preview/8f39289556edc9deb172a46ccd6f8e9b76db0209.mp3"><button class="play" style="background-image:url(covers/almost-home.jpg)" aria-label="Play preview of fall...">▶</button><div><b>fall...</b><small>Single</small></div><span class="dur">3:08</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/2Qb37PUyLd3Va5hoJUSqWh" target="_blank" rel="noopener" aria-label="Open fall... on Spotify">↗</a></div>
+        <div class="track" data-preview="https://p.scdn.co/mp3-preview/1932be6d191fdcb71ee2675d0b8e345a5f8fdef0.mp3"><button class="play" style="background-image:url(covers/before.jpg)" aria-label="Play preview of Yesterday's Tomorrow">▶</button><div><b>Yesterday's Tomorrow</b><small>Before EP</small></div><span class="dur">2:20</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/20b2VlGl9n5YMmdwgsBZ5l" target="_blank" rel="noopener" aria-label="Open Yesterday's Tomorrow on Spotify">↗</a></div>
+        <div class="track" data-preview="https://p.scdn.co/mp3-preview/78ca2ea5cfdd8dd90b9d7eff4f289bb0f4bebb9e.mp3"><button class="play" style="background-image:url(covers/before.jpg)" aria-label="Play preview of Goodbye">▶</button><div><b>Goodbye</b><small>Before EP</small></div><span class="dur">1:37</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/5FW5X6Z36hW3LMD9X3B01O" target="_blank" rel="noopener" aria-label="Open Goodbye on Spotify">↗</a></div>
+        <div class="track" data-preview="https://p.scdn.co/mp3-preview/a02f2832098f3de917e99e087ee4ea1f07645c25.mp3"><button class="play" style="background-image:url(covers/before.jpg)" aria-label="Play preview of Ride">▶</button><div><b>Ride</b><small>Before EP</small></div><span class="dur">3:44</span><span class="bars"><i></i><i></i><i></i><i></i></span><a class="ext" href="https://open.spotify.com/track/45zzfbdN4519ziG7y1TKIw" target="_blank" rel="noopener" aria-label="Open Ride on Spotify">↗</a></div>
       </div>
     </div>
   </section>
@@ -268,10 +270,10 @@
       <h2 class="section-title reveal">Discography</h2>
       <p class="section-sub reveal">Every release, streaming now.</p>
       <div class="disco reveal">
-        <a href="https://open.spotify.com/album/6hYlZMcX5XxQtrXY1P5mH8" target="_blank" rel="noopener" class="album"><img onerror="this.style.visibility='hidden'" src="https://i.scdn.co/image/ab67616d00001e02e69876faacf277a400479b2f" alt="" loading="lazy"><b>Almost Home</b><small>EP</small></a>
-        <a href="https://open.spotify.com/album/0hCp8mrUgmPyrkpxJTxe9a" target="_blank" rel="noopener" class="album"><img onerror="this.style.visibility='hidden'" src="https://i.scdn.co/image/ab67616d00001e02791774e02c8a773f141f58ba" alt="" loading="lazy"><b>D.E.M.O. (Darkwave Electronic Melodic Orbital)</b><small>Album</small></a>
-        <a href="https://open.spotify.com/album/67cL3bHEmJrthLTuILxNc4" target="_blank" rel="noopener" class="album"><img onerror="this.style.visibility='hidden'" src="https://i.scdn.co/image/ab67616d00001e02c8d8abed15d7ecf31e938c40" alt="" loading="lazy"><b>COSMOLYTE</b><small>Debut mixtape · 2026</small></a>
-        <a href="https://open.spotify.com/album/0g9ZS0hfwrVseNnKja0BXP" target="_blank" rel="noopener" class="album"><img onerror="this.style.visibility='hidden'" src="https://i.scdn.co/image/ab67616d00001e0234f16f4ef0129dd0fd9a789a" alt="" loading="lazy"><b>Before EP</b><small>EP</small></a>
+        <a href="https://open.spotify.com/album/6hYlZMcX5XxQtrXY1P5mH8" target="_blank" rel="noopener" class="album"><img src="covers/almost-home.jpg" alt="Almost Home cover art"><b>Almost Home</b><small>EP</small></a>
+        <a href="https://open.spotify.com/album/0hCp8mrUgmPyrkpxJTxe9a" target="_blank" rel="noopener" class="album"><img src="covers/demo.jpg" alt="D.E.M.O. cover art"><b>D.E.M.O. (Darkwave Electronic Melodic Orbital)</b><small>Album</small></a>
+        <a href="https://open.spotify.com/album/67cL3bHEmJrthLTuILxNc4" target="_blank" rel="noopener" class="album"><img src="covers/cosmolyte.jpg" alt="COSMOLYTE cover art"><b>COSMOLYTE</b><small>Debut mixtape · 2026</small></a>
+        <a href="https://open.spotify.com/album/0g9ZS0hfwrVseNnKja0BXP" target="_blank" rel="noopener" class="album"><img src="covers/before.jpg" alt="Before EP cover art"><b>Before EP</b><small>EP</small></a>
       </div>
     </div>
   </section>
