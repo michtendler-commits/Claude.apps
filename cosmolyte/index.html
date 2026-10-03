@@ -178,8 +178,22 @@
   .album small { color: var(--muted); }
   @media (max-width: 800px) { .disco { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
 
-  .video { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--panel); box-shadow: 0 30px 80px rgba(25, 18, 80, 0.35); }
-  .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .video {
+    position: relative; aspect-ratio: 16 / 9; max-width: 100%; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--line); display: grid; place-items: center; align-content: center; gap: 18px; text-align: center; padding: 24px;
+    background:
+      radial-gradient(circle at 25% 30%, rgba(231, 105, 29, 0.35), transparent 50%),
+      radial-gradient(circle at 75% 70%, rgba(158, 245, 255, 0.25), transparent 50%),
+      var(--bg-2);
+    box-shadow: 0 30px 80px rgba(25, 18, 80, 0.35);
+    transition: transform 0.25s, border-color 0.25s;
+  }
+  .video:hover { transform: translateY(-4px); border-color: var(--accent); }
+  .video:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 4px; }
+  .yt-play svg { width: clamp(64px, 12vw, 110px); height: auto; filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35)); transition: transform 0.25s; }
+  .video:hover .yt-play svg { transform: scale(1.08); }
+  .yt-text b { display: block; font-family: "Unbounded", sans-serif; font-size: clamp(1.1rem, 3vw, 1.6rem); }
+  .yt-text small { color: var(--muted); }
 
   .play { background-size: cover; background-position: center; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); box-shadow: inset 0 0 0 44px rgba(0, 0, 0, 0.25); }
   .track.playing .play { box-shadow: inset 0 0 0 44px rgba(231, 105, 29, 0.55); }
@@ -281,10 +295,11 @@
   <section id="videos">
     <div class="wrap">
       <h2 class="section-title reveal">Videos</h2>
-      <p class="section-sub reveal">Music, visuals, and short films, straight from YouTube.</p>
-      <div class="video reveal">
-        <iframe title="COSMOLYTE on YouTube" src="https://www.youtube-nocookie.com/embed/videoseries?list=UU7pZ-DpbpxlAUIVXtYp5dOA" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe>
-      </div>
+      <p class="section-sub reveal">Music, visuals, and short films on his YouTube channel.</p>
+      <a class="video reveal" href="https://www.youtube.com/channel/UC7pZ-DpbpxlAUIVXtYp5dOA/videos" target="_blank" rel="noopener" aria-label="Watch COSMOLYTE videos on YouTube">
+        <span class="yt-play" aria-hidden="true"><svg viewBox="0 0 68 48"><path d="M66.5 7.7a8.5 8.5 0 0 0-6-6C55.2.3 34 .3 34 .3s-21.2 0-26.5 1.4a8.5 8.5 0 0 0-6 6C.1 13 .1 24 .1 24s0 11 1.4 16.3a8.5 8.5 0 0 0 6 6C12.8 47.7 34 47.7 34 47.7s21.2 0 26.5-1.4a8.5 8.5 0 0 0 6-6C67.9 35 67.9 24 67.9 24s0-11-1.4-16.3Z" fill="#ff0033"/><path d="M27 34.3 44.8 24 27 13.7Z" fill="#fff"/></svg></span>
+        <span class="yt-text"><b>Watch on YouTube</b><small>Music, visuals, and short films by COSMOLYTE</small></span>
+      </a>
       <div class="btns reveal" style="margin-top:28px">
         <a href="https://www.youtube.com/channel/UC7pZ-DpbpxlAUIVXtYp5dOA?sub_confirmation=1" target="_blank" rel="noopener" class="btn primary">Subscribe on YouTube</a>
       </div>
