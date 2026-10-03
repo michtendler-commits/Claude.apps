@@ -179,6 +179,9 @@
   .album small { color: var(--muted); }
   @media (max-width: 800px) { .disco { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
 
+  .video { position: relative; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--panel); box-shadow: 0 30px 80px rgba(139, 92, 246, 0.2); }
+  .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
   /* Mobile */
   @media (max-width: 800px) {
     .menu-btn { display: block; }
@@ -208,6 +211,7 @@
     <li><a href="#latest">Latest</a></li>
     <li><a href="#tracks">Tracks</a></li>
     <li><a href="#discography">Discography</a></li>
+    <li><a href="#videos">Videos</a></li>
     <li><a href="#about">About</a></li>
   </ul>
 </nav>
@@ -272,6 +276,19 @@
     </div>
   </section>
 
+  <section id="videos">
+    <div class="wrap">
+      <h2 class="section-title reveal">Videos</h2>
+      <p class="section-sub reveal">Music, visuals, and short films, straight from YouTube.</p>
+      <div class="video reveal">
+        <iframe title="COSMOLYTE on YouTube" src="https://www.youtube-nocookie.com/embed/videoseries?list=UU7pZ-DpbpxlAUIVXtYp5dOA" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe>
+      </div>
+      <div class="btns reveal" style="margin-top:28px">
+        <a href="https://www.youtube.com/channel/UC7pZ-DpbpxlAUIVXtYp5dOA?sub_confirmation=1" target="_blank" rel="noopener" class="btn primary">Subscribe on YouTube</a>
+      </div>
+    </div>
+  </section>
+
   <section id="about">
     <div class="wrap about">
       <div class="reveal">
@@ -288,9 +305,10 @@
 </main>
 
 <footer>
-  <!-- TODO: add Instagram / TikTok / YouTube links here when available -->
+  <!-- TODO: add Instagram / TikTok links here when available -->
   <div class="socials">
     <a href="https://open.spotify.com/artist/15KRk2iN5YMhAiJpDaIVYY" target="_blank" rel="noopener" aria-label="COSMOLYTE on Spotify"><svg viewBox="0 0 24 24"><path d="M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22Zm5 15.9a.7.7 0 0 1-.9.2c-2.6-1.6-5.9-2-9.7-1.1a.7.7 0 1 1-.3-1.3c4.2-1 7.8-.6 10.7 1.2.3.2.4.6.2 1Zm1.3-3a.9.9 0 0 1-1.2.3c-3-1.8-7.5-2.4-11-1.3a.9.9 0 0 1-.5-1.7c4-1.2 9-.6 12.4 1.5.4.3.5.8.3 1.2Zm.1-3.1C14.8 8.7 8.9 8.5 5.5 9.5a1 1 0 1 1-.6-2c3.9-1.2 10.4-1 14.5 1.5a1 1 0 0 1-1 1.8Z"/></svg></a>
+    <a href="https://www.youtube.com/channel/UC7pZ-DpbpxlAUIVXtYp5dOA" target="_blank" rel="noopener" aria-label="COSMOLYTE on YouTube"><svg viewBox="0 0 24 24"><path d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12 31 31 0 0 0 1 16.8a3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1c.4-1.6.5-3.2.5-4.8s-.1-3.2-.5-4.8ZM9.8 15.1V8.9L15.5 12l-5.7 3.1Z"/></svg></a>
   </div>
   <p>© <span id="year"></span> COSMOLYTE. All rights reserved.</p>
 </footer>
