@@ -358,14 +358,35 @@ async function fitImage(file, size) {
   return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
 }
 
+// Build the multipart body by hand as plain bytes. FormData can't be cloned by
+// sandboxed viewers that relay fetch() through postMessage.
+async function multipart(fields) {
+  const boundary = '----reelstudio' + Math.random().toString(36).slice(2);
+  const enc = new TextEncoder();
+  const parts = [];
+  for (const [name, value] of Object.entries(fields)) {
+    if (value == null) continue;
+    if (value instanceof Blob) {
+      parts.push(enc.encode(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="reference.png"\r\nContent-Type: ${value.type || 'image/png'}\r\n\r\n`));
+      parts.push(new Uint8Array(await value.arrayBuffer()));
+      parts.push(enc.encode('\r\n'));
+    } else {
+      parts.push(enc.encode(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`));
+    }
+  }
+  parts.push(enc.encode(`--${boundary}--\r\n`));
+  const body = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let offset = 0;
+  for (const p of parts) { body.set(p, offset); offset += p.length; }
+  return { body: body.buffer, contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
 async function createVideo({ prompt, model, seconds, size, image }) {
-  const form = new FormData();
-  form.append('model', model);
-  form.append('prompt', prompt);
-  form.append('seconds', seconds);
-  form.append('size', size);
-  if (image) form.append('input_reference', await fitImage(image, size), 'reference.png');
-  const res = await api('/videos', { method: 'POST', body: form });
+  const { body, contentType } = await multipart({
+    model, prompt, seconds, size,
+    input_reference: image ? await fitImage(image, size) : null,
+  });
+  const res = await api('/videos', { method: 'POST', headers: { 'Content-Type': contentType }, body });
   return res.json();
 }
 
