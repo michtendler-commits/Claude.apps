@@ -333,10 +333,18 @@ const saveClips = () => store.set('clips', clips);
 
 async function api(path, opts = {}) {
   if (!apiKey) { openKeyDialog(); throw new Error('Add your OpenAI API key first.'); }
-  const res = await fetch(API + path, {
-    ...opts,
-    headers: { Authorization: 'Bearer ' + apiKey, ...(opts.headers || {}) },
-  });
+  let res;
+  try {
+    res = await fetch(API + path, {
+      ...opts,
+      headers: { Authorization: 'Bearer ' + apiKey, ...(opts.headers || {}) },
+    });
+  } catch {
+    // Sandboxed previews and some browser extensions block requests to outside sites.
+    throw new Error("Couldn't reach OpenAI. If this page is open inside an app's preview, "
+      + 'download index.html and open it directly in Chrome, Safari or Edge. '
+      + 'Also try turning off ad blockers for this page.');
+  }
   if (!res.ok) {
     let msg = res.status + ' ' + res.statusText;
     try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch {}
