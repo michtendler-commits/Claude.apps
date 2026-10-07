@@ -244,7 +244,9 @@
 // REEL STUDIO — personal text-to-video app on Sora 2
 // =====================================================
 
-const API = 'https://api.openai.com/v1';
+// When served by server.py on localhost, go through its /v1 proxy; otherwise call OpenAI directly.
+const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const API = LOCAL ? '/v1' : 'https://api.openai.com/v1';
 const POLL_MS = 5000;
 
 // Sizes each model accepts, and approximate price per second (USD).
@@ -341,9 +343,10 @@ async function api(path, opts = {}) {
     });
   } catch {
     // Sandboxed previews and some browser extensions block requests to outside sites.
-    throw new Error("Couldn't reach OpenAI. If this page is open inside an app's preview, "
-      + 'download index.html and open it directly in Chrome, Safari or Edge. '
-      + 'Also try turning off ad blockers for this page.');
+    throw new Error(LOCAL
+      ? "Couldn't reach the Reel Studio server. Make sure the Terminal window running server.py is still open."
+      : "Your browser blocked the request to OpenAI. Run server.py (in the same folder as this file) "
+        + 'and use the page it opens at http://localhost:8787 instead.');
   }
   if (!res.ok) {
     let msg = res.status + ' ' + res.statusText;
