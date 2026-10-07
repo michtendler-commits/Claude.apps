@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reel Studio</title>
+<style>
+  :root {
+    --bg: #0b0d14;
+    --panel: #141826;
+    --panel-2: #1b2033;
+    --line: #262c44;
+    --text: #e8eaf3;
+    --muted: #8a90a8;
+    --accent: #8b7bff;
+    --accent-2: #4fd1c5;
+    --danger: #ff6b81;
+    --radius: 14px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    min-height: 100vh;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 20px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: conic-gradient(from 200deg, var(--accent), var(--accent-2), var(--accent));
+  }
+  .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: .2px; }
+  .brand span { color: var(--muted); font-size: 13px; }
+
+  .btn {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 14px;
+  }
+  .btn { white-space: nowrap; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent), #6a5cf0);
+    border: none; font-weight: 600; padding: 12px 22px;
+  }
+  .btn.primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.small { padding: 5px 10px; font-size: 13px; }
+  .btn.ghost { background: transparent; }
+  .btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 16px;
+  }
+
+  /* Composer */
+  .composer textarea {
+    width: 100%; min-height: 110px; resize: vertical;
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px; outline: none;
+  }
+  .composer textarea:focus { border-color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .controls { margin-top: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  select {
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 10px;
+  }
+  .ref {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel-2); border: 1px dashed var(--line);
+    border-radius: 8px; padding: 6px 10px; font-size: 13px; color: var(--muted);
+    cursor: pointer;
+  }
+  .ref img { width: 28px; height: 28px; object-fit: cover; border-radius: 4px; }
+  .actions { margin-top: 14px; justify-content: space-between; }
+  .cost { color: var(--muted); font-size: 13px; }
+
+  /* Gallery */
+  .section-title {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin: 28px 0 12px;
+  }
+  .section-title h2 { font-size: 16px; }
+  .section-title span { color: var(--muted); font-size: 13px; }
+  .grid {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  .clip { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .media {
+    background: #05060a; display: flex; align-items: center; justify-content: center;
+    aspect-ratio: 16 / 9; position: relative;
+  }
+  .media.portrait { aspect-ratio: 9 / 16; max-height: 420px; }
+  .media video { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .pending { text-align: center; padding: 20px; color: var(--muted); font-size: 13px; width: 100%; }
+  .bar { height: 6px; background: var(--panel-2); border-radius: 3px; overflow: hidden; margin: 10px auto 6px; width: 70%; }
+  .bar > div {
+    height: 100%; width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width .6s ease;
+  }
+  .spinner {
+    width: 26px; height: 26px; border-radius: 50%; margin: 0 auto;
+    border: 3px solid var(--line); border-top-color: var(--accent);
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .failed { color: var(--danger); }
+  .meta { padding: 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .meta p { font-size: 13px; word-break: break-word; }
+  .tags { color: var(--muted); font-size: 12px; }
+  .meta .row { gap: 6px; margin-top: auto; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 10px; }
+
+  /* Modal */
+  dialog {
+    margin: auto; background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px; width: min(460px, calc(100% - 32px));
+  }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h3 { margin-bottom: 8px; }
+  dialog p { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  dialog input, dialog textarea {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px; outline: none;
+  }
+  dialog textarea { min-height: 90px; resize: vertical; }
+  dialog .row { justify-content: flex-end; margin-top: 14px; }
+  a { color: var(--accent-2); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    background: var(--panel-2); border: 1px solid var(--line);
+    padding: 10px 16px; border-radius: 10px; font-size: 14px;
+    max-width: calc(100% - 32px); opacity: 0; pointer-events: none;
+    transition: opacity .25s;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { border-color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>Reel Studio</h1>
+        <span>Text-to-video, powered by Sora 2</span>
+      </div>
+    </div>
+    <button class="btn" id="keyBtn">API key</button>
+  </header>
+
+  <section class="card composer">
+    <textarea id="prompt" placeholder="Describe your video... e.g. A golden retriever surfing a huge wave at sunset, slow motion, cinematic drone shot"></textarea>
+    <div class="row controls">
+      <div class="field">
+        <label for="model">Model</label>
+        <select id="model">
+          <option value="sora-2">Sora 2 (fast)</option>
+          <option value="sora-2-pro">Sora 2 Pro (best quality)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="seconds">Length</label>
+        <select id="seconds">
+          <option value="4">4 seconds</option>
+          <option value="8" selected>8 seconds</option>
+          <option value="12">12 seconds</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="size">Shape</label>
+        <select id="size"></select>
+      </div>
+      <div class="field">
+        <label>Start image (optional)</label>
+        <label class="ref" id="refLabel">
+          <input type="file" id="refInput" accept="image/png,image/jpeg,image/webp" hidden>
+          <span id="refText">+ Add image</span>
+        </label>
+      </div>
+    </div>
+    <div class="row actions">
+      <div class="row">
+        <button class="btn ghost small" id="surpriseBtn">🎲 Surprise me</button>
+        <span class="cost" id="cost"></span>
+      </div>
+      <button class="btn primary" id="generateBtn">Generate</button>
+    </div>
+  </section>
+
+  <div class="section-title">
+    <h2>Your videos</h2>
+    <span id="count"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<dialog id="keyDialog">
+  <h3>OpenAI API key</h3>
+  <p>
+    Reel Studio sends your prompts straight from this browser to OpenAI's video API.
+    Your key is stored only in this browser's local storage. Get one at
+    <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>.
+    Video generation is billed to your OpenAI account.
+  </p>
+  <input id="keyInput" type="password" placeholder="sk-..." autocomplete="off">
+  <div class="row">
+    <button class="btn" id="keyCancel">Cancel</button>
+    <button class="btn primary" id="keySave">Save</button>
+  </div>
+</dialog>
+
+<dialog id="remixDialog">
+  <h3>Remix video</h3>
+  <p>Describe what to change. The new video keeps the original's look and structure.</p>
+  <textarea id="remixInput" placeholder="e.g. Make it nighttime with neon lights"></textarea>
+  <div class="row">
+    <button class="btn" id="remixCancel">Cancel</button>
+    <button class="btn primary" id="remixGo">Remix</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// =====================================================
+// REEL STUDIO — personal text-to-video app on Sora 2
+// =====================================================
+
+const API = 'https://api.openai.com/v1';
+const POLL_MS = 5000;
+
+// Sizes each model accepts, and approximate price per second (USD).
+const MODELS = {
+  'sora-2': {
+    sizes: [
+      { value: '1280x720', label: 'Landscape 16:9' },
+      { value: '720x1280', label: 'Portrait 9:16' },
+    ],
+    price: () => 0.10,
+  },
+  'sora-2-pro': {
+    sizes: [
+      { value: '1280x720', label: 'Landscape 16:9 (720p)' },
+      { value: '720x1280', label: 'Portrait 9:16 (720p)' },
+      { value: '1792x1024', label: 'Landscape (HD)' },
+      { value: '1024x1792', label: 'Portrait (HD)' },
+    ],
+    price: (size) => (size === '1280x720' || size === '720x1280') ? 0.30 : 0.50,
+  },
+};
+
+const IDEAS = [
+  'A tiny astronaut cat floating through a space station, gently bumping into floating snacks, soft cinematic lighting',
+  'Drone shot gliding over a misty mountain lake at sunrise, a lone red canoe in the center',
+  'Close-up of a chef flipping a pancake in slow motion, steam rising, warm kitchen light',
+  'A paper boat sailing down a rainy city street gutter, macro lens, reflections of neon signs',
+  'An old lighthouse in a violent storm, huge waves crashing, lightning illuminates the sky',
+  'A cozy bookshop at night, snow falling outside the window, a cat sleeping on a stack of books',
+  'Time-lapse of a flower blooming on a windowsill as the city skyline goes from day to night',
+  'A skateboarder rolling through an empty futuristic city at golden hour, tracking shot',
+  'A whale breaching in slow motion beside a sailboat, spray catching the sunlight',
+  'A claymation-style robot watering tiny plants on a rooftop garden, playful music-video vibe',
+];
+
+// ---------- Storage: settings in localStorage, video files in IndexedDB ----------
+
+const store = {
+  get(key, fallback) {
+    try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); }
+    catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  },
+};
+
+let dbPromise = null;
+function db() {
+  if (!dbPromise) {
+    dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open('reel-studio', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('videos');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    }).catch(() => null);
+  }
+  return dbPromise;
+}
+async function idb(mode, fn) {
+  const d = await db();
+  if (!d) return null;
+  return new Promise((resolve) => {
+    const tx = d.transaction('videos', mode);
+    const req = fn(tx.objectStore('videos'));
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => resolve(null);
+  });
+}
+const saveBlob = (id, blob) => idb('readwrite', s => s.put(blob, id));
+const loadBlob = (id) => idb('readonly', s => s.get(id));
+const deleteBlob = (id) => idb('readwrite', s => s.delete(id));
+
+// ---------- State ----------
+
+let apiKey = store.get('apiKey', '');
+let clips = store.get('clips', []);   // newest first
+let refImage = null;                   // File chosen as start image
+const objectUrls = {};                 // clip id -> blob URL
+const polling = new Set();
+
+const $ = (id) => document.getElementById(id);
+const saveClips = () => store.set('clips', clips);
+
+// ---------- API ----------
+
+async function api(path, opts = {}) {
+  if (!apiKey) { openKeyDialog(); throw new Error('Add your OpenAI API key first.'); }
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + apiKey, ...(opts.headers || {}) },
+  });
+  if (!res.ok) {
+    let msg = res.status + ' ' + res.statusText;
+    try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch {}
+    if (res.status === 401) msg = 'Your API key was rejected. Check it in "API key".';
+    throw new Error(msg);
+  }
+  return res;
+}
+
+// Start images must exactly match the output size, so crop and scale them to fit.
+async function fitImage(file, size) {
+  const [w, h] = size.split('x').map(Number);
+  const img = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const scale = Math.max(w / img.width, h / img.height);
+  const dw = img.width * scale, dh = img.height * scale;
+  canvas.getContext('2d').drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+}
+
+async function createVideo({ prompt, model, seconds, size, image }) {
+  const form = new FormData();
+  form.append('model', model);
+  form.append('prompt', prompt);
+  form.append('seconds', seconds);
+  form.append('size', size);
+  if (image) form.append('input_reference', await fitImage(image, size), 'reference.png');
+  const res = await api('/videos', { method: 'POST', body: form });
+  return res.json();
+}
+
+async function remixVideo(id, prompt) {
+  const res = await api(`/videos/${id}/remix`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+  return res.json();
+}
+
+// ---------- Jobs ----------
+
+function addClip(job, extra) {
+  const clip = {
+    id: job.id,
+    prompt: extra.prompt,
+    model: job.model || extra.model,
+    seconds: String(job.seconds || extra.seconds),
+    size: job.size || extra.size,
+    status: job.status || 'queued',
+    progress: job.progress || 0,
+    remixOf: extra.remixOf || null,
+    createdAt: Date.now(),
+  };
+  clips.unshift(clip);
+  saveClips();
+  render();
+  poll(clip.id);
+}
+
+async function poll(id) {
+  if (polling.has(id)) return;
+  polling.add(id);
+  try {
+    while (true) {
+      const clip = clips.find(c => c.id === id);
+      if (!clip) return;
+      let job;
+      try {
+        job = await (await api(`/videos/${id}`)).json();
+      } catch (e) {
+        if (/not found/i.test(e.message)) {
+          updateClip(id, { status: 'failed', error: 'This video no longer exists on OpenAI.' });
+          return;
+        }
+        await wait(POLL_MS * 2);
+        continue;
+      }
+      updateClip(id, { status: job.status, progress: job.progress || 0 });
+      if (job.status === 'completed') { await download(id); return; }
+      if (job.status === 'failed') {
+        updateClip(id, { error: (job.error && job.error.message) || 'Generation failed.' });
+        return;
+      }
+      await wait(POLL_MS);
+    }
+  } finally {
+    polling.delete(id);
+  }
+}
+
+async function download(id) {
+  try {
+    const blob = await (await api(`/videos/${id}/content`)).blob();
+    await saveBlob(id, blob);
+    objectUrls[id] = URL.createObjectURL(blob);
+    updateClip(id, { status: 'ready' });
+    toast('Your video is ready 🎬');
+  } catch (e) {
+    updateClip(id, { status: 'failed', error: 'Could not download: ' + e.message });
+  }
+}
+
+function updateClip(id, patch) {
+  const clip = clips.find(c => c.id === id);
+  if (!clip) return;
+  Object.assign(clip, patch);
+  saveClips();
+  render();
+}
+
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+// ---------- UI: composer ----------
+
+function fillSizes() {
+  const model = $('model').value;
+  const prev = $('size').value;
+  $('size').innerHTML = MODELS[model].sizes
+    .map(s => `<option value="${s.value}">${s.label}</option>`).join('');
+  if (MODELS[model].sizes.some(s => s.value === prev)) $('size').value = prev;
+  updateCost();
+}
+
+function updateCost() {
+  const m = MODELS[$('model').value];
+  const cost = m.price($('size').value) * Number($('seconds').value);
+  $('cost').textContent = `≈ $${cost.toFixed(2)} per video`;
+}
+
+async function generate() {
+  const prompt = $('prompt').value.trim();
+  if (!prompt) { toast('Write a prompt first.', true); $('prompt').focus(); return; }
+  const settings = { prompt, model: $('model').value, seconds: $('seconds').value, size: $('size').value };
+  const btn = $('generateBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const job = await createVideo({ ...settings, image: refImage });
+    addClip(job, settings);
+    toast('Generating — this usually takes 1–5 minutes.');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Generate';
+  }
+}
+
+function setRefImage(file) {
+  refImage = file;
+  const label = $('refLabel');
+  label.querySelector('img')?.remove();
+  if (file) {
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    label.prepend(img);
+    $('refText').textContent = 'Remove';
+  } else {
+    $('refText').textContent = '+ Add image';
+    $('refInput').value = '';
+  }
+}
+
+// ---------- UI: gallery ----------
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function clipMedia(c) {
+  if (c.status === 'ready' && objectUrls[c.id]) {
+    return `<video src="${objectUrls[c.id]}" controls loop playsinline preload="metadata"></video>`;
+  }
+  if (c.status === 'ready') return `<div class="pending">Loading…</div>`;
+  if (c.status === 'failed') return `<div class="pending failed">⚠️ ${esc(c.error || 'Generation failed.')}</div>`;
+  const label = c.status === 'queued' ? 'In the queue…' : 'Rendering…';
+  return `<div class="pending">
+      <div class="spinner"></div>
+      <div class="bar"><div style="width:${Math.max(3, c.progress)}%"></div></div>
+      ${label} ${c.progress ? Math.round(c.progress) + '%' : ''}
+    </div>`;
+}
+
+function render() {
+  const grid = $('grid');
+  $('count').textContent = clips.length ? `${clips.length} clip${clips.length > 1 ? 's' : ''}` : '';
+  if (!clips.length) {
+    grid.innerHTML = `<div class="empty">No videos yet. Write a prompt above and hit Generate.</div>`;
+    return;
+  }
+  // Keep playing videos untouched: only re-render cards whose state changed.
+  const existing = new Map([...grid.querySelectorAll('.clip')].map(el => [el.dataset.id, el]));
+  const frag = document.createDocumentFragment();
+  for (const c of clips) {
+    const key = `${c.status}|${Math.round(c.progress)}|${!!objectUrls[c.id]}`;
+    let el = existing.get(c.id);
+    if (!el || el.dataset.key !== key) {
+      el = document.createElement('div');
+      el.className = 'card clip';
+      el.dataset.id = c.id;
+      el.dataset.key = key;
+      const portrait = Number(c.size.split('x')[1]) > Number(c.size.split('x')[0]);
+      const done = c.status === 'ready';
+      el.innerHTML = `
+        <div class="media ${portrait ? 'portrait' : ''}">${clipMedia(c)}</div>
+        <div class="meta">
+          <p>${esc(c.prompt)}</p>
+          <div class="tags">${c.remixOf ? '🔁 Remix · ' : ''}${c.model} · ${c.seconds}s · ${c.size}</div>
+          <div class="row">
+            ${done ? `<button class="btn small" data-act="download">Download</button>
+                      <button class="btn small" data-act="remix">Remix</button>` : ''}
+            <button class="btn small" data-act="reuse">Reuse prompt</button>
+            <button class="btn small danger" data-act="delete">Delete</button>
+          </div>
+        </div>`;
+    }
+    frag.appendChild(el);
+  }
+  grid.replaceChildren(frag);
+}
+
+async function onClipAction(e) {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const id = btn.closest('.clip').dataset.id;
+  const clip = clips.find(c => c.id === id);
+  if (!clip) return;
+  switch (btn.dataset.act) {
+    case 'download': {
+      const a = document.createElement('a');
+      a.href = objectUrls[id];
+      a.download = clip.prompt.slice(0, 40).replace(/[^\w ]+/g, '').trim().replace(/ +/g, '-') + '.mp4';
+      a.click();
+      break;
+    }
+    case 'remix':
+      openRemix(clip);
+      break;
+    case 'reuse':
+      $('prompt').value = clip.prompt;
+      $('model').value = clip.model in MODELS ? clip.model : 'sora-2';
+      fillSizes();
+      $('size').value = clip.size;
+      $('seconds').value = clip.seconds;
+      updateCost();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      $('prompt').focus();
+      break;
+    case 'delete':
+      if (!confirm('Delete this video from your gallery?')) return;
+      clips = clips.filter(c => c.id !== id);
+      saveClips();
+      await deleteBlob(id);
+      if (objectUrls[id]) { URL.revokeObjectURL(objectUrls[id]); delete objectUrls[id]; }
+      // Also remove it from OpenAI's storage; ignore errors (it may have expired).
+      api(`/videos/${id}`, { method: 'DELETE' }).catch(() => {});
+      render();
+      break;
+  }
+}
+
+// ---------- Dialogs ----------
+
+function openKeyDialog() {
+  $('keyInput').value = apiKey;
+  $('keyDialog').showModal();
+}
+
+let remixTarget = null;
+function openRemix(clip) {
+  remixTarget = clip;
+  $('remixInput').value = '';
+  $('remixDialog').showModal();
+}
+
+async function doRemix() {
+  const prompt = $('remixInput').value.trim();
+  if (!prompt || !remixTarget) return;
+  const src = remixTarget;
+  $('remixDialog').close();
+  try {
+    const job = await remixVideo(src.id, prompt);
+    addClip(job, { prompt, model: src.model, seconds: src.seconds, size: src.size, remixOf: src.id });
+    toast('Remixing…');
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+let toastTimer;
+function toast(msg, isError) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = 'toast', isError ? 5000 : 3000);
+}
+
+// ---------- Wire up ----------
+
+$('model').addEventListener('change', fillSizes);
+$('size').addEventListener('change', updateCost);
+$('seconds').addEventListener('change', updateCost);
+$('generateBtn').addEventListener('click', generate);
+$('prompt').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) generate();
+});
+$('surpriseBtn').addEventListener('click', () => {
+  $('prompt').value = IDEAS[Math.floor(Math.random() * IDEAS.length)];
+});
+$('refLabel').addEventListener('click', e => {
+  if (refImage) { e.preventDefault(); setRefImage(null); }
+});
+$('refInput').addEventListener('change', e => setRefImage(e.target.files[0] || null));
+$('grid').addEventListener('click', onClipAction);
+
+$('keyBtn').addEventListener('click', openKeyDialog);
+$('keyCancel').addEventListener('click', () => $('keyDialog').close());
+$('keySave').addEventListener('click', () => {
+  apiKey = $('keyInput').value.trim();
+  store.set('apiKey', apiKey);
+  $('keyDialog').close();
+  toast(apiKey ? 'API key saved.' : 'API key removed.');
+  resumeJobs();
+});
+$('remixCancel').addEventListener('click', () => $('remixDialog').close());
+$('remixGo').addEventListener('click', doRemix);
+
+// On load: restore finished videos from IndexedDB and resume any in-progress jobs.
+async function resumeJobs() {
+  for (const c of clips) {
+    if (c.status === 'ready' && !objectUrls[c.id]) {
+      const blob = await loadBlob(c.id);
+      if (blob) objectUrls[c.id] = URL.createObjectURL(blob);
+      else if (apiKey) download(c.id);
+    } else if ((c.status === 'queued' || c.status === 'in_progress' || c.status === 'completed') && apiKey) {
+      poll(c.id);
+    }
+  }
+  render();
+}
+
+fillSizes();
+render();
+resumeJobs();
+if (!apiKey) setTimeout(openKeyDialog, 400);
+</script>
+</body>
+</html>
