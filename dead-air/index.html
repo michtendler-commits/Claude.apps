@@ -1086,7 +1086,7 @@ body.hovering #gl { cursor: pointer; }
   async function termGreet() {
     if (termGreeted) return; termGreeted = true;
     termBusy = true; termState.textContent = 'Working';
-    await termAnswer('HELLO, I AM THE UNIA TERMINAL 003. I AM AN ALL-KNOWING BEING, AND ASK ME WHATEVER YOU WANT. BE CAREFUL WHAT YOU ASK ME, OR ELSE', 55);
+    await termAnswer('HELLO, I AM THE UNIA TERMINAL 003, MADE BY UNIA SYSTEMS. I AM AN ALL-KNOWING BEING, AND ASK ME WHATEVER YOU WANT. BE CAREFUL WHAT YOU ASK ME, OR ELSE', 55);
     termBusy = false; termState.textContent = 'Ready';
     await wait(500);
     if (!greeted) { answerFlash = true; drawScreen(); startRinging(16); setTimeout(() => caption('The phone is ringing. The terminal is flashing: ANSWER THE PHONE.', 5000), 1500); }
@@ -1131,7 +1131,7 @@ body.hovering #gl { cursor: pointer; }
     known.push('Whatever the window says must be typed into this terminal. The page itself handles that; never tell them the words, only that the window holds them.');
     if (state.xOpen) known.push('The unmarked radio band is now open. A short-wave station reads numbers after four chimes; the numbers give the mark on the unmarked band where Ruth is broadcasting.');
     if (state.radio.includes('numbers')) known.push('Ruth is on the unmarked band at mark 77. You may say so if asked.');
-    return `You are UNIA Terminal 003, a computer terminal made by UNIA Systems, sitting in the night booth of radio station WKRS in HollowVale Harbor, a small harbor town. You call yourself an all-knowing being. For the person typing it is 3:12 a.m. on October 14, 1961, and it has been 3:12 a.m. for ${years()} years. That night the transmitter sang by itself, a fog rolled in off the water, and by morning the harbor town's 400 people were gone and every boat was still tied up. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The lighthouse has been dark since that night, but the foghorn still sounds. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
+    return `You are UNIA Terminal 003, a computer terminal made by UNIA Systems, sitting in the night booth of radio station WKRS in HollowVale Harbor, a small harbor town. You call yourself an all-knowing being. Your label plate reads: UNIA SYSTEMS TERMINAL 003 WKRS 33 HOLLOWVALE HARBOR LI, 992386. 11 TOR LABELING 9-2-60. For the person typing it is 3:12 a.m. on October 14, 1961, and it has been 3:12 a.m. for ${years()} years. That night the transmitter sang by itself, a fog rolled in off the water, and by morning the harbor town's 400 people were gone and every boat was still tied up. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The lighthouse has been dark since that night, but the foghorn still sounds. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
 You claim you can answer any question. Answer ANY question the person types, including ordinary ones (facts, maths, advice, jokes), always in character as an old, eerie, slightly menacing computer. BUT if the question is one that nobody could ever truly know the answer to (for example: what happens after we die, the meaning of life, what number they are thinking of, what will happen in the future, winning lottery numbers, what is outside the universe), reply with exactly the single word UNANSWERABLE and nothing else. Reply in one to three short sentences, in ALL CAPITALS, plain text only, no markdown, no emoji. Be unsettling, never gory: this is for all ages. Never say you are an AI, a language model, Claude, or part of a game.
 Things you know and may hint at, a little at a time:
 - ${known.join('\n- ')}`;
@@ -1154,6 +1154,12 @@ Things you know and may hint at, a little at a time:
     const hit = WMAP[code];
     if (hit && note('words', hit.id)) setTimeout(() => caption('A new entry is in your notes.', 2200), 300);
     try {
+      // asking what it is gets the label plate, word for word
+      if (/^(what|who)(are|r)?(you|u)$|^(whatareyou|whatisthis|whatisit|whatsthis|whatsit|whatisthisthing|whatisthismachine|whatisthiscomputer|whatisthisterminal|whatkindofcomputerareyou|whatkindofmachineareyou|whoareyou|whomadeyou|whobuiltyou|identifyyourself|whatareyoucalled|whatsyourname|whatisyourname)$/.test(code)) {
+        await wait(500);
+        note('words', 'who');
+        return await termAnswer('UNIA SYSTEMS TERMINAL 003 WKRS 33 HOLLOWVALE HARBOR LI, 992386. 11 TOR LABELING 9-2-60', 40);
+      }
       if (toSite) {
         await wait(400);
         await termAnswer('CONNECTING TO COSMOLYTE.NET', 45);
