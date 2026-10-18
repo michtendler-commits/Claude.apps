@@ -146,22 +146,28 @@
   #endStats { text-align: center; color: var(--muted); line-height: 1.7; }
 
   /* ---------- castle ---------- */
-  #castle { padding: 10px; }
-  .castle-top { width: 100%; max-width: 860px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; color: var(--muted); font-size: 14px; }
-  .cv-wrap { position: relative; width: min(100%, calc((100vh - 90px) * 4 / 3)); max-width: 860px; }
-  #cv { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; background: #000;
-        image-rendering: pixelated; box-shadow: 0 8px 0 #0b0519; touch-action: none; }
+  /* full-screen, portrait (phone-shaped) play area */
+  #castle { position: fixed; inset: 0; padding: 0; background: #07030f; touch-action: none; overscroll-behavior: none; }
+  #castle.active { justify-content: center; }
+  .cv-wrap { position: relative; width: 384px; height: 768px; }
+  #cv { display: block; width: 100%; height: 100%; background: #000; image-rendering: pixelated; touch-action: none; }
+  .c-btn { position: absolute; top: 4px; z-index: 5; width: 34px; height: 30px; border-radius: 8px;
+           background: rgba(0, 0, 0, .5); font-size: 16px; line-height: 30px; text-align: center; }
+  #quitCastle { left: 4px; }
+  #fsBtn { right: 4px; }
   .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-             background: rgba(15, 6, 35, .82); border-radius: 12px; text-align: center; padding: 20px; }
+             background: rgba(15, 6, 35, .82); text-align: center; padding: 20px; z-index: 4; }
   .overlay[hidden] { display: none; }
   .overlay h2 { font-size: clamp(28px, 6vw, 48px); color: var(--accent); text-shadow: 0 4px 0 #000; }
   .overlay p { color: var(--muted); margin: 8px 0; max-width: 460px; line-height: 1.4; }
   .overlay .big-btn { max-width: 300px; }
   .overlay .chips { justify-content: center; margin-top: 10px; }
-  .touch { display: none; width: 100%; max-width: 860px; justify-content: space-between; gap: 10px; margin-top: 10px; user-select: none; }
-  .touch button { flex: 1; height: 70px; border-radius: 16px; background: var(--card2); font-size: 28px; touch-action: none; }
-  .touch button.jump { background: var(--accent); color: #2a1600; flex: 1.4; }
-  @media (pointer: coarse) { .touch { display: flex; } }
+  .touch { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 6px); height: 84px; padding: 0 10px; gap: 10px; align-items: center;
+           user-select: none; -webkit-user-select: none; z-index: 3; }
+  .touch button { width: 70px; height: 70px; border-radius: 50%; background: rgba(255, 255, 255, .16);
+                  font-size: 26px; touch-action: none; }
+  .touch button.jump { margin-left: auto; width: 80px; height: 80px; background: rgba(255, 204, 41, .85); color: #2a1600; }
+  @media (pointer: coarse) { .touch { display: flex; } .cv-wrap { margin-bottom: 92px; } }
 </style>
 </head>
 <body>
@@ -249,16 +255,14 @@
 
 <!-- ================= CASTLE ================= -->
 <section id="castle" class="screen">
-  <div class="castle-top">
-    <button class="back small" id="quitCastle" title="Quit">✕ Menu</button>
-    <span id="castleHint">Esc / P to pause</span>
-  </div>
-  <div class="cv-wrap">
-    <canvas id="cv" width="640" height="480"></canvas>
+  <div class="cv-wrap" id="cvWrap">
+    <canvas id="cv" width="384" height="768"></canvas>
+    <button class="c-btn" id="quitCastle" title="Back to menu">✕</button>
+    <button class="c-btn" id="fsBtn" title="Full screen">⛶</button>
+    <div class="touch" id="touch">
+      <button data-k="L">◀</button><button data-k="R">▶</button><button data-k="J" class="jump">⤒</button>
+    </div>
     <div class="overlay" id="cOverlay"></div>
-  </div>
-  <div class="touch" id="touch">
-    <button data-k="L">◀</button><button data-k="R">▶</button><button data-k="J" class="jump">⤒</button>
   </div>
 </section>
 
@@ -318,6 +322,7 @@ const sfx = {
   wrong: () => beep(220, .3, 'sawtooth', .05, -120),
   buy:   () => { beep(520, .06); setTimeout(() => beep(780, .06), 60); setTimeout(() => beep(1040, .1), 120); },
   jump:  () => beep(300, .12, 'square', .035, 300),
+  jump2: () => beep(500, .14, 'triangle', .05, 500),
   coin:  () => { beep(880, .06, 'square', .035); setTimeout(() => beep(1320, .09, 'square', .035), 55); },
   stomp: () => beep(180, .12, 'square', .06, -80),
   die:   () => beep(400, .45, 'sawtooth', .06, -330),
@@ -762,7 +767,7 @@ $('quitQuiz').onclick = () => {
 // =====================================================
 
 const cv = $('cv'), cx = cv.getContext('2d');
-const T = 32, COLS = 20, ROWS = 15, W = 640, H = 480;
+const T = 32, COLS = 12, ROWS = 24, W = COLS * T, H = ROWS * T;
 const GRAV = 1900, JUMP = 690, RUN = 190;
 const EMPTY = 0, SOLID = 1, PLAT = 2, SPIKE = 3;
 
@@ -795,11 +800,19 @@ function genFloor(f) {
   const ents = [], coins = [];
   const startC = R() < .5 ? 2 : COLS - 3;
 
-  // main path: one reachable platform every 3 rows, zig-zagging upward
+  // main path rows: usually 3 apart; from floor 3 some are 4 apart and need a double jump
+  const rows = [];
+  for (let r = ROWS - 1; ;) {
+    const nr = r - (f >= 3 && R() < .35 ? 4 : 3);
+    if (nr < 2) { if (r > 2) { if (r - 2 >= 2) rows.push(2); else rows[rows.length - 1] = 2; } break; }
+    rows.push(nr); r = nr;
+  }
+
+  // main path: one reachable platform per row, zig-zagging upward
   let prev = { a: 1, b: COLS - 2, r: ROWS - 1 };
   const mains = [];
-  for (const r of [11, 8, 5, 2]) {
-    const len = ri(3, f < 5 ? 6 : 5);
+  for (const r of rows) {
+    const len = ri(3, f < 5 ? 5 : 4);
     let a = -1;
     for (let t = 0; t < 80; t++) {
       const c = ri(1, COLS - 1 - len), b = c + len - 1;
@@ -814,7 +827,7 @@ function genFloor(f) {
   }
 
   // decoy ledges
-  for (const r of [11, 8, 5]) {
+  for (const r of rows.slice(0, -1)) {
     if (R() > .6) continue;
     const len = ri(2, 3);
     for (let t = 0; t < 30; t++) {
@@ -830,7 +843,7 @@ function genFloor(f) {
   }
 
   // ground spikes, never more than two in a row, never next to the start
-  const nSp = Math.min(1 + f, 9);
+  const nSp = Math.min(1 + f, 5);
   for (let t = 0, placed = 0; t < 80 && placed < nSp; t++) {
     const c = ri(1, COLS - 2), row = g[ROWS - 2];
     if (Math.abs(c - startC) <= 2 || row[c]) continue;
@@ -840,24 +853,24 @@ function genFloor(f) {
   }
 
   // spikes on the ends of long platforms on later floors
-  if (f >= 6) for (const m of mains.slice(0, 3)) {
-    if (m.b - m.a >= 4 && R() < .5) g[m.r - 1][R() < .5 ? m.a : m.b] = SPIKE;
+  if (f >= 6) for (const m of mains.slice(0, -1)) {
+    if (m.b - m.a >= 3 && R() < .5) g[m.r - 1][R() < .5 ? m.a : m.b] = SPIKE;
   }
 
   // coins above the main path, plus a couple floating ones
-  for (const m of mains.slice(0, 3)) {
+  for (const m of mains.slice(0, -1)) {
     const c = Math.floor((m.a + m.b) / 2);
     if (g[m.r - 1][c] === EMPTY) coins.push({ x: c * T + 16, y: (m.r - 1) * T + 16 });
   }
-  for (let t = 0, n = 0; t < 40 && n < 2; t++) {
-    const c = ri(2, COLS - 3), r = ri(3, 12);
+  for (let t = 0, n = 0; t < 40 && n < 3; t++) {
+    const c = ri(2, COLS - 3), r = ri(3, ROWS - 3);
     if (g[r][c] === EMPTY && g[r + 1][c] === EMPTY) { coins.push({ x: c * T + 16, y: r * T + 16 }); n++; }
   }
 
   // slimes patrol platforms (and the ground, a bit later)
   const slime = (minX, maxX, topY, x) => ({ k: 'slime', x: x ?? (minX + maxX) / 2 - 11, y: topY - 16, w: 22, h: 16,
     vx: (R() < .5 ? -1 : 1) * (35 + f * 4), minX, maxX, t: R() * 6 });
-  if (f >= 2) for (const m of mains.slice(0, 3)) {
+  if (f >= 2) for (const m of mains.slice(0, -1)) {
     if (m.b - m.a >= 3 && R() < Math.min(.85, .35 + f * .07)) ents.push(slime(m.a * T, (m.b + 1) * T, m.r * T));
   }
   if (f >= 3) {
@@ -867,20 +880,20 @@ function genFloor(f) {
 
   // bats sweep across the middle of the room
   if (f >= 4) {
-    const n = Math.min(3, 1 + Math.floor((f - 4) / 3));
+    const n = Math.min(4, 1 + Math.floor((f - 4) / 3));
     for (let i = 0; i < n; i++) {
-      const y0 = ri(4, 10) * T + 8;
+      const y0 = ri(4, ROWS - 5) * T + 8;
       ents.push({ k: 'bat', x: ri(3, 16) * T, y: y0, y0, w: 20, h: 12, vx: (R() < .5 ? -1 : 1) * (55 + f * 4),
                   t: R() * 6, amp: ri(10, 26) });
     }
   }
 
-  const top = mains[3], dc = ri(top.a, top.b);
+  const top = mains[mains.length - 1], dc = ri(top.a, top.b);
   const door = { x: dc * T + 4, y: T, w: 24, h: 32 };
   const torches = [];
-  for (let t = 0; t < 30 && torches.length < 3; t++) {
-    const c = ri(2, COLS - 3), r = ri(2, 11);
-    if (g[r][c] === EMPTY && g[r + 1][c] === EMPTY && !torches.some(o => Math.abs(o.c - c) < 4)) torches.push({ c, r });
+  for (let t = 0; t < 30 && torches.length < 4; t++) {
+    const c = ri(2, COLS - 3), r = ri(2, ROWS - 4);
+    if (g[r][c] === EMPTY && g[r + 1][c] === EMPTY && !torches.some(o => Math.abs(o.c - c) + Math.abs(o.r - r) < 5)) torches.push({ c, r });
   }
   R = Math.random;
   return { g, ents, coins, door, startC, torches, hue: (230 + f * 37) % 360 };
@@ -900,8 +913,8 @@ function renderBg(L) {
     }
   }
   // tall windows
-  for (const wx of [5, 14]) {
-    const x = wx * T + 4, y = 4 * T;
+  for (const [wx, wy] of [[3, 5], [8, 12], [3, 18]]) {
+    const x = wx * T + 4, y = wy * T;
     g.fillStyle = `hsl(${L.hue},30%,8%)`;
     g.beginPath(); g.moveTo(x, y + 80); g.lineTo(x, y + 14); g.arc(x + 12, y + 14, 12, Math.PI, 0); g.lineTo(x + 24, y + 80); g.fill();
     g.fillStyle = 'rgba(255,255,255,.6)';
@@ -909,7 +922,7 @@ function renderBg(L) {
   }
   // banners
   g.fillStyle = `hsl(${(L.hue + 160) % 360},55%,38%)`;
-  for (const bx of [2, 10, 17]) {
+  for (const bx of [1, 6, 10]) {
     const x = bx * T + 6; g.beginPath(); g.moveTo(x, 40); g.lineTo(x + 20, 40); g.lineTo(x + 20, 100); g.lineTo(x + 10, 90); g.lineTo(x, 100); g.fill();
   }
   return b;
@@ -917,7 +930,7 @@ function renderBg(L) {
 
 function makePlayer(i) {
   return { i, x: 0, y: 0, w: 20, h: 26, vx: 0, vy: 0, onGround: false, coyote: 0, jumpBuf: 0, jPrev: false,
-           jumpCut: false, dropT: 0, face: 1, dead: false, respawnT: 0, inv: 0, walk: 0,
+           jumpCut: false, dropT: 0, airJumps: 1, flip: 0, face: 1, dead: false, respawnT: 0, inv: 0, walk: 0,
            col: i === 0 ? '#ffb02e' : '#3ee0c0', dark: i === 0 ? '#c97b0c' : '#1d9f86' };
 }
 
@@ -926,10 +939,10 @@ function loadFloor() {
   C.L = L; C.ents = L.ents; C.lavaY = H + 12; C.lavaT = 3; C.banner = 1.6;
   C.bg = renderBg(L);
   C.players.forEach((p, i) => {
-    p.x = (L.startC + (i ? (L.startC < 10 ? 1 : -1) : 0)) * T + 6;
+    p.x = (L.startC + (i ? (L.startC < COLS / 2 ? 1 : -1) : 0)) * T + 6;
     p.y = (ROWS - 1) * T - p.h;
-    p.vx = p.vy = 0; p.dead = false; p.respawnT = 0; p.inv = 1.2; p.dropT = 0;
-    p.face = L.startC < 10 ? 1 : -1;
+    p.vx = p.vy = 0; p.airJumps = 1; p.dead = false; p.respawnT = 0; p.inv = 1.2; p.dropT = 0;
+    p.face = L.startC < COLS / 2 ? 1 : -1;
   });
 }
 
@@ -950,12 +963,12 @@ function castleMenu() {
     <p>Reach the door on every floor before the lava catches you. Jump on slimes and bats to squash them.</p>
     <div class="chips"><button class="chip ${C.mode === 1 ? 'on' : ''}" data-p="1">1 Player</button>
     <button class="chip ${C.mode === 2 ? 'on' : ''}" data-p="2">2 Players</button></div>
-    <p>${C.mode === 1 ? 'Move: ← → or A D · Jump: ↑, W or Space · Drop down: ↓ or S'
-                     : 'P1 (gold): A D move, W jump, S drop<br>P2 (mint): ← → move, ↑ jump, ↓ drop'}</p>
+    <p>${C.mode === 1 ? 'Move: ← → or A D<br>Jump: ↑, W or Space (press again in the air to double jump)<br>Drop down: ↓ or S'
+                     : 'P1 (gold): A D move, W jump, S drop<br>P2 (mint): ← → move, ↑ jump, ↓ drop<br>Jump again in the air to double jump'}</p>
     <button class="big-btn" id="cStart">Climb! ▶</button>
     <p>${best ? 'Highest floor: ' + best : ''}</p>`;
   o.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { C.mode = +b.dataset.p; castleMenu(); });
-  $('cStart').onclick = startCastle;
+  $('cStart').onclick = () => { goFullscreen(); startCastle(); };
   if (!C.L) { C.players = []; C.floor = 1; C.seed = 7; const L = genFloor(1); C.L = L; C.ents = L.ents; C.bg = renderBg(L); C.lavaY = H + 12; }
 }
 
@@ -970,17 +983,50 @@ function castleOver() {
     <p>🪙 ${C.coins} coins collected</p>
     <button class="big-btn" id="cAgain">Climb again ▶</button>
     <button class="big-btn alt" id="cBack" style="max-width:300px">Change players</button>`;
-  $('cAgain').onclick = startCastle;
+  $('cAgain').onclick = () => { goFullscreen(); startCastle(); };
   $('cBack').onclick = castleMenu;
 }
 
+// Scale the tall play area to fill as much of the screen as it can
+function fitCastle() {
+  const touchRow = matchMedia('(pointer: coarse)').matches ? 92 : 0;  // on-screen buttons sit below the tower
+  const s = Math.min(innerWidth / W, (innerHeight - touchRow) / H);
+  $('cvWrap').style.width = Math.floor(W * s) + 'px';
+  $('cvWrap').style.height = Math.floor(H * s) + 'px';
+}
+addEventListener('resize', fitCastle);
+addEventListener('orientationchange', () => setTimeout(fitCastle, 200));
+
+// Browser full screen where it's supported (phones without it still get the whole window)
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+function goFullscreen() {
+  if (fsEl()) return;
+  const el = document.documentElement;
+  try {
+    const r = (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
+    if (r && r.catch) r.catch(() => {});
+  } catch (e) {}
+}
+function exitFullscreen() {
+  if (!fsEl()) return;
+  try {
+    const r = (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+    if (r && r.catch) r.catch(() => {});
+  } catch (e) {}
+}
+$('fsBtn').onclick = () => { fsEl() ? exitFullscreen() : goFullscreen(); };
+document.addEventListener('fullscreenchange', fitCastle);
+document.addEventListener('webkitfullscreenchange', fitCastle);
+
 function castleEnter() {
+  fitCastle();
   if (C.state !== 'play') castleMenu();
   C.last = now();
   cancelAnimationFrame(C.raf);
   C.raf = requestAnimationFrame(castleLoop);
 }
 function castleLeave() {
+  exitFullscreen();
   cancelAnimationFrame(C.raf);
   if (C.state === 'play') C.paused = true;
 }
@@ -1086,10 +1132,19 @@ function updatePlayer(p, dt) {
   p.coyote = p.onGround ? .1 : p.coyote - dt;
   p.dropT -= dt;
   if (inp.d && p.onGround) p.dropT = .2;
+  if (p.onGround) p.airJumps = 1;
   if (p.jumpBuf > 0 && p.coyote > 0) {
     p.vy = -JUMP; p.jumpBuf = 0; p.coyote = 0; p.jumpCut = false; sfx.jump();
     burst(p.x + p.w / 2, p.y + p.h, '#ffffff88', 5, 60);
+  } else if (jNew && p.airJumps > 0) {
+    // double jump: one extra hop in mid-air
+    p.vy = -JUMP * .88; p.airJumps--; p.jumpBuf = 0; p.jumpCut = false; p.flip = .35; sfx.jump2();
+    for (let i = 0; i < 10; i++) {
+      const a = i / 10 * Math.PI * 2;
+      C.parts.push({ x: p.x + p.w / 2, y: p.y + p.h, vx: Math.cos(a) * 90, vy: Math.sin(a) * 30 + 40, life: .35, col: '#ffffffcc', size: 3 });
+    }
   }
+  if (p.flip > 0) p.flip -= dt;
   if (!inp.j && p.vy < 0 && !p.jumpCut) { p.vy *= .5; p.jumpCut = true; }
   p.vy = Math.min(p.vy + GRAV * dt, 900);
 
@@ -1140,7 +1195,7 @@ function updateCastle(dt) {
   if (C.shake > 0) C.shake -= dt;
 
   if (C.lavaT > 0) C.lavaT -= dt;
-  else C.lavaY = Math.max(-40, C.lavaY - Math.min(9 + C.floor * 2.2, 34) * dt);
+  else C.lavaY = Math.max(-40, C.lavaY - Math.min(13 + C.floor * 2.5, 42) * dt);
 
   for (const e of C.ents) {
     if (e.dead) continue;
@@ -1255,6 +1310,11 @@ function drawPlayer(p) {
   if (p.dead) return;
   if (p.inv > 0 && Math.floor(p.inv * 12) % 2) return;
   const x = Math.round(p.x), y = Math.round(p.y), f = p.face;
+  if (p.flip > 0) {
+    cx.save(); cx.translate(x + p.w / 2, 0);
+    cx.scale(Math.max(.15, Math.abs(Math.cos(p.flip / .35 * Math.PI))), 1);
+    cx.translate(-(x + p.w / 2), 0);
+  }
   const stretch = p.onGround ? 0 : (p.vy < 0 ? 2 : -1);
   // feet
   const step = Math.sin(p.walk) * 3;
@@ -1281,6 +1341,7 @@ function drawPlayer(p) {
     cx.fillStyle = p.col; cx.font = 'bold 9px monospace'; cx.textAlign = 'center';
     cx.fillText('P' + (p.i + 1), x + 10, y - 7);
   }
+  if (p.flip > 0) cx.restore();
 }
 
 function drawLava() {
@@ -1302,12 +1363,12 @@ function drawLava() {
 function drawHud() {
   cx.fillStyle = 'rgba(0,0,0,.45)'; cx.fillRect(0, 0, W, 28);
   cx.font = 'bold 16px monospace'; cx.textBaseline = 'middle'; cx.textAlign = 'left';
-  cx.fillStyle = '#ffcc29'; cx.fillText('FLOOR ' + C.floor, 12, 15);
-  cx.fillStyle = '#ff4d6d'; cx.fillText('♥'.repeat(C.hearts) || '—', 140, 15);
-  cx.textAlign = 'right'; cx.fillStyle = '#ffd93b'; cx.fillText('● ' + C.coins, W - 12, 15);
+  cx.fillStyle = '#ffcc29'; cx.fillText('FLOOR ' + C.floor, 46, 15);
+  cx.fillStyle = '#ff4d6d'; cx.fillText('♥'.repeat(C.hearts) || '—', 136, 15);
+  cx.textAlign = 'right'; cx.fillStyle = '#ffd93b'; cx.fillText('● ' + C.coins, W - 46, 15);
   if (C.lavaT > 0 && C.state === 'play') {
     cx.textAlign = 'center'; cx.fillStyle = '#ff8a1f';
-    cx.fillText('Lava rising in ' + Math.ceil(C.lavaT), W / 2, 15);
+    cx.fillText('Lava rising in ' + Math.ceil(C.lavaT), W / 2, 48);
   }
   cx.textBaseline = 'alphabetic';
 }
