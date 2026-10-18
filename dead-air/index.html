@@ -131,6 +131,8 @@ body.hovering #gl { cursor: pointer; }
 #termLog .you { color: rgba(141,255,170,.6); }
 #termLog .you::before { content: "> "; }
 #termLog .them { color: #8dffaa; text-shadow: 0 0 6px rgba(108,255,143,.45); }
+#termLog a.site { color: #c6ffd5; text-decoration: underline; }
+#termLog a.site:focus-visible { outline: 2px solid #6cff8f; outline-offset: 2px; }
 #termForm { display: flex; gap: 8px; }
 #termInput { flex: 1; min-width: 0; font-family: "VT323", "Courier New", monospace; font-size: 1.35rem; text-transform: uppercase; color: #8dffaa; background: #020803; border: 1px solid rgba(108,255,143,.3); border-radius: 2px; padding: 6px 10px; caret-color: #8dffaa; }
 #termInput:focus-visible { outline: 2px solid #6cff8f; outline-offset: 1px; }
@@ -281,11 +283,32 @@ body.hovering #gl { cursor: pointer; }
   // ================= audio =================
   let ctx, master, ambGain, radioNoise, radioBus, songGain = null;
   // Ruth's record: "No Place Like Home" by Cosmolyte, played through the radio's speaker
-  const song = new Audio('no-place-like-home.mp3'); song.loop = true; song.preload = 'auto';
-  function setSongLevel(v) {
-    if (songGain) songGain.gain.setTargetAtTime(v, ctx.currentTime, .08);
-    else song.volume = Math.max(0, Math.min(1, v));
+  // loaded with fetch and decoded into the audio graph: the viewer's frame won't stream an <audio> file
+  let songBuf = null, songLoading = null, songSrc = null, songAt = 0, songStartedAt = 0, songWanted = false;
+  function loadSong() {
+    if (songBuf || songLoading || !ctx) return songLoading;
+    songLoading = fetch('no-place-like-home.mp3').then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(b => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej)))
+      .then(buf => { songBuf = buf; if (songWanted) playSong(); })
+      .catch(() => { songLoading = null; });
+    return songLoading;
   }
+  function playSong() {
+    songWanted = true;
+    if (!ctx || !songGain) return;
+    if (!songBuf) return loadSong();
+    if (songSrc) return;
+    songSrc = ctx.createBufferSource(); songSrc.buffer = songBuf; songSrc.loop = true; songSrc.connect(songGain);
+    songStartedAt = ctx.currentTime; songSrc.start(0, songAt % songBuf.duration);
+  }
+  function pauseSong() {
+    songWanted = false;
+    if (!songSrc) return;
+    songAt += ctx.currentTime - songStartedAt;
+    try { songSrc.stop(); } catch (e) {}
+    songSrc.disconnect(); songSrc = null;
+  }
+  function setSongLevel(v) { if (songGain) songGain.gain.setTargetAtTime(v, ctx.currentTime, .08); }
   function initAudio() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try {
@@ -303,13 +326,13 @@ body.hovering #gl { cursor: pointer; }
       radioNoise = ctx.createGain(); radioNoise.gain.value = 0; rn.connect(bp).connect(radioNoise).connect(master); rn.start();
       const eq = ctx.createBiquadFilter(); eq.type = 'bandpass'; eq.frequency.value = 1100; eq.Q.value = .5;
       radioBus = ctx.createGain(); radioBus.gain.value = 0; radioBus.connect(eq).connect(master);
-      try {
-        const src = ctx.createMediaElementSource(song);
+      {
         const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 160;
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5500;
         songGain = ctx.createGain(); songGain.gain.value = 0;
-        src.connect(hp).connect(lp).connect(songGain).connect(master);
-      } catch (e) { songGain = null; }
+        songGain.connect(hp).connect(lp).connect(master);
+      }
+      loadSong();
     } catch (e) { ctx = null; }
   }
   function noiseBuffer(sec, crackle) {
@@ -875,7 +898,7 @@ body.hovering #gl { cursor: pointer; }
     strength = Math.max(0, 1 - dist / b.hear);
     magic.style.setProperty('--gap', `${band === 'x' ? 70 : 6 + 64 * (1 - strength)}deg`);
     // the song is Ruth's station: it fades with the signal as you tune away from Station 13
-    if (ctx || !songGain) setSongLevel(radioOn && band === 'am' ? Math.max(0, 1 - Math.abs(OWL.p - pos.am) / BANDS.am.hear) * .9 : 0);
+    if (ctx) setSongLevel(radioOn && band === 'am' ? Math.max(0, 1 - Math.abs(OWL.p - pos.am) / BANDS.am.hear) * .9 : 0);
     eyeMat.color.setHex(0x0b1a10).lerp(new THREE.Color(0x67f0a0), radioOn ? (band === 'x' ? .1 : .25 + .75 * strength) : 0);
     if (!radioOn) return;
     if (ctx) { radioNoise.gain.setTargetAtTime(.04 + .3 * (1 - strength), ctx.currentTime, .05); radioBus.gain.setTargetAtTime(strength, ctx.currentTime, .05); }
@@ -903,10 +926,10 @@ body.hovering #gl { cursor: pointer; }
     strip.classList.toggle('on', on); magic.classList.toggle('on', on);
     dialMat.color.setHex(on ? 0xffffff : 0x5a4a38); radioGlow.intensity = on ? .7 : 0;
     knobs[0].rotation.y = on ? 2 : 0;
-    if (on) { initAudio(); song.play().catch(() => {}); txState.textContent = 'Warming up'; txEl.innerHTML = '<p class="static">The tubes are warming up…</p>'; setTimeout(() => radioOn && evaluate(), reduce ? 0 : 900); }
+    if (on) { initAudio(); playSong(); txState.textContent = 'Warming up'; txEl.innerHTML = '<p class="static">The tubes are warming up…</p>'; setTimeout(() => radioOn && evaluate(), reduce ? 0 : 900); }
     else {
       stopStation(); clearInterval(staticTimer); staticTimer = null; txState.textContent = 'Off';
-      song.pause(); setSongLevel(0);
+      pauseSong(); setSongLevel(0);
       if (ctx) { radioNoise.gain.setTargetAtTime(0, ctx.currentTime, .05); radioBus.gain.setTargetAtTime(0, ctx.currentTime, .05); }
       txEl.innerHTML = '<p class="dim">The radio is off.</p>'; evaluate();
     }
@@ -1124,9 +1147,23 @@ Things you know and may hint at, a little at a time:
     termInput.value = ''; termDraft = ''; termBusy = true; termState.textContent = 'Working';
     screenLines.push({ t: raw.toUpperCase(), who: 'you' }); addLog(termLog, raw.toUpperCase(), 'you'); keyTap(); drawScreen();
     const code = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+    // COSMOLYTE or Emmett Tendler opens cosmolyte.net (opened right here, while the keypress still counts as the viewer's own action)
+    const toSite = /cosmolyte|emmetttendler/.test(code);
+    let siteWin = null;
+    if (toSite) { try { siteWin = window.open('https://cosmolyte.net', '_blank'); if (siteWin) siteWin.opener = null; } catch (e) {} }
     const hit = WMAP[code];
     if (hit && note('words', hit.id)) setTimeout(() => caption('A new entry is in your notes.', 2200), 300);
     try {
+      if (toSite) {
+        await wait(400);
+        await termAnswer('CONNECTING TO COSMOLYTE.NET', 45);
+        const p = document.createElement('p'); p.className = 'them';
+        const a = document.createElement('a'); a.href = 'https://cosmolyte.net'; a.target = '_blank'; a.rel = 'noopener'; a.className = 'site';
+        a.textContent = siteWin ? 'COSMOLYTE.NET IS OPEN IN A NEW TAB. CLICK HERE IF IT IS NOT.' : '>> CLICK HERE TO OPEN COSMOLYTE.NET <<';
+        p.appendChild(a); termLog.appendChild(p); termLog.scrollTop = termLog.scrollHeight;
+        note('words', 'cosmolyte');
+        return;
+      }
       if (/openthe(blank)?band|^openband$|^theband$/.test(code)) {
         await wait(700);
         if (!state.room.includes('writing')) return await termAnswer('OPEN WHAT? YOU HAVE NOT READ THE WINDOW.');
@@ -1139,7 +1176,7 @@ Things you know and may hint at, a little at a time:
       const has = list => words.some(w => list.includes(w));
       const station = has(['horseshoe', 'horseshoes', 'underworld', 'nether', 'blue']) ? 49
         : has(['dare', 'dares', 'purple', 'skull', 'skulls', 'hydrangea', 'hydrangeas', 'tabby', 'tabbies']) ? 72
-        : has(['music', 'musical', 'song', 'songs', 'sing', 'singing', 'singer', 'melody', 'tune', 'tunes', 'album', 'albums', 'record', 'records', 'lyrics', 'piano', 'guitar', 'drum', 'drums', 'jazz', 'rock', 'pop', 'rap', 'hiphop', 'playlist', 'concert', 'dance', 'dancing', 'band', 'bands', 'musician', 'orchestra', 'violin', 'radio', 'cosmolyte']) ? 13 : 0;
+        : has(['music', 'musical', 'song', 'songs', 'sing', 'singing', 'singer', 'melody', 'tune', 'tunes', 'album', 'albums', 'record', 'records', 'lyrics', 'piano', 'guitar', 'drum', 'drums', 'jazz', 'rock', 'pop', 'rap', 'hiphop', 'playlist', 'concert', 'dance', 'dancing', 'band', 'bands', 'musician', 'orchestra', 'violin', 'radio']) ? 13 : 0;
       if (station) {
         await wait(600); termState.textContent = 'Station';
         if (ctx) { tone(null, 880, now(), .12, 'square', .05); tone(null, 1320, now() + .14, .2, 'square', .05); }
@@ -1289,7 +1326,7 @@ Things you know and may hint at, a little at a time:
 
   // ================= notes =================
   const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock']];
-  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['band', '\u201cOPEN THE BAND\u201d'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72']]);
+  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['band', '\u201cOPEN THE BAND\u201d'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET']]);
   const foundCount = () => state.radio.length + state.words.length + state.calls.length + state.room.length;
   const totalCount = () => S.length + TERM.length + Object.keys(CALLS).length + ROOM.length;
   function updateNotesCount() { $('#notesCount').textContent = `${foundCount()}`; }
