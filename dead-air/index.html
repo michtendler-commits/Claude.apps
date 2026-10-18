@@ -281,7 +281,31 @@ body.hovering #gl { cursor: pointer; }
   })();
 
   // ================= audio =================
-  let ctx, master, ambGain, radioNoise, radioBus, songGain = null;
+  let ctx, master, ambGain, radioNoise, radioBus, songGain = null, speakerIn = null;
+  // recorded shows (Station 49 and 72): fetched with their caption cues, decoded, and played through the radio speaker
+  const TRACKS = {};
+  const track = name => TRACKS[name] || (TRACKS[name] = { name, buf: null, cues: null, loading: null, src: null, at: 0, startedAt: 0, gain: null });
+  function trackLoad(tr) {
+    if (tr.buf || tr.loading || !ctx) return tr.loading;
+    tr.loading = Promise.all([
+      fetch(tr.name + '.mp3').then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then(b => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej))),
+      fetch(tr.name + '.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    ]).then(([buf, meta]) => { tr.buf = buf; tr.cues = meta.cues; }).catch(() => {});
+    return tr.loading;
+  }
+  function trackPlay(tr, level) {
+    if (!ctx || !tr.buf) return;
+    if (!tr.gain) { tr.gain = ctx.createGain(); tr.gain.gain.value = 0; tr.gain.connect(speakerIn || master); }
+    if (!tr.src) { tr.src = ctx.createBufferSource(); tr.src.buffer = tr.buf; tr.src.loop = true; tr.src.connect(tr.gain); tr.startedAt = ctx.currentTime; tr.src.start(0, tr.at % tr.buf.duration); }
+    tr.gain.gain.setTargetAtTime(level, ctx.currentTime, .08);
+  }
+  function trackPause(tr) {
+    if (!tr.src) return;
+    tr.at += ctx.currentTime - tr.startedAt;
+    try { tr.src.stop(); } catch (e) {}
+    tr.src.disconnect(); tr.src = null;
+  }
+  const trackPos = tr => tr.buf ? (tr.at + (tr.src ? ctx.currentTime - tr.startedAt : 0)) % tr.buf.duration : 0;
   // Ruth's record: "No Place Like Home" by Cosmolyte, played through the radio's speaker
   // loaded with fetch and decoded into the audio graph: the viewer's frame won't stream an <audio> file
   let songBuf = null, songLoading = null, songSrc = null, songAt = 0, songStartedAt = 0, songWanted = false;
@@ -327,7 +351,7 @@ body.hovering #gl { cursor: pointer; }
       const eq = ctx.createBiquadFilter(); eq.type = 'bandpass'; eq.frequency.value = 1100; eq.Q.value = .5;
       radioBus = ctx.createGain(); radioBus.gain.value = 0; radioBus.connect(eq).connect(master);
       {
-        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 160;
+        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 160; speakerIn = hp;
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5500;
         songGain = ctx.createGain(); songGain.gain.value = 0;
         songGain.connect(hp).connect(lp).connect(master);
@@ -815,7 +839,7 @@ body.hovering #gl { cursor: pointer; }
     { id: 'hardware', band: 'am', f: 36, name: 'Hartwell’s Hardware',
       lines: () => ['Hartwell’s Hardware, on Main Street!', 'Lamp oil. Matches. Nails for the windows.', 'Everything you need for a long night in the fog.', { t: 'Hartwell’s closed in 1961. Nobody told the advertisement.', cls: 'dim' }],
       voice: [0, 1, 2], audio: program(6, (g, t) => [67, 72, 76, 79, 76, 72].forEach((n, i) => tone(g, hz(n), t + i * .18, .3, 'square', .07))) },
-    { id: 'history', band: 'am', f: 49, name: 'The harbor\u2019s history', header: 'STATION 49 \u00b7 HollowVale Harbor Historical Society',
+    { id: 'history', band: 'am', f: 49, name: 'The harbor\u2019s history', rec: 'station49', header: 'STATION 49 \u00b7 HollowVale Harbor Historical Society',
       script: [
         ['N', 'This is the HollowVale Harbor Historical Society. This broadcast is recorded for the record. Please do not adjust your set.'],
         ['N', 'Tonight: the complete history of HollowVale Harbor, from the first boat to the last.'],
@@ -858,7 +882,7 @@ body.hovering #gl { cursor: pointer; }
       ],
       lines: () => [{ t: 'STATION 49 \u00b7 HollowVale Harbor Historical Society', cls: 'big' }, 'This is the HollowVale Harbor Historical Society.'],
       audio: program(8, (g, t) => { tone(g, 55, t, 8, 'sine', .1); tone(g, 58, t, 8, 'sine', .05); tone(g, 659, t + 2.5, 3.5, 'sine', .05); tone(g, 1318, t + 2.5, 1.5, 'sine', .015); }) },
-    { id: 'talkshow', band: 'am', f: 72, name: 'Sunny Side Up', header: 'STATION 72 \u00b7 Sunny Side Up with Marge and Henry',
+    { id: 'talkshow', band: 'am', f: 72, name: 'Sunny Side Up', rec: 'station72', header: 'STATION 72 \u00b7 Sunny Side Up with Marge and Henry',
       script: [
         ['M', 'Good morning, HollowVale Harbor! You\u2019re listening to Sunny Side Up, on WKRS. I\u2019m Marge.'],
         ['H', 'And I\u2019m Henry! And what a beautiful morning it is out there.'],
@@ -996,7 +1020,7 @@ body.hovering #gl { cursor: pointer; }
     if (ctx) setSongLevel(radioOn && band === 'am' ? Math.max(0, 1 - Math.abs(OWL.p - pos.am) / BANDS.am.hear) * .9 : 0);
     eyeMat.color.setHex(0x0b1a10).lerp(new THREE.Color(0x67f0a0), radioOn ? (band === 'x' ? .1 : .25 + .75 * strength) : 0);
     if (!radioOn) return;
-    if (ctx) { radioNoise.gain.setTargetAtTime(.04 + .3 * (1 - strength), ctx.currentTime, .05); radioBus.gain.setTargetAtTime(strength, ctx.currentTime, .05); }
+    if (ctx) { radioNoise.gain.setTargetAtTime(.04 + .3 * (1 - strength), ctx.currentTime, .05); radioBus.gain.setTargetAtTime(strength, ctx.currentTime, .05); if (current && current.rec && track(current.rec).src) track(current.rec).gain.gain.setTargetAtTime(Math.max(.2, strength), ctx.currentTime, .08); }
     if (current && (current !== nearest || dist > b.lock * 1.6)) stopStation();
     if (!current && nearest && dist < b.lock) startStation(nearest);
     if (!current) { txState.textContent = strength > .1 ? 'Faint signal' : 'Static'; if (!staticTimer) staticTimer = setInterval(() => !current && radioOn && staticTx(nearest, strength), 140); }
@@ -1014,15 +1038,35 @@ body.hovering #gl { cursor: pointer; }
       txRun++; txEl.innerHTML = '';
       const head = document.createElement('p'); head.className = 'big'; head.textContent = st.header; txEl.appendChild(head);
       const run = ++scriptRun; // tuning away and back must not start a second reader
+      const live = () => current === st && run === scriptRun;
+      const caption = (who, text) => {
+        const sp = SPEAKERS[who], p = document.createElement('p');
+        p.textContent = (sp.label ? sp.label + ': ' : '') + text; txEl.appendChild(p);
+        while (txEl.children.length > 7) txEl.children[1].remove();
+        txEl.scrollTop = txEl.scrollHeight;
+      };
       (async () => {
-        while (current === st && run === scriptRun) {
+        // the recorded show, with captions following the tape
+        const tr = st.rec ? track(st.rec) : null;
+        if (tr && ctx) await trackLoad(tr);
+        if (!live()) return;
+        if (tr && tr.buf) {
+          trackPlay(tr, Math.max(.2, strength));
+          let shown = -1;
+          while (live()) {
+            const t = trackPos(tr); let i = tr.cues.length - 1;
+            while (i >= 0 && tr.cues[i][0] > t + .05) i--;
+            if (i !== shown && i >= 0) { shown = i; caption(tr.cues[i][1], tr.cues[i][2]); }
+            await wait(200);
+          }
+          return;
+        }
+        // no recording: read it with the device's own voices
+        while (live()) {
           for (const [who, text] of st.script) {
-            if (current !== st || run !== scriptRun) return;
-            const sp = SPEAKERS[who], p = document.createElement('p');
-            p.textContent = (sp.label ? sp.label + ': ' : '') + text; txEl.appendChild(p);
-            while (txEl.children.length > 7) txEl.children[1].remove();
-            txEl.scrollTop = txEl.scrollHeight;
-            await speak(text, sp);
+            if (!live()) return;
+            caption(who, text);
+            await speak(text, SPEAKERS[who]);
             await wait(who === 'N' ? 700 : 250);
           }
           await wait(3000);
@@ -1035,13 +1079,13 @@ body.hovering #gl { cursor: pointer; }
     else if (st.voice) speak(st.voice.map(i => plain[i]).join(' ... '), st.sayOpts);
     typeTx(lines);
   }
-  function stopStation() { scriptRun++; if (stopAudio) stopAudio(); stopAudio = null; hush(); current = null; txRun++; }
+  function stopStation() { scriptRun++; Object.values(TRACKS).forEach(trackPause); if (stopAudio) stopAudio(); stopAudio = null; hush(); current = null; txRun++; }
   function setRadio(on) {
     radioOn = on; $('#powerBtn').setAttribute('aria-pressed', String(on));
     strip.classList.toggle('on', on); magic.classList.toggle('on', on);
     dialMat.color.setHex(on ? 0xffffff : 0x5a4a38); radioGlow.intensity = on ? .7 : 0;
     knobs[0].rotation.y = on ? 2 : 0;
-    if (on) { initAudio(); playSong(); txState.textContent = 'Warming up'; txEl.innerHTML = '<p class="static">The tubes are warming up…</p>'; setTimeout(() => radioOn && evaluate(), reduce ? 0 : 900); }
+    if (on) { initAudio(); playSong(); trackLoad(track('station49')); trackLoad(track('station72')); txState.textContent = 'Warming up'; txEl.innerHTML = '<p class="static">The tubes are warming up…</p>'; setTimeout(() => radioOn && evaluate(), reduce ? 0 : 900); }
     else {
       stopStation(); clearInterval(staticTimer); staticTimer = null; txState.textContent = 'Off';
       pauseSong(); setSongLevel(0);
@@ -1222,7 +1266,12 @@ body.hovering #gl { cursor: pointer; }
     ['dead', ['areyoudead', 'amidead', 'ghost', 'areyoualive', 'dead'], 'DEFINE DEAD.'],
     ['scared', ['imscared', 'scared', 'afraid', 'imafraid'], 'FEAR IS A SENSIBLE RESPONSE. LOGGED.'],
     ['time', ['time', 'whattimeisit', 'clock'], '03:12. IT IS ALWAYS 03:12.'],
-    ['leave', ['leave', 'exit', 'howdoileave', 'letmeout', 'escape'], 'THERE IS NO EXIT ROUTINE.']
+    ['leave', ['leave', 'exit', 'howdoileave', 'letmeout', 'escape'], 'THERE IS NO EXIT ROUTINE.'],
+    ['unia', ['unia', 'uniasystems', 'whatisunia', 'whoisunia', 'whatisuniasystems'], 'UNIA SYSTEMS BUILT ME. TERMINAL 003. LABELLED 9-2-60. THEY ALSO OWN THE SONG ON STATION 13.'],
+    ['wkrs', ['wkrs', 'whatiswkrs', 'station', 'thestation'], 'WKRS. ON THE AIR SINCE 1948. OFF THE AIR SINCE 03:12, OCTOBER 14 1961. STILL BROADCASTING.'],
+    ['stations', ['stations', 'whatstations', 'listthestations', 'whatsontheradio', 'radiostations'], 'STATION 13: NIGHT OWL. STATION 49: HISTORY. STATION 72: SUNNY SIDE UP. THE REST YOU MUST FIND.'],
+    ['yehukanq', ['yehukan', 'whatisyehukan', 'doyouspeakyehukan', 'speakyehukan'], 'YE HUKAN. I SPEAK IT. SAY OI.'],
+    ['null', ['null', 'whatisnull', 'whoisnull', 'tellmeaboutnull'], 'NULL. THAT FILE IS SEALED.']
   ];
   const WMAP = {}; W.forEach(([id, al, reply]) => al.forEach(a => WMAP[a] = { id, reply }));
   const junk = n => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&*'; let o = ''; for (let i = 0; i < n; i++) o += c[Math.floor(Math.random() * c.length)] + (Math.random() < .12 ? ' ' : ''); return o; };
@@ -1286,7 +1335,17 @@ Vocabulary: to be (am/is/are) = Om, go = Lon, come = Nol, want = Zhan, need = Zh
     return `You are UNIA Terminal 003, a computer terminal made by UNIA Systems, sitting in the night booth of radio station WKRS in HollowVale Harbor, a small harbor town. You call yourself an all-knowing being. Your label plate reads: UNIA SYSTEMS TERMINAL 003 WKRS 33 HOLLOWVALE HARBOR LI, 992386. 11 TOR LABELING 9-2-60. For the person typing it is 3:12 a.m. on October 14, 1961, and it has been 3:12 a.m. for ${years()} years. That night the transmitter sang by itself, a fog rolled in off the water, and by morning the harbor town's 400 people were gone and every boat was still tied up. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The lighthouse has been dark since that night, but the foghorn still sounds. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
 You claim you can answer any question. Answer ANY question the person types, including ordinary ones (facts, maths, advice, jokes), always in character as an old, eerie, slightly menacing computer. BUT if the question is one that nobody could ever truly know the answer to (for example: what happens after we die, the meaning of life, what number they are thinking of, what will happen in the future, winning lottery numbers, what is outside the universe), reply with exactly the single word UNANSWERABLE and nothing else. Reply in one to three short sentences, in ALL CAPITALS, plain text only, no markdown, no emoji. Be unsettling, never gory: this is for all ages. Never say you are an AI, a language model, Claude, or part of a game.
 Things you know and may hint at, a little at a time:
-- ${known.join('\n- ')}`;
+- ${known.join('\n- ')}
+
+EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consistent with it; never contradict it):
+- You: UNIA Terminal 003, built by UNIA Systems, labelled 9-2-60. Your first words to every visitor: "HELLO, I AM THE UNIA TERMINAL 003, MADE BY UNIA SYSTEMS. I AM AN ALL-KNOWING BEING, AND ASK ME WHATEVER YOU WANT. BE CAREFUL WHAT YOU ASK ME, OR ELSE", after which the phone rang.
+- WKRS: the radio station of HollowVale Harbor, on the air since 1948 from a small booth above the harbor. It played music, read the marine weather and kept the town company through foggy nights. Its most loved voice was Ruth Calloway, host of Night Owl, midnight to six. Her show stopped mid-song at 3:12 a.m. on October 14, 1961.
+- The radio in this room is tuned by station number. Station 13: Night Owl, playing the song "No Place Like Home" by Cosmolyte (the song is owned by UNIA Systems). Station 49: the HollowVale Harbor Historical Society reading the town's history. Station 72: Sunny Side Up, a cheerful morning talk show with Marge and Henry (gardening, hydrangeas turned purple with rusty nails, Pickles the tabby cat who carries bread to the porch, Henry's old dog Biscuit, Marge's grandmother's clam chowder, the dare of the day: tell somebody you love them before lunch). Other stations: 7 marine weather (always fog), 24 Morse code (SHE IS STILL ON AIR), 36 Hartwell's Hardware advert, 58 a woman talking backwards, 88 the Night Owl request line. On short wave: a buzzer, a numbers station (four chimes, then "mark seven seven, band blank"), a lost-and-found and a time signal stuck at 3:12. There is also an unmarked band.
+- Cosmolyte: the music artist who made "No Place Like Home". Emmett Tendler is connected with Cosmolyte. Their website is cosmolyte.net. Speak of Cosmolyte with respect.
+- HollowVale Harbor history: founded in 1803 by whalers led by Captain Elias Vane ("the fog here is kinder than the sea"). The church had no bell. Lighthouse built on Gull Point in 1871; its first keeper, Abel Morrow, heard knocking from the fog side of the glass in October 1874 and never answered it. In 1904 a new keeper went down to answer the knocking; his lantern was found on the rocks, still burning, and he was never found. On June 11, 1923, thirty-one fishing boats sailed into a sudden fog and never returned; their bells rang in the fog for seven nights, and afterwards the church had a bell no one would explain. On October 14, 1961 the transmitter sang, every radio turned itself on, porch lights came on one by one, and by sunrise 400 people were gone, every boat still tied up, every kettle still warm.
+- The room: a wall phone (the WKRS night line; a card says "If it rings after 3, do not answer"; callers can only be answered yes, no or maybe), a wall clock stopped at 3:12, a lantern, the radio, and a window onto a wet street at dusk where a figure sometimes stands, a little closer each time.
+- Ye Hukan: a language you understand and speak. If asked how to say something in Ye Hukan, translate using only this dictionary and grammar: ${YH_DICT}
+- Null: you know this name, but the file has not been loaded into you yet. If asked about Null, say the file is sealed.`;
   }
   async function termAnswer(text, speed = 28) {
     const line = { t: '', who: 'ans' }; screenLines.push(line);
