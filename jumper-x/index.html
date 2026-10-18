@@ -162,6 +162,7 @@
   <span class="lava" id="hLava"></span>
   <span class="grow"></span>
   <span class="coins" id="hCoins">● 0</span>
+  <button id="musicBtn" title="Music on">♪</button>
   <button id="pauseBtn" title="Pause">❚❚</button>
   <button id="fsBtn" title="Full screen">⛶</button>
 </div>
@@ -215,11 +216,106 @@ const sfx = {
   over:   () => beep(400, .7, 'sawtooth', .06, -340),
 };
 
+// ---------- chiptune music ----------
+// A looping 8-bar tune in A minor (Am–F–C–G): square-wave lead, triangle
+// bass, a soft arpeggio in the second half and noise drums. Notes are
+// scheduled a little ahead on the audio clock so the beat never drifts.
+const MUSIC = { on: store.get('music', true), playing: false, step: 0, next: 0, timer: 0, out: null, noise: null };
+const BPM = 128, S16 = 60 / BPM / 4, SONG_STEPS = 128;
+const CHORDS = [
+  { root: 45, arp: [57, 60, 64] }, { root: 41, arp: [57, 60, 65] },
+  { root: 48, arp: [60, 64, 67] }, { root: 43, arp: [55, 59, 62] },
+];
+// one entry per eighth note, 8 per bar; null = rest
+const LEAD = [
+  76, null, 74, 72, 74, 76, 76, null,   77, null, 76, 74, 72, 74, 72, null,
+  72, 74, 76, 79, 76, 74, 72, 74,       71, null, 74, null, 79, 77, 76, 74,
+  81, null, 79, 76, 79, null, 76, 74,   77, 76, 77, 79, 81, null, 77, null,
+  79, null, 76, 72, 76, 79, 84, null,   83, null, 79, null, 74, 76, 77, 79,
+];
+const midiHz = n => 440 * Math.pow(2, (n - 69) / 12);
+
+function tone(type, freq, t, dur, vol, slideTo) {
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.setValueAtTime(vol, t + dur * .7);
+  g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(MUSIC.out); o.start(t); o.stop(t + dur + .02);
+}
+function hiss(t, dur, vol, hp) {
+  const src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  src.buffer = MUSIC.noise; f.type = 'highpass'; f.frequency.value = hp;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  src.connect(f).connect(g).connect(MUSIC.out); src.start(t); src.stop(t + dur + .02);
+}
+function playStep(s, t) {
+  const bar = Math.floor(s / 16) % 8, inBar = s % 16, chord = CHORDS[bar % 4], partB = bar >= 4;
+  // lead on eighth notes
+  if (inBar % 2 === 0) {
+    const n = LEAD[bar * 8 + inBar / 2];
+    if (n != null) tone('square', midiHz(n), t, S16 * 1.8, .055);
+  }
+  // bouncing octave bass
+  if (inBar % 2 === 0) tone('triangle', midiHz(chord.root + (inBar % 4 === 2 ? 12 : 0)), t, S16 * 1.9, .16);
+  // sparkly arpeggio in the second half
+  if (partB) tone('square', midiHz(chord.arp[inBar % 3] + 12), t, S16 * .9, .018);
+  // drums
+  if (inBar === 0 || inBar === 8 || (inBar === 10 && bar % 2)) tone('sine', 150, t, .14, .32, 40);
+  if (inBar === 4 || inBar === 12) hiss(t, .12, .07, 1200);
+  if (inBar % 2 === 1) hiss(t, .03, .025, 7000);
+}
+function musicTick() {
+  while (MUSIC.next < AC.currentTime + .12) {
+    playStep(MUSIC.step, MUSIC.next);
+    MUSIC.next += S16; MUSIC.step = (MUSIC.step + 1) % SONG_STEPS;
+  }
+}
+function musicStart() {
+  if (MUSIC.playing || !MUSIC.on) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+    if (!MUSIC.out) {
+      MUSIC.out = AC.createGain(); MUSIC.out.gain.value = .55; MUSIC.out.connect(AC.destination);
+      MUSIC.noise = AC.createBuffer(1, AC.sampleRate * .5, AC.sampleRate);
+      const d = MUSIC.noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    MUSIC.out.gain.setValueAtTime(.55, AC.currentTime);
+    MUSIC.next = AC.currentTime + .08; MUSIC.playing = true;
+    MUSIC.timer = setInterval(musicTick, 25);
+  } catch (e) {}
+}
+function musicStop() {
+  if (!MUSIC.playing) return;
+  clearInterval(MUSIC.timer); MUSIC.playing = false;
+  try { MUSIC.out.gain.setValueAtTime(0, AC.currentTime); } catch (e) {}
+}
+function setMusic(on) {
+  MUSIC.on = on; store.set('music', on);
+  on ? musicStart() : musicStop();
+  renderMusicUI();
+}
+function renderMusicUI() {
+  const on = MUSIC.on;
+  $('musicBtn').textContent = on ? '♪' : '♪̸';
+  $('musicBtn').title = on ? 'Music on' : 'Music off';
+  const t = $('musicToggle'); if (t) t.textContent = on ? '♪ MUSIC: ON' : '♪ MUSIC: OFF';
+}
+// browsers only allow sound after a tap or key press
+function unlockAudio() {
+  musicStart();
+  try { if (AC && AC.state === 'suspended') AC.resume(); } catch (e) {}
+}
+addEventListener('pointerdown', unlockAudio, { capture: true });
+addEventListener('keydown', unlockAudio, { capture: true });
+
 // ---------- world constants ----------
 // Movement is tuned to feel steady and floaty (not twitchy), and the physics
 // always step at a fixed 120 Hz so it plays the same on every device.
 const T = 32, COLS = 22, WW = COLS * T;
-const GRAV = 1350, JUMP = 570, RUN = 125, MAXFALL = 620, STEP = 1 / 120;
+const GRAV = 1350, JUMP = 570, RUN = 90, MAXFALL = 620, STEP = 1 / 120;
 const EMPTY = 0, SOLID = 1, PLAT = 2, SPIKE = 3, CRATE = 4, BOOKS = 5, BARREL = 6,
       SPRING = 7, ICE = 8, CRUMBLE = 9, CHEST = 10;
 const ONEWAY = new Set([PLAT, CRATE, BOOKS, BARREL, SPRING, ICE, CRUMBLE, CHEST]);
@@ -343,7 +439,7 @@ function genStep() {
       const c = ri(1, COLS - 1 - len), b = c + len - 1;
       const gap = Math.max(c - prev.b - 1, prev.a - b - 1);
       const shift = (c + b) / 2 - (prev.a + prev.b) / 2;
-      if (gap <= 2 && (prev.r === 0 || (Math.abs(shift) >= 2 && Math.sign(shift) === G.dir))) { a = c; break; }
+      if (gap <= 1 && (prev.r === 0 || (Math.abs(shift) >= 2 && Math.sign(shift) === G.dir))) { a = c; break; }
     }
     if (a < 0) G.dir = -G.dir;
   }
@@ -611,7 +707,10 @@ function setState(s) {
           <span>🚀 <b>Rocket</b> blasts you up</span>
         </div>
       </details>
+      <button class="chip" id="musicToggle"></button>
       <div class="best">${best ? 'BEST: ' + best + ' m' : '&nbsp;'}</div>`;
+    $('musicToggle').onclick = () => setMusic(!MUSIC.on);
+    renderMusicUI();
     const nameIn = $('nameIn');
     nameIn.value = ME.name;
     nameIn.oninput = () => { ME.name = nameIn.value.slice(0, 12); store.set('name', ME.name); };
@@ -714,6 +813,7 @@ function exitFullscreen() {
 }
 $('fsBtn').onclick = () => { fsEl() ? exitFullscreen() : goFullscreen(); };
 $('pauseBtn').onclick = () => { if (C.state === 'play') setState('pause'); };
+$('musicBtn').onclick = () => setMusic(!MUSIC.on);
 
 // ---------- input ----------
 addEventListener('keydown', e => {
@@ -820,7 +920,7 @@ function updatePlayer(p, dt) {
   const inp = readInput();
   const dirX = (inp.r ? 1 : 0) - (inp.l ? 1 : 0);
   const ice = p.onGround && p.groundTile === ICE;
-  const acc = p.onGround ? (ice ? 260 : (dirX ? 1000 : 1400)) : (dirX ? 750 : 300);
+  const acc = p.onGround ? (ice ? 200 : (dirX ? 700 : 1000)) : (dirX ? 520 : 240);
   p.vx += clamp(dirX * RUN - p.vx, -acc * dt, acc * dt);
   if (dirX) p.face = dirX;
 
@@ -1251,11 +1351,6 @@ function drawPlayer(p) {
     cx.strokeStyle = `rgba(127,216,255,${.5 + Math.sin(C.t * 6) * .2})`; cx.lineWidth = 2;
     cx.beginPath(); cx.arc(x + p.w / 2, y + p.h / 2, 21, 0, Math.PI * 2); cx.stroke();
   }
-  if (p.flip > 0) {
-    cx.save(); cx.translate(x + p.w / 2, y + p.h / 2);
-    cx.rotate((1 - p.flip / .35) * Math.PI * 2 * p.face);
-    cx.translate(-(x + p.w / 2), -(y + p.h / 2));
-  }
   if (p.feather > 0) {
     cx.fillStyle = '#e8fbff';
     cx.beginPath(); cx.ellipse(x - 5, y + 10, 4, 7, -.5, 0, Math.PI * 2); cx.fill();
@@ -1264,7 +1359,6 @@ function drawPlayer(p) {
   drawGim(cx, x, y, GIM_COLORS[ME.col], p.face, {
     stretch: p.onGround ? 0 : (p.vy < 0 ? 1.5 : -1), walk: p.walk, air: !p.onGround, vy: p.vy,
   });
-  if (p.flip > 0) cx.restore();
 }
 
 // other players in a live game, smoothed between updates
