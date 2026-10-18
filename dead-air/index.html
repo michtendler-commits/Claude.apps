@@ -9,12 +9,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Special+Elite&family=Josefin+Sans:wght@400;600&display=swap">
 <style>
-/* Layout: a full-screen 3D night booth; HTML overlays (captions, object panels, notes) float above it. Single dark look by choice. */
+/* Layout: one fixed close-up of a desk by a window (3D, barely drifting); small HTML panels rise over it when you use something. Single dark look by choice. */
 :root {
   --void: #050608;
-  --smoke: rgba(10, 11, 14, .86);
+  --smoke: rgba(10, 11, 14, .88);
   --bone: #e8dcc2;
-  --bone-dim: rgba(232, 220, 194, .58);
+  --bone-dim: rgba(232, 220, 194, .6);
   --ember: #ffb35c;
   --blood: #b3261e;
   --eye: #67f0a0;
@@ -31,10 +31,9 @@ body { margin: 0; background: var(--void); color: var(--bone); font-family: var(
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 body.hovering #gl { cursor: pointer; }
 
-/* film grain + vignette */
-#grain { position: fixed; inset: -50%; pointer-events: none; z-index: 2; opacity: .11; animation: grain .5s steps(4) infinite; }
+#grain { position: fixed; inset: -50%; width: 200%; height: 200%; pointer-events: none; z-index: 2; opacity: .1; background-size: 160px; image-rendering: pixelated; animation: grain .5s steps(4) infinite; }
 @keyframes grain { 0% { transform: translate(0,0); } 25% { transform: translate(-3%,2%); } 50% { transform: translate(2%,-3%); } 75% { transform: translate(-2%,-1%); } }
-#vignette { position: fixed; inset: 0; pointer-events: none; z-index: 2; background: radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(0,0,0,.75) 100%); }
+#vignette { position: fixed; inset: 0; pointer-events: none; z-index: 2; background: radial-gradient(ellipse at 50% 45%, transparent 42%, rgba(0,0,0,.8) 100%); }
 #blackout { position: fixed; inset: 0; background: #000; z-index: 40; opacity: 0; pointer-events: none; transition: opacity 1.2s; }
 #blackout.on { opacity: 1; }
 
@@ -51,10 +50,7 @@ body.hovering #gl { cursor: pointer; }
 @keyframes breathe { 50% { opacity: .78; letter-spacing: .075em; } }
 #start p { margin: 0; line-height: 1.6; color: var(--bone-dim); }
 #start .when { font-family: var(--label); font-size: .78rem; letter-spacing: .28em; text-transform: uppercase; color: var(--ember); }
-#enter {
-  margin-top: 8px; font-family: var(--label); font-weight: 600; font-size: .9rem; letter-spacing: .3em; text-transform: uppercase;
-  color: var(--bone); background: transparent; border: 1px solid var(--bone-dim); padding: 14px 28px; cursor: pointer;
-}
+#enter { margin-top: 8px; font-family: var(--label); font-weight: 600; font-size: .9rem; letter-spacing: .3em; text-transform: uppercase; color: var(--bone); background: transparent; border: 1px solid var(--bone-dim); padding: 14px 28px; cursor: pointer; }
 #enter:hover { background: rgba(232,220,194,.08); }
 #enter:focus-visible { outline: 2px solid var(--ember); outline-offset: 4px; }
 #nogl { color: var(--blood); }
@@ -64,33 +60,32 @@ body.hovering #gl { cursor: pointer; }
 #topbar { top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px;
   padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
 #topbar > * { pointer-events: auto; }
-.where { font-family: var(--label); font-size: .72rem; letter-spacing: .26em; text-transform: uppercase; color: var(--bone-dim); }
+.where { font-family: var(--title); font-size: 1.3rem; letter-spacing: .08em; color: var(--bone-dim); }
 .btn { white-space: nowrap; font-family: var(--label); font-weight: 600; font-size: .75rem; letter-spacing: .22em; text-transform: uppercase; color: var(--bone);
   background: var(--smoke); border: 1px solid var(--line); padding: 9px 14px; cursor: pointer; border-radius: 2px; }
 .btn:hover { border-color: var(--bone-dim); }
 .btn:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
-.btns { display: flex; gap: 8px; }
-#hoverLabel { position: fixed; z-index: 11; pointer-events: none; font-family: var(--label); font-size: .7rem; letter-spacing: .3em; text-transform: uppercase;
-  color: var(--bone); text-shadow: 0 0 8px #000; transform: translate(14px, 14px); }
-#caption { left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: min(92vw, 44rem);
-  text-align: center; font-size: clamp(1rem, 2.8vw, 1.2rem); line-height: 1.5; text-shadow: 0 0 6px #000, 0 0 14px #000; pointer-events: none;
-  transition: opacity .8s; opacity: 0; }
+#hoverLabel { position: fixed; z-index: 11; pointer-events: none; font-family: var(--label); font-size: .7rem; letter-spacing: .3em; text-transform: uppercase; color: var(--bone); text-shadow: 0 0 8px #000; transform: translate(14px, 14px); }
+#caption { left: 50%; transform: translateX(-50%); top: calc(58px + env(safe-area-inset-top, 0px)); width: min(92vw, 44rem);
+  text-align: center; font-size: clamp(1rem, 2.8vw, 1.2rem); line-height: 1.5; text-shadow: 0 0 6px #000, 0 0 14px #000; pointer-events: none; transition: opacity .8s; opacity: 0; }
 #caption.show { opacity: 1; }
-body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 0px)); }
 
 /* ---------- panels ---------- */
 .panel {
   position: fixed; z-index: 12; left: 50%; transform: translateX(-50%);
-  bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: min(calc(100vw - 32px), 40rem); max-height: 52vh; overflow-y: auto;
-  background: var(--smoke); border: 1px solid var(--line); border-radius: 4px; padding: 14px 16px 16px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: min(calc(100vw - 32px), 38rem); max-height: 46vh; overflow-y: auto;
+  background: var(--smoke); border: 1px solid var(--line); border-radius: 4px; padding: 12px 16px 16px;
   backdrop-filter: blur(4px); display: flex; flex-direction: column; gap: 12px;
 }
-.panel h2 { margin: 0; font-family: var(--label); font-weight: 600; font-size: .72rem; letter-spacing: .26em; text-transform: uppercase; color: var(--bone-dim); display: flex; justify-content: space-between; gap: 8px; }
-.panel h2 .live { color: var(--ember); }
+.panel header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.panel h2 { margin: 0; font-family: var(--label); font-weight: 600; font-size: .72rem; letter-spacing: .26em; text-transform: uppercase; color: var(--bone-dim); }
+.panel .live { font-family: var(--label); font-size: .72rem; letter-spacing: .2em; text-transform: uppercase; color: var(--ember); margin-left: auto; }
+.x { background: none; border: 0; color: var(--bone-dim); font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 2px 6px; }
+.x:focus-visible { outline: 2px solid var(--ember); }
 .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 /* radio */
-.seg { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 3px; }
+.seg { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 3px; margin: 0; }
 .seg label { position: relative; }
 .seg input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
 .seg span { display: block; min-width: 42px; padding: 6px 9px; text-align: center; font-family: var(--label); font-weight: 600; font-size: .8rem; letter-spacing: .12em; color: var(--bone-dim); border-radius: 2px; }
@@ -104,10 +99,10 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
 #strip:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
 .scale { position: absolute; inset: 6px 14px 20px; }
 .tick { position: absolute; bottom: 0; width: 1.5px; background: var(--bone-dim); transform: translateX(-50%); }
-#strip.on .tick, #strip.on .tlabel, #strip.on .readout { background-color: transparent; color: #24170c; }
-#strip.on .tick { background: #24170c; }
 .tick.major { height: 12px; } .tick.minor { height: 6px; opacity: .6; }
 .tlabel { position: absolute; top: 2px; transform: translateX(-50%); font-family: var(--label); font-weight: 600; font-size: .72rem; color: var(--bone-dim); font-variant-numeric: tabular-nums; }
+#strip.on .tick { background: #24170c; }
+#strip.on .tlabel, #strip.on .readout { color: #24170c; }
 .readout { position: absolute; right: 12px; bottom: 3px; font-size: .82rem; color: var(--bone-dim); font-variant-numeric: tabular-nums; }
 .needle { position: absolute; top: 4px; bottom: 4px; width: 2px; margin-left: -1px; background: var(--blood); box-shadow: 0 0 6px var(--blood); pointer-events: none; }
 .hint { margin: 0; font-size: .85rem; color: var(--bone-dim); line-height: 1.45; }
@@ -118,22 +113,10 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
 #tx .static { color: var(--bone-dim); letter-spacing: .05em; }
 
 /* typewriter */
+#twLast { min-height: 1.5em; font-size: 1.05rem; line-height: 1.45; color: #e0675c; text-shadow: 0 0 8px rgba(179,38,30,.4); overflow-wrap: anywhere; }
 #twForm { display: flex; gap: 8px; }
 #twInput { flex: 1; min-width: 0; font-family: var(--type); font-size: 1.1rem; text-transform: uppercase; color: var(--bone); background: rgba(0,0,0,.5); border: 1px solid var(--line); border-radius: 2px; padding: 9px 10px; }
 #twInput:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
-
-/* phone */
-.phone-wrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; justify-content: center; }
-#wheel { position: relative; width: 210px; height: 210px; border-radius: 50%; flex: none;
-  background: radial-gradient(circle, #e8dcc2 0 24%, #111 25% 26%, #1a1a1a 27% 100%); box-shadow: 0 0 0 4px #2b2b2b, inset 0 0 18px #000; }
-#wheel .ring { position: absolute; inset: 0; border-radius: 50%; transition: transform .5s ease-out; }
-#wheel .stop { position: absolute; width: 8px; height: 26px; background: #b9b2a4; border-radius: 3px; right: 20px; bottom: 44px; transform: rotate(-40deg); }
-.hole { position: absolute; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 0; cursor: pointer;
-  background: radial-gradient(circle, #e8dcc2 0 52%, #0c0c0c 54%); color: #1a120b; font-family: var(--label); font-weight: 600; font-size: 1rem; }
-.hole:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
-.phone-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; flex: 1 1 180px; }
-#dialed { font-size: 1.6rem; letter-spacing: .2em; min-height: 1.4em; color: var(--ember); font-variant-numeric: tabular-nums; }
-#callTx { font-size: .95rem; line-height: 1.45; min-height: 3em; }
 
 /* notes */
 #notes { position: fixed; z-index: 30; inset: 0; background: rgba(0,0,0,.7); display: grid; place-items: center;
@@ -149,9 +132,9 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
 .notebook .count { font-variant-numeric: tabular-nums; }
 .notebook .btn { color: #23180e; background: transparent; border-color: rgba(35,24,14,.4); }
 .notebook .small { margin: 0; font-size: .88rem; color: rgba(35,24,14,.7); }
+#notesBody { display: flex; flex-direction: column; gap: 12px; }
 .stamp { align-self: flex-start; font-family: var(--title); font-size: 1.15rem; letter-spacing: .1em; color: var(--blood); border: 3px double var(--blood); padding: 3px 12px; transform: rotate(-4deg); }
 
-/* ending card */
 #endcard { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; text-align: center; background: rgba(0,0,0,.82);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 #endcard h2 { margin: 0 0 12px; font-family: var(--title); font-weight: 400; font-size: clamp(2.4rem, 9vw, 4.5rem); color: var(--blood); }
@@ -164,7 +147,7 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
 </head>
 <body>
 <canvas id="gl"></canvas>
-<canvas id="grain" aria-hidden="true"></canvas>
+<div id="grain" aria-hidden="true"></div>
 <div id="vignette" aria-hidden="true"></div>
 <div id="blackout" aria-hidden="true"></div>
 
@@ -172,29 +155,25 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   <div class="start-inner">
     <span class="when">Marrow Falls · October 14, 1961 · 3:12 a.m.</span>
     <h1>Dead Air</h1>
-    <p>The night booth at radio station WKRS has been empty for a long time. The lamp is still on and the radio still works. Someone is still typing.</p>
-    <p>Click anything in the room. Headphones help. So does turning the lights off.</p>
-    <button id="enter" type="button">Enter the booth</button>
-    <p id="nogl" hidden>This room needs WebGL, and your browser has it switched off.</p>
+    <p>A desk by a window. A radio that still works. A lantern burning low. A typewriter that someone is still using.</p>
+    <p>Click the things on the desk. Headphones help. So does the dark.</p>
+    <button id="enter" type="button">Sit down</button>
+    <p id="nogl" hidden>This scene needs WebGL, and your browser has it switched off.</p>
   </div>
 </div>
 
 <div class="hud" id="topbar">
-  <span class="where" id="where">The night booth</span>
-  <div class="btns">
-    <button class="btn" id="backBtn" type="button" hidden>Step back</button>
-    <button class="btn" id="notesBtn" type="button">Notes <span id="notesCount"></span></button>
-  </div>
+  <span class="where">Dead Air</span>
+  <button class="btn" id="notesBtn" type="button">Notes <span id="notesCount"></span></button>
 </div>
 <div id="hoverLabel" hidden></div>
 <div class="hud" id="caption" aria-live="polite"></div>
 
-<!-- radio -->
-<section class="panel" id="radioPanel" hidden aria-label="Radio controls">
-  <h2><span>WKRS table radio</span><span class="live" id="txState">OFF</span></h2>
+<section class="panel" id="radioPanel" hidden aria-label="Radio">
+  <header><h2>The radio</h2><span class="live" id="txState">Off</span><button class="x" type="button" data-close aria-label="Close">&times;</button></header>
   <div class="row">
     <button class="btn" id="powerBtn" type="button" aria-pressed="false">Power</button>
-    <fieldset class="seg" style="margin:0">
+    <fieldset class="seg">
       <legend hidden>Band</legend>
       <label><input type="radio" name="band" id="band-am" value="am" checked><span>AM</span></label>
       <label><input type="radio" name="band" id="band-sw" value="sw"><span>SW</span></label>
@@ -208,9 +187,9 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   <div id="tx" aria-live="polite"><p class="dim">Turn it on, then drag along the dial. When the green eye closes, you're on a station.</p></div>
 </section>
 
-<!-- typewriter -->
 <section class="panel" id="twPanel" hidden aria-label="Typewriter">
-  <h2><span>The typewriter</span><span class="live">Someone is listening</span></h2>
+  <header><h2>The typewriter</h2><span class="live">Someone is listening</span><button class="x" type="button" data-close aria-label="Close">&times;</button></header>
+  <div id="twLast" aria-live="polite"></div>
   <form id="twForm" autocomplete="off">
     <label for="twInput" hidden>Type a message</label>
     <input id="twInput" type="text" maxlength="60" spellcheck="false" autocapitalize="characters" placeholder="Type something">
@@ -219,20 +198,6 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   <p class="hint">Type to whoever is there and press Return. It answers in red.</p>
 </section>
 
-<!-- phone -->
-<section class="panel" id="phonePanel" hidden aria-label="Telephone">
-  <h2><span>Rotary telephone</span><span class="live" id="phoneState">Dial tone</span></h2>
-  <div class="phone-wrap">
-    <div id="wheel"><div class="ring" id="ring"></div><div class="stop"></div></div>
-    <div class="phone-side">
-      <div id="dialed" aria-live="polite"></div>
-      <div id="callTx" aria-live="polite"><span style="color:var(--bone-dim)">Click the holes to dial. The call goes through when you stop.</span></div>
-      <button class="btn" id="hangup" type="button">Hang up</button>
-    </div>
-  </div>
-</section>
-
-<!-- notes -->
 <div id="notes" hidden>
   <div class="notebook" role="dialog" aria-modal="true" aria-labelledby="notesTitle">
     <header><h2 id="notesTitle">Notes</h2><button class="btn" id="closeNotes" type="button">Close</button></header>
@@ -259,8 +224,8 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   const pick = a => a[Math.floor(Math.random() * a.length)];
 
   // ================= saved state =================
-  const KEY = 'dead-air.v2';
-  const fresh = () => ({ radio: [], words: [], calls: [], room: [], xOpen: false, ended: false, name: '' });
+  const KEY = 'dead-air.v3';
+  const fresh = () => ({ radio: [], words: [], room: [], xOpen: false, ended: false, name: '' });
   let state = fresh();
   try { state = Object.assign(state, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
@@ -278,31 +243,25 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
 
   // ================= film grain =================
   (() => {
-    const g = $('#grain'); g.width = 160; g.height = 160; const x = g.getContext('2d'), img = x.createImageData(160, 160);
+    const c = document.createElement('canvas'); c.width = c.height = 160; const x = c.getContext('2d'), img = x.createImageData(160, 160);
     for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
-    x.putImageData(img, 0, 0);
-    g.style.width = g.style.height = '200%'; g.style.imageRendering = 'pixelated';
-    g.style.backgroundImage = `url(${g.toDataURL()})`; x.clearRect(0, 0, 160, 160);
-    g.style.backgroundSize = '160px';
+    x.putImageData(img, 0, 0); $('#grain').style.backgroundImage = `url(${c.toDataURL()})`;
   })();
 
   // ================= audio =================
   let ctx, master, ambGain, radioNoise, radioBus;
   function initAudio() {
-    if (ctx) return;
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       master = ctx.createGain(); master.gain.value = .9; master.connect(ctx.destination);
-      // ambience: a low detuned drone and wind
       ambGain = ctx.createGain(); ambGain.gain.value = 0; ambGain.connect(master);
       [[55, .16], [55.6, .16], [82.4, .05]].forEach(([f, v]) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f; g.gain.value = v; o.connect(g).connect(ambGain); o.start(); });
-      const nb = noiseBuffer(4);
-      const wind = ctx.createBufferSource(); wind.buffer = nb; wind.loop = true;
+      const wind = ctx.createBufferSource(); wind.buffer = noiseBuffer(4); wind.loop = true;
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
-      const wg = ctx.createGain(); wg.gain.value = .07; wind.connect(lp).connect(wg).connect(ambGain); wind.start();
+      const wg = ctx.createGain(); wg.gain.value = .08; wind.connect(lp).connect(wg).connect(ambGain); wind.start();
       const lfo = ctx.createOscillator(), lfoG = ctx.createGain(); lfo.frequency.value = .07; lfoG.gain.value = 220; lfo.connect(lfoG).connect(lp.frequency); lfo.start();
       ambGain.gain.setTargetAtTime(.55, ctx.currentTime, 2);
-      // radio: static + a station bus through a narrow "speaker" filter
       const rn = ctx.createBufferSource(); rn.buffer = noiseBuffer(2, true); rn.loop = true;
       const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = .6;
       radioNoise = ctx.createGain(); radioNoise.gain.value = 0; rn.connect(bp).connect(radioNoise).connect(master); rn.start();
@@ -316,6 +275,7 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
     return b;
   }
   const hz = n => 440 * Math.pow(2, (n - 69) / 12);
+  const now = () => ctx ? ctx.currentTime : 0;
   function tone(dest, freq, t, dur, type = 'triangle', v = .25) {
     if (!ctx) return;
     const o = ctx.createOscillator(), g = ctx.createGain();
@@ -330,17 +290,14 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
     const g = ctx.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
     s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + dur + .05);
   }
-  const now = () => ctx ? ctx.currentTime : 0;
   const sfx = {
     clack() { const t = now(); burst(t, .045, rand(2200, 3200), .5, 2); tone(null, 140, t, .05, 'square', .06); },
     ding() { const t = now(); tone(null, 2100, t, 1.4, 'sine', .14); tone(null, 4200, t, .6, 'sine', .04); },
-    knock() { const t = now(); [0, .32, .64].forEach(k => { tone(null, 85, t + k, .22, 'sine', .7); burst(t + k, .08, 300, .5, 1); }); },
+    tap() { const t = now(); [0, .45, .9].forEach(k => { burst(t + k, .05, 3500, .55, 3); tone(null, 900, t + k, .04, 'sine', .15); }); },
     click() { const t = now(); burst(t, .03, 1500, .4, 3); },
     scratch() { const t = now(); for (let i = 0; i < 14; i++) burst(t + i * .09 + rand(0, .04), .07, rand(2500, 4000), .18, 4); },
-    ring() { const t = now(); for (let k = 0; k < 2; k++) for (let i = 0; i < 20; i++) { tone(null, 440, t + k * .9 + i * .04, .035, 'square', .05); tone(null, 480, t + k * .9 + i * .04, .035, 'square', .05); } },
-    ringback() { const t = now(); tone(null, 440, t, 1.8, 'sine', .07); tone(null, 480, t, 1.8, 'sine', .07); },
-    pulse(n) { const t = now(); for (let i = 0; i < n; i++) burst(t + .25 + i * .1, .02, 900, .4, 4); return .25 + n * .1; },
-    hum() { const t = now(); tone(null, 120, t, .4, 'sawtooth', .05); },
+    squeak() { const t = now(); for (let i = 0; i < 6; i++) tone(null, rand(1800, 2600), t + i * .08, .07, 'sine', .05); },
+    hiss() { const t = now(); burst(t, 1.2, 5000, .3, .5); },
     sting() { const t = now(); [36, 37, 42].forEach((n, i) => tone(null, hz(n), t + i * .05, 3, 'sawtooth', .07)); burst(t, 1.6, 400, .25, .4); },
     heartbeat() { const t = now(); [0, .25, 1.0, 1.25, 2, 2.25].forEach(k => tone(null, 50, t + k, .18, 'sine', .8)); }
   };
@@ -361,7 +318,7 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   }
   const hush = () => { try { canSpeak && speechSynthesis.cancel(); } catch (e) {} };
 
-  // ================= three.js scene =================
+  // ================= scene =================
   if (typeof THREE === 'undefined' || !(() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })()) {
     $('#nogl').hidden = false; $('#enter').hidden = true; return;
   }
@@ -370,321 +327,236 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.2;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x030405);
-  scene.fog = new THREE.FogExp2(0x05060a, .11);
-  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, .02, 40);
+  scene.fog = new THREE.FogExp2(0x05060a, .09);
+  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, .02, 30);
 
-  // ---------- canvas textures ----------
   function canvasTex(w, h, draw) {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const g = c.getContext('2d'); draw(g, w, h);
     const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
-    t.userData = { c, g, draw: () => { draw(g, w, h); t.needsUpdate = true; } };
+    t.userData = { c, g, redraw: () => { draw(g, w, h); t.needsUpdate = true; } };
     return t;
   }
   const wallTex = canvasTex(512, 512, (g, w, h) => {
     g.fillStyle = '#3a3428'; g.fillRect(0, 0, w, h);
     for (let x = 0; x < w; x += 32) { g.fillStyle = x % 64 ? '#352f24' : '#40392b'; g.fillRect(x, 0, 16, h); }
     for (let x = 8; x < w; x += 64) for (let y = 20; y < h; y += 56) { g.fillStyle = 'rgba(90,70,40,.35)'; g.beginPath(); g.arc(x + 16, y, 5, 0, 7); g.fill(); }
-    for (let i = 0; i < 14; i++) { const gr = g.createRadialGradient(rand(0, w), rand(0, h), 2, rand(0, w), rand(0, h), rand(30, 120)); gr.addColorStop(0, 'rgba(20,16,8,.35)'); gr.addColorStop(1, 'rgba(20,16,8,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+    for (let i = 0; i < 14; i++) { const x = rand(0, w), y = rand(0, h), gr = g.createRadialGradient(x, y, 2, x, y, rand(30, 120)); gr.addColorStop(0, 'rgba(20,16,8,.4)'); gr.addColorStop(1, 'rgba(20,16,8,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
   });
-  wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping; wallTex.repeat.set(4, 2);
+  wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping; wallTex.repeat.set(3, 2);
   const woodTex = (base, dark) => canvasTex(512, 512, (g, w, h) => {
     g.fillStyle = base; g.fillRect(0, 0, w, h);
-    for (let y = 0; y < h; y += 64) { g.fillStyle = dark; g.fillRect(0, y, w, 2); }
+    for (let y = 0; y < h; y += 128) { g.fillStyle = dark; g.fillRect(0, y, w, 2); }
     for (let i = 0; i < 260; i++) { g.strokeStyle = `rgba(0,0,0,${rand(.04, .14)})`; g.lineWidth = rand(.5, 2); const y = rand(0, h); g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(w * .3, y + rand(-6, 6), w * .6, y + rand(-6, 6), w, y + rand(-4, 4)); g.stroke(); }
+    for (let i = 0; i < 6; i++) { g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1; g.beginPath(); g.ellipse(rand(0, w), rand(0, h), rand(8, 20), rand(3, 6), 0, 0, 7); g.stroke(); }
   });
-  const floorTex = woodTex('#2a1b10', '#120a05'); floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(3, 3);
-  const deskTex = woodTex('#4a2c17', '#2a170a');
-
   const M = {
     wall: new THREE.MeshStandardMaterial({ map: wallTex, roughness: .95 }),
-    floor: new THREE.MeshStandardMaterial({ map: floorTex, roughness: .8 }),
-    ceil: new THREE.MeshStandardMaterial({ color: 0x15130f, roughness: 1 }),
-    desk: new THREE.MeshStandardMaterial({ map: deskTex, roughness: .55 }),
-    bakelite: new THREE.MeshStandardMaterial({ color: 0x4a1a0c, roughness: .3, metalness: .05 }),
+    desk: new THREE.MeshStandardMaterial({ map: woodTex('#4a2c17', '#2a170a'), roughness: .5 }),
+    frame: new THREE.MeshStandardMaterial({ map: woodTex('#2a1a0d', '#140b04'), roughness: .7 }),
+    bakelite: new THREE.MeshStandardMaterial({ color: 0x4a1a0c, roughness: .28, metalness: .05 }),
     black: new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: .25, metalness: .1 }),
-    metal: new THREE.MeshStandardMaterial({ color: 0x1d2621, roughness: .45, metalness: .55 }),
-    chrome: new THREE.MeshStandardMaterial({ color: 0xbbb5a8, roughness: .25, metalness: .9 }),
+    metal: new THREE.MeshStandardMaterial({ color: 0x1d2621, roughness: .4, metalness: .6 }),
+    chrome: new THREE.MeshStandardMaterial({ color: 0xbbb5a8, roughness: .22, metalness: .9 }),
     brass: new THREE.MeshStandardMaterial({ color: 0xb08a3e, roughness: .3, metalness: .85 }),
-    cream: new THREE.MeshStandardMaterial({ color: 0xd8cdb2, roughness: .6 }),
-    frame: new THREE.MeshStandardMaterial({ color: 0x24160b, roughness: .7 })
+    tin: new THREE.MeshStandardMaterial({ color: 0x3b3f3a, roughness: .55, metalness: .7 }),
+    cream: new THREE.MeshStandardMaterial({ color: 0xd8cdb2, roughness: .6 })
   };
   const mesh = (geo, mat, x = 0, y = 0, z = 0, parent = scene) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
   const box = (w, h, d, mat, x, y, z, p) => mesh(new THREE.BoxGeometry(w, h, d), mat, x, y, z, p);
   const cyl = (rt, rb, h, mat, x, y, z, p, seg = 24) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat, x, y, z, p);
   const tag = (obj, name) => { obj.traverse(o => o.userData.obj = name); return obj; };
 
-  // ---------- room ----------
-  const BACK = -2.2, DESK_Y = .78;
-  const back = mesh(new THREE.PlaneGeometry(7, 3.2), M.wall, 0, 1.6, BACK); back.castShadow = false;
-  const left = mesh(new THREE.PlaneGeometry(5, 3.2), M.wall, -3, 1.6, .3); left.rotation.y = Math.PI / 2; left.castShadow = false;
-  const right = mesh(new THREE.PlaneGeometry(5, 3.2), M.wall, 3, 1.6, .3); right.rotation.y = -Math.PI / 2; right.castShadow = false;
-  const floor = mesh(new THREE.PlaneGeometry(7, 5), M.floor, 0, 0, .3); floor.rotation.x = -Math.PI / 2; floor.castShadow = false;
-  const ceil = mesh(new THREE.PlaneGeometry(7, 5), M.ceil, 0, 3.2, .3); ceil.rotation.x = Math.PI / 2;
-  box(7, .14, .04, M.frame, 0, .07, BACK + .02); // skirting
-  // rug
-  const rugTex = canvasTex(256, 256, (g, w, h) => {
-    g.fillStyle = '#3b1410'; g.fillRect(0, 0, w, h); g.strokeStyle = '#7a5a2a'; g.lineWidth = 6; g.strokeRect(14, 14, w - 28, h - 28);
-    g.lineWidth = 2; g.strokeRect(30, 30, w - 60, h - 60); g.fillStyle = '#5a2418'; g.beginPath(); g.moveTo(w / 2, 50); g.lineTo(w - 50, h / 2); g.lineTo(w / 2, h - 50); g.lineTo(50, h / 2); g.fill();
-  });
-  const rug = mesh(new THREE.PlaneGeometry(2.4, 1.6), new THREE.MeshStandardMaterial({ map: rugTex, roughness: 1 }), 0, .005, -.6); rug.rotation.x = -Math.PI / 2; rug.castShadow = false;
-
-  // ---------- desk ----------
-  box(2.6, .06, .95, M.desk, 0, DESK_Y - .03, -1.68);
-  [[-1.22, -1.25], [1.22, -1.25], [-1.22, -2.1], [1.22, -2.1]].forEach(([x, z]) => box(.06, DESK_Y - .06, .06, M.desk, x, (DESK_Y - .06) / 2, z));
-  box(.7, .16, .05, M.desk, .8, DESK_Y - .14, -1.22); cyl(.015, .015, .03, M.brass, .8, DESK_Y - .14, -1.19).rotation.x = Math.PI / 2;
-  // loose papers
-  const sheet = (x, z, r) => { const p = mesh(new THREE.PlaneGeometry(.21, .29), M.cream, x, DESK_Y + .002, z); p.rotation.x = -Math.PI / 2; p.rotation.z = r; };
-  sheet(-1.0, -1.35, .4); sheet(-.95, -1.4, .1); sheet(.5, -1.28, -.3);
-
-  // ---------- lamp ----------
-  const lamp = new THREE.Group(); lamp.position.set(-1.08, DESK_Y, -1.92); scene.add(lamp);
-  cyl(.09, .1, .03, M.brass, 0, .015, 0, lamp);
-  cyl(.012, .012, .42, M.brass, 0, .23, 0, lamp);
-  const shadeMat = new THREE.MeshStandardMaterial({ color: 0x2b4a2c, roughness: .4, metalness: .3, side: THREE.DoubleSide, emissive: 0x000000 });
-  const shade = mesh(new THREE.ConeGeometry(.17, .18, 28, 1, true), shadeMat, 0, .47, 0, lamp); shade.castShadow = false;
-  const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffe2a8 });
-  mesh(new THREE.SphereGeometry(.04, 16, 12), bulbMat, 0, .42, 0, lamp).castShadow = false;
-  const lampLight = new THREE.PointLight(0xffb066, 1.7, 7, 1.6);
-  lampLight.position.set(-1.08, DESK_Y + .4, -1.9); lampLight.castShadow = true;
-  lampLight.shadow.mapSize.set(1024, 1024); lampLight.shadow.bias = -.004; lampLight.shadow.radius = 4;
-  scene.add(lampLight);
-  tag(lamp, 'lamp');
-  const hemi = new THREE.HemisphereLight(0x223040, 0x080604, .22); scene.add(hemi);
+  // ---------- room: one corner by a window ----------
+  const BACK = -2.05, DESK_Y = .78;
+  const back = mesh(new THREE.PlaneGeometry(5, 3), M.wall, 0, 1.5, BACK); back.castShadow = false;
+  const left = mesh(new THREE.PlaneGeometry(3, 3), M.wall, -1.6, 1.5, -.6); left.rotation.y = Math.PI / 2; left.castShadow = false;
+  const floor = mesh(new THREE.PlaneGeometry(5, 3), new THREE.MeshStandardMaterial({ color: 0x1a110a, roughness: .9 }), 0, 0, -.6); floor.rotation.x = -Math.PI / 2;
+  box(2.4, .05, .9, M.desk, 0, DESK_Y - .025, -1.6);
+  box(2.4, .12, .03, M.desk, 0, DESK_Y - .1, -1.16);
+  const sheet = (x, z, r) => { const p = mesh(new THREE.PlaneGeometry(.21, .29), M.cream, x, DESK_Y + .002, z); p.rotation.x = -Math.PI / 2; p.rotation.z = r; p.castShadow = false; };
+  sheet(-.25, -1.3, .5); sheet(.62, -1.33, -.25);
+  const hemi = new THREE.HemisphereLight(0x223040, 0x080604, .2); scene.add(hemi);
 
   // ---------- window ----------
-  const WIN = { x: 1.25, y: 1.78, w: 1.0, h: .95 };
-  let figure = 0, figureTarget = 0, fogWords = '', fogWordsA = 0;
-  const winTex = canvasTex(256, 256, () => {});
-  const fogBlobs = Array.from({ length: 9 }, () => ({ x: rand(0, 256), y: rand(60, 256), r: rand(50, 110), v: rand(.08, .3) }));
+  const WIN = { x: .12, y: 1.62, w: 1.2, h: .9 };
+  const WTX = 512, WTY = 384;
+  let figure = 0, figureTarget = 0, writingA = 0, hand = 0, handTarget = 0;
+  const wipes = [];
+  const fogC = document.createElement('canvas'); fogC.width = WTX; fogC.height = WTY; const fg = fogC.getContext('2d');
+  const fogBlobs = Array.from({ length: 10 }, () => ({ x: rand(0, WTX), y: rand(40, WTY), r: rand(80, 170), v: rand(.1, .35) }));
+  const winTex = canvasTex(WTX, WTY, () => {});
+  let windowWords = 'OPEN\nTHE BAND';
   function drawWindow(t) {
-    const g = winTex.userData.g, w = 256, h = 256;
-    const sky = g.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#0c1420'); sky.addColorStop(1, '#1b2430'); g.fillStyle = sky; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#05080c';
-    for (let i = 0; i < 7; i++) { const x = i * 42 + 10; g.beginPath(); g.moveTo(x - 24, h); g.lineTo(x, 110 + (i % 3) * 14); g.lineTo(x + 24, h); g.fill(); }
+    const g = winTex.userData.g, w = WTX, h = WTY;
+    // outside
+    const sky = g.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#0b1320'); sky.addColorStop(1, '#1a2330'); g.fillStyle = sky; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(200,215,235,.5)'; g.beginPath(); g.arc(400, 70, 22, 0, 7); g.fill();
+    g.fillStyle = '#04070b';
+    for (let i = 0; i < 9; i++) { const x = i * 62 + 14; g.beginPath(); g.moveTo(x - 34, h); g.lineTo(x, 150 + (i % 3) * 22); g.lineTo(x + 34, h); g.fill(); }
     if (figure > .01) {
-      g.globalAlpha = figure; g.fillStyle = '#020304';
-      g.beginPath(); g.arc(150, 120, 13, 0, 7); g.fill();
-      g.beginPath(); g.moveTo(132, 140); g.quadraticCurveTo(150, 128, 168, 140); g.lineTo(176, 256); g.lineTo(124, 256); g.fill();
+      g.globalAlpha = figure; g.fillStyle = '#010203';
+      g.beginPath(); g.arc(300, 205, 17, 0, 7); g.fill();
+      g.beginPath(); g.moveTo(276, 232); g.quadraticCurveTo(300, 216, 324, 232); g.lineTo(336, h); g.lineTo(264, h); g.fill();
       g.globalAlpha = 1;
     }
+    // fog layer, with wiped patches and finger-writing cleared out of it
+    fg.globalCompositeOperation = 'source-over'; fg.clearRect(0, 0, w, h);
+    fg.fillStyle = `rgba(140,152,168,${.26 + .3 * writingA})`; fg.fillRect(0, 0, w, h);
     fogBlobs.forEach(b => {
       b.x += b.v; if (b.x - b.r > w) b.x = -b.r;
-      const gr = g.createRadialGradient(b.x, b.y, 4, b.x, b.y, b.r); gr.addColorStop(0, 'rgba(150,165,180,.32)'); gr.addColorStop(1, 'rgba(150,165,180,0)');
-      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      const gr = fg.createRadialGradient(b.x, b.y, 4, b.x, b.y, b.r); gr.addColorStop(0, 'rgba(160,172,188,.28)'); gr.addColorStop(1, 'rgba(160,172,188,0)');
+      fg.fillStyle = gr; fg.fillRect(0, 0, w, h);
     });
-    g.fillStyle = 'rgba(170,180,190,.18)'; g.fillRect(0, 0, w, h);
-    if (fogWordsA > .01) {
-      g.globalAlpha = fogWordsA; g.fillStyle = 'rgba(10,14,20,.9)'; g.font = '34px "Special Elite", monospace'; g.textAlign = 'center';
-      fogWords.split('\n').forEach((l, i) => g.fillText(l, w / 2, 110 + i * 40)); g.globalAlpha = 1;
+    fg.globalCompositeOperation = 'destination-out';
+    for (let i = wipes.length - 1; i >= 0; i--) {
+      const p = wipes[i]; p.a -= .0025; if (p.a <= 0) { wipes.splice(i, 1); continue; }
+      const gr = fg.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r); gr.addColorStop(0, `rgba(0,0,0,${p.a})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      fg.fillStyle = gr; fg.beginPath(); fg.arc(p.x, p.y, p.r, 0, 7); fg.fill();
     }
+    if (writingA > .01) {
+      fg.globalAlpha = writingA; fg.fillStyle = '#000'; fg.textAlign = 'center';
+      fg.font = '50px "Special Elite", "Courier New", monospace';
+      windowWords.split('\n').forEach((l, i, a) => { fg.save(); fg.translate(378, 215 + (i - (a.length - 1) / 2) * 60); fg.rotate(-.05 + i * .06); fg.fillText(l, 0, 0); fg.restore(); });
+      fg.globalAlpha = 1;
+    }
+    if (hand > .01) {
+      fg.globalAlpha = hand; fg.fillStyle = '#000';
+      fg.beginPath(); fg.ellipse(130, 250, 34, 42, 0, 0, 7); fg.fill();
+      [[-26, -44, -.35], [-10, -60, -.12], [8, -62, .05], [24, -54, .2], [40, -6, .9]].forEach(([dx, dy, r]) => { fg.save(); fg.translate(130 + dx, 250 + dy); fg.rotate(r); fg.beginPath(); fg.ellipse(0, 0, 8, 26, 0, 0, 7); fg.fill(); fg.restore(); });
+      fg.globalAlpha = 1;
+    }
+    g.drawImage(fogC, 0, 0);
+    // drips
+    g.strokeStyle = 'rgba(210,220,230,.18)'; g.lineWidth = 2;
+    for (let i = 0; i < 5; i++) { const x = 60 + i * 97, y0 = 40 + (i * 37) % 120; g.beginPath(); g.moveTo(x, y0); g.lineTo(x + 2, y0 + 60 + ((t / 90 + i * 50) % 140)); g.stroke(); }
     winTex.needsUpdate = true;
   }
-  const winGroup = new THREE.Group(); winGroup.position.set(WIN.x, WIN.y, BACK + .01); scene.add(winGroup);
-  const glass = new THREE.Mesh(new THREE.PlaneGeometry(WIN.w, WIN.h), new THREE.MeshBasicMaterial({ map: winTex, fog: false }));
-  winGroup.add(glass);
-  [[0, WIN.h / 2, WIN.w + .1, .06], [0, -WIN.h / 2, WIN.w + .1, .06], [0, 0, WIN.w, .03]].forEach(([x, y, w, t]) => box(w, t, .06, M.frame, x, y, .03, winGroup));
-  [[-WIN.w / 2, 0], [WIN.w / 2, 0], [0, 0]].forEach(([x], i) => box(i === 2 ? .03 : .06, WIN.h, .06, M.frame, x, 0, .03, winGroup));
-  box(WIN.w + .2, .04, .14, M.frame, 0, -WIN.h / 2 - .04, .07, winGroup);
-  const moon = new THREE.PointLight(0x6f8fbf, .45, 3.5, 2); moon.position.set(WIN.x, WIN.y, BACK + .5); scene.add(moon);
+    const winGroup = new THREE.Group(); winGroup.position.set(WIN.x, WIN.y, BACK + .01); scene.add(winGroup);
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(WIN.w, WIN.h), new THREE.MeshBasicMaterial({ map: winTex, fog: false })); winGroup.add(glass);
+  box(WIN.w + .14, .08, .08, M.frame, 0, WIN.h / 2 + .03, .04, winGroup);
+  box(WIN.w + .14, .08, .08, M.frame, 0, -WIN.h / 2 - .03, .04, winGroup);
+  box(.08, WIN.h + .14, .08, M.frame, -WIN.w / 2 - .03, 0, .04, winGroup);
+  box(.08, WIN.h + .14, .08, M.frame, WIN.w / 2 + .03, 0, .04, winGroup);
+  box(.035, WIN.h, .05, M.frame, 0, 0, .03, winGroup);
+  box(WIN.w, .035, .05, M.frame, 0, 0, .03, winGroup);
+  box(WIN.w + .3, .04, .16, M.frame, 0, -WIN.h / 2 - .09, .09, winGroup);
+  const moon = new THREE.PointLight(0x7092c8, .55, 3.2, 2); moon.position.set(WIN.x, WIN.y, BACK + .45); scene.add(moon);
   tag(winGroup, 'window');
 
-  // ---------- door ----------
-  const door = new THREE.Group(); door.position.set(-2.15, 0, BACK + .02); scene.add(door);
-  const doorMat = new THREE.MeshStandardMaterial({ map: woodTex('#2d1a0d', '#1a0e05'), roughness: .65 });
-  const panel = box(.9, 2.05, .05, doorMat, 0, 1.025, .03, door);
-  [[-.2, 1.5], [.2, 1.5], [-.2, .6], [.2, .6]].forEach(([x, y]) => box(.3, y > 1 ? .7 : .8, .015, doorMat, x, y, .065, door));
-  box(.08, 2.15, .08, M.frame, -.49, 1.075, .04, door); box(.08, 2.15, .08, M.frame, .49, 1.075, .04, door); box(1.06, .08, .08, M.frame, 0, 2.15, .04, door);
-  mesh(new THREE.SphereGeometry(.035, 16, 12), M.brass, .34, 1.0, .09, door);
-  const gapMat = new THREE.MeshBasicMaterial({ color: 0xffc98a, fog: false });
-  box(.86, .012, .02, gapMat, 0, .006, .07, door).castShadow = false;
-  const spillTex = canvasTex(128, 64, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,200,140,1)'); gr.addColorStop(1, 'rgba(255,200,140,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); const sx = g.createLinearGradient(0, 0, w, 0); sx.addColorStop(0, 'rgba(0,0,0,1)'); sx.addColorStop(.2, 'rgba(0,0,0,0)'); sx.addColorStop(.8, 'rgba(0,0,0,0)'); sx.addColorStop(1, 'rgba(0,0,0,1)'); g.globalCompositeOperation = 'destination-out'; g.fillStyle = sx; g.fillRect(0, 0, w, h); });
-  const spillMat = new THREE.MeshBasicMaterial({ map: spillTex, color: 0xffb066, transparent: true, opacity: .16, blending: THREE.AdditiveBlending, depthWrite: false });
-  const spill = mesh(new THREE.PlaneGeometry(.95, .5), spillMat, 0, .003, .32, door); spill.rotation.x = -Math.PI / 2; spill.castShadow = false;
-  const feetMat = new THREE.MeshBasicMaterial({ color: 0x000000, fog: false });
-  const feet = new THREE.Group(); door.add(feet); feet.visible = false;
-  [-.07, .07].forEach(x => box(.1, .013, .022, feetMat, x, .006, .075, feet).castShadow = false);
-  tag(door, 'door');
-
-  // ---------- wall writing (only shows in the dark) ----------
-  const wallWriting = canvasTex(512, 280, (g, w, h) => {
-    g.clearRect(0, 0, w, h); g.fillStyle = '#c8ffd8'; g.textAlign = 'center';
-    g.font = '96px "Special Elite", monospace'; g.save(); g.translate(w / 2, 110); g.rotate(-.05); g.fillText('3  1  2', 0, 0); g.restore();
-    g.font = '46px "Special Elite", monospace'; g.save(); g.translate(w / 2, 200); g.rotate(.03); g.fillText('ASK FOR RUTH', 0, 0); g.restore();
-    g.strokeStyle = '#c8ffd8'; g.lineWidth = 3; g.beginPath(); g.moveTo(90, 228); g.lineTo(430, 222); g.stroke();
-  });
-  const writingMat = new THREE.MeshBasicMaterial({ map: wallWriting, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-  const writing = new THREE.Mesh(new THREE.PlaneGeometry(1.05, .58), writingMat); writing.position.set(-.7, 1.82, BACK + .006); scene.add(writing);
-  tag(writing, 'wall');
-
-  // ---------- clock ----------
-  const clockTex = canvasTex(256, 256, (g, w, h) => {
-    g.fillStyle = '#e4d8bc'; g.beginPath(); g.arc(128, 128, 124, 0, 7); g.fill();
-    g.fillStyle = '#1b130b'; g.font = 'bold 26px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    for (let i = 1; i <= 12; i++) { const a = i / 12 * Math.PI * 2 - Math.PI / 2; g.fillText(i, 128 + Math.cos(a) * 98, 128 + Math.sin(a) * 98); }
-    const hand = (a, len, wd) => { g.lineWidth = wd; g.lineCap = 'round'; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + Math.cos(a) * len, 128 + Math.sin(a) * len); g.stroke(); };
-    g.strokeStyle = '#1b130b'; hand((3 + 12 / 60) / 12 * Math.PI * 2 - Math.PI / 2, 58, 7); hand(12 / 60 * Math.PI * 2 - Math.PI / 2, 88, 4);
-    g.strokeStyle = '#8e1c14'; hand(47 / 60 * Math.PI * 2 - Math.PI / 2, 96, 2);
-    g.fillStyle = '#1b130b'; g.beginPath(); g.arc(128, 128, 6, 0, 7); g.fill();
-  });
-  const clock = new THREE.Group(); clock.position.set(.2, 2.25, BACK + .03); scene.add(clock);
-  const rim = cyl(.21, .21, .05, M.frame, 0, 0, 0, clock, 40); rim.rotation.x = Math.PI / 2;
-  const face = mesh(new THREE.CircleGeometry(.185, 40), new THREE.MeshStandardMaterial({ map: clockTex, roughness: .5 }), 0, 0, .027, clock);
-  tag(clock, 'clock');
-
-  // ---------- photo ----------
-  let photoEmpty = state.ended;
-  const photoTex = canvasTex(200, 250, (g, w, h) => {
-    g.fillStyle = '#c9b48a'; g.fillRect(0, 0, w, h);
-    const gr = g.createRadialGradient(100, 110, 10, 100, 110, 140); gr.addColorStop(0, 'rgba(255,240,200,.25)'); gr.addColorStop(1, 'rgba(40,25,10,.7)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#3a2716';
-    // microphone
-    g.fillRect(118, 120, 6, 70); g.beginPath(); g.ellipse(121, 108, 15, 22, 0, 0, 7); g.fill(); g.fillRect(100, 188, 44, 6);
-    if (!photoEmpty) { g.beginPath(); g.arc(78, 100, 20, 0, 7); g.fill(); g.beginPath(); g.moveTo(48, 250); g.quadraticCurveTo(52, 128, 78, 124); g.quadraticCurveTo(108, 128, 112, 250); g.fill(); }
-    else { g.fillRect(56, 170, 46, 8); g.fillRect(58, 178, 5, 72); g.fillRect(95, 178, 5, 72); g.fillRect(58, 120, 5, 56); }
-    g.fillStyle = 'rgba(30,20,10,.85)'; g.font = '15px "Special Elite", monospace'; g.fillText('R.C.  WKRS  1961', 22, 236);
-  });
-  const photo = new THREE.Group(); photo.position.set(1.12, DESK_Y + .11, -1.95); photo.rotation.set(-.15, -.35, 0); scene.add(photo);
-  box(.17, .21, .015, M.brass, 0, 0, 0, photo);
-  mesh(new THREE.PlaneGeometry(.14, .18), new THREE.MeshStandardMaterial({ map: photoTex, roughness: .7 }), 0, 0, .009, photo);
-  box(.02, .2, .02, M.brass, 0, -.03, -.05, photo).rotation.x = .5;
-  tag(photo, 'photo');
+  // ---------- lantern ----------
+  const lantern = new THREE.Group(); lantern.position.set(.68, DESK_Y, -1.62); scene.add(lantern);
+  cyl(.085, .095, .07, M.tin, 0, .035, 0, lantern, 28);
+  cyl(.06, .085, .02, M.tin, 0, .08, 0, lantern, 28);
+  const globeMat = new THREE.MeshStandardMaterial({ color: 0xfff1d6, roughness: .05, metalness: 0, transparent: true, opacity: .22, emissive: 0xff9a3c, emissiveIntensity: .35, depthWrite: false });
+  const globe = mesh(new THREE.SphereGeometry(.075, 28, 20), globeMat, 0, .17, 0, lantern); globe.scale.set(1, 1.35, 1); globe.castShadow = false;
+  cyl(.07, .05, .025, M.tin, 0, .275, 0, lantern, 28);
+  cyl(.03, .045, .04, M.tin, 0, .305, 0, lantern, 20);
+  [[-1, 1], [1, -1], [1, 1], [-1, -1]].forEach(([a, b]) => { const r = box(.006, .21, .006, M.tin, a * .06, .175, b * .06, lantern); r.castShadow = false; });
+  mesh(new THREE.TorusGeometry(.085, .005, 6, 24, Math.PI), M.tin, 0, .3, 0, lantern);
+  const flameMat = new THREE.MeshBasicMaterial({ color: 0xff9a2e, transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false });
+  const flame = mesh(new THREE.ConeGeometry(.016, .06, 12), flameMat, 0, .155, 0, lantern); flame.castShadow = false;
+  const flameCore = mesh(new THREE.SphereGeometry(.012, 10, 8), new THREE.MeshBasicMaterial({ color: 0xfff3c4 }), 0, .135, 0, lantern); flameCore.castShadow = false;
+  cyl(.01, .01, .02, M.cream, 0, .115, 0, lantern, 8);
+  const glowTex = canvasTex(64, 64, (g) => { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,190,110,1)'); gr.addColorStop(.35, 'rgba(255,140,50,.45)'); gr.addColorStop(1, 'rgba(255,120,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); });
+  const glowMat = new THREE.SpriteMaterial({ map: glowTex, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  const glow = new THREE.Sprite(glowMat); glow.position.set(0, .15, 0); glow.scale.set(.2, .26, 1); lantern.add(glow);
+  box(.025, .012, .012, M.brass, .09, .095, 0, lantern); // wick key
+  const lanternLight = new THREE.PointLight(0xff9d4d, 1.9, 5, 1.6);
+  lanternLight.position.set(.68, DESK_Y + .17, -1.62); lanternLight.castShadow = true;
+  lanternLight.shadow.mapSize.set(1024, 1024); lanternLight.shadow.bias = -.004; lanternLight.shadow.radius = 4;
+  scene.add(lanternLight);
+  tag(lantern, 'lantern');
 
   // ---------- radio ----------
-  const radio = new THREE.Group(); radio.position.set(-.52, DESK_Y, -1.82); scene.add(radio);
+  const radio = new THREE.Group(); radio.position.set(-.62, DESK_Y, -1.72); radio.rotation.y = .28; scene.add(radio);
   box(.58, .34, .28, M.bakelite, 0, .17, 0, radio);
-  const radioTop = cyl(.14, .14, .58, M.bakelite, 0, .34, 0, radio, 32); radioTop.rotation.z = Math.PI / 2; radioTop.scale.set(1, 1, .9);
+  const top = cyl(.14, .14, .58, M.bakelite, 0, .34, 0, radio, 32); top.rotation.z = Math.PI / 2; top.scale.set(1, 1, .9);
   const grilleTex = canvasTex(256, 128, (g, w, h) => { g.fillStyle = '#1b0f07'; g.fillRect(0, 0, w, h); for (let y = 8; y < h; y += 13) { g.fillStyle = '#b8954d'; g.fillRect(0, y, w, 5); } });
   mesh(new THREE.PlaneGeometry(.34, .16), new THREE.MeshStandardMaterial({ map: grilleTex, roughness: .5, metalness: .4 }), -.07, .25, .141, radio);
   const dialTex = canvasTex(512, 96, () => {});
   const dialMat = new THREE.MeshBasicMaterial({ map: dialTex, color: 0x5a4a38, fog: false });
-  mesh(new THREE.PlaneGeometry(.48, .085), dialMat, 0, .105, .141, radio).castShadow = false;
+  mesh(new THREE.PlaneGeometry(.48, .085), dialMat, 0, .105, .142, radio).castShadow = false;
   box(.5, .1, .01, M.brass, 0, .105, .137, radio);
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0b1a10 });
   mesh(new THREE.CircleGeometry(.03, 24), eyeMat, .19, .25, .142, radio).castShadow = false;
-  const eyeRim = mesh(new THREE.TorusGeometry(.032, .006, 8, 24), M.chrome, .19, .25, .142, radio);
+  mesh(new THREE.TorusGeometry(.032, .006, 8, 24), M.chrome, .19, .25, .142, radio);
   const knobs = [-.2, .2].map(x => { const k = cyl(.034, .038, .035, M.black, x, .045, .155, radio, 20); k.rotation.x = Math.PI / 2; return k; });
   [[-.24, -.11], [.24, -.11], [-.24, .11], [.24, .11]].forEach(([x, z]) => box(.04, .012, .04, M.black, x, -.006, z, radio));
-  const radioGlow = new THREE.PointLight(0xffa64d, 0, 1.4, 2); radioGlow.position.set(-.52, DESK_Y + .12, -1.55); scene.add(radioGlow);
+  const radioGlow = new THREE.PointLight(0xffa64d, 0, 1.2, 2); radioGlow.position.set(-.55, DESK_Y + .12, -1.45); scene.add(radioGlow);
   tag(radio, 'radio');
 
-  // ---------- typewriter ----------
-  const tw = new THREE.Group(); tw.position.set(.18, DESK_Y, -1.5); scene.add(tw);
-  const twBody = box(.5, .1, .34, M.metal, 0, .05, 0, tw);
-  const twBack = box(.5, .09, .12, M.metal, 0, .13, -.11, tw);
+  // ---------- typewriter (front and centre) ----------
+  const tw = new THREE.Group(); tw.position.set(.02, DESK_Y, -1.38); tw.rotation.y = -.04; scene.add(tw);
+  box(.5, .1, .34, M.metal, 0, .05, 0, tw);
+  box(.5, .09, .12, M.metal, 0, .13, -.11, tw);
   const keyMat = new THREE.MeshStandardMaterial({ color: 0xe0d6c0, roughness: .4 });
   const keys = [];
   for (let r = 0; r < 4; r++) for (let c = 0; c < (r === 3 ? 1 : 10); c++) {
-    const k = r === 3 ? box(.2, .012, .025, M.black, 0, .108 - r * .012, .13, tw) : cyl(.014, .014, .012, keyMat, -.18 + c * .04 + r * .01, .115 - r * .012, .045 + r * .03, tw, 14);
+    const k = r === 3 ? box(.2, .012, .025, M.black, 0, .104 - r * .012, .14, tw) : cyl(.014, .014, .012, keyMat, -.18 + c * .04 + r * .01, .115 - r * .012, .045 + r * .03, tw, 14);
     k.userData.baseY = k.position.y; keys.push(k);
   }
   const carriage = new THREE.Group(); carriage.position.set(0, .2, -.12); tw.add(carriage);
   const platen = cyl(.04, .04, .56, M.black, 0, 0, 0, carriage, 24); platen.rotation.z = Math.PI / 2;
   [-.3, .3].forEach(x => { const k = cyl(.03, .03, .03, M.chrome, x, 0, 0, carriage, 18); k.rotation.z = Math.PI / 2; });
-  box(.04, .015, .015, M.chrome, -.33, .03, .02, carriage).rotation.z = .4; // return lever
+  box(.05, .015, .015, M.chrome, -.33, .03, .02, carriage).rotation.z = .4;
   const paperTex = canvasTex(512, 640, () => {});
-  const paperMat = new THREE.MeshStandardMaterial({ map: paperTex, emissiveMap: paperTex, emissive: 0x6a5a44, roughness: .9, side: THREE.DoubleSide });
-  const paper = mesh(new THREE.PlaneGeometry(.3, .375), paperMat, 0, .2, -.02, carriage); paper.rotation.x = -.22; paper.castShadow = false;
+  const paperMat = new THREE.MeshStandardMaterial({ map: paperTex, emissiveMap: paperTex, emissive: 0x7a6a52, roughness: .9, side: THREE.DoubleSide });
+  const paper = mesh(new THREE.PlaneGeometry(.32, .4), paperMat, 0, .21, -.02, carriage); paper.rotation.x = -.2; paper.castShadow = false;
   tag(tw, 'typewriter');
 
-  // ---------- telephone ----------
-  const phone = new THREE.Group(); phone.position.set(.88, DESK_Y, -1.52); phone.rotation.y = -.35; scene.add(phone);
-  box(.22, .07, .25, M.black, 0, .035, 0, phone);
-  const slope = box(.2, .06, .16, M.black, 0, .085, .02, phone); slope.rotation.x = -.35;
-  const dialFaceTex = canvasTex(128, 128, (g) => {
-    g.fillStyle = '#111'; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill();
-    g.fillStyle = '#e4d8bc'; g.beginPath(); g.arc(64, 64, 20, 0, 7); g.fill();
-    for (let i = 0; i < 10; i++) { const a = (-60 - i * 30) * Math.PI / 180; g.fillStyle = '#d8cdb2'; g.beginPath(); g.arc(64 + Math.cos(a) * 44, 64 + Math.sin(a) * 44, 9, 0, 7); g.fill(); }
-  });
-  const dialDisc = mesh(new THREE.CircleGeometry(.065, 32), new THREE.MeshStandardMaterial({ map: dialFaceTex, roughness: .3 }), 0, .118, .045, phone);
-  dialDisc.rotation.x = -Math.PI / 2 + .35;
-  const handset = new THREE.Group(); handset.position.set(0, .135, -.03); phone.add(handset);
-  box(.26, .03, .045, M.black, 0, 0, 0, handset);
-  [-.12, .12].forEach(x => cyl(.035, .03, .045, M.black, x, -.012, 0, handset, 18));
-  const cordPts = [new THREE.Vector3(.11, .03, .12), new THREE.Vector3(.18, .01, .2), new THREE.Vector3(.1, .005, .3), new THREE.Vector3(-.05, .005, .22), new THREE.Vector3(-.12, .1, .02)];
-  mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(cordPts), 40, .006, 6, false), M.black, 0, 0, 0, phone);
-  tag(phone, 'phone');
-  const fill = new THREE.PointLight(0xffa860, .35, 2.2, 2); fill.position.set(.8, 1.25, -1.2); scene.add(fill);
-
-  // ---------- camera views ----------
-  const V = {
-    home:       { p: [0, 1.62, 1.35], t: [0, 1.15, -1.7], label: 'The night booth' },
-    radio:      { p: [-.52, 1.08, -.98], t: [-.52, .8, -1.82], label: 'The radio' },
-    typewriter: { p: [.18, 1.4, -.9], t: [.18, 1.1, -1.66], label: 'The typewriter' },
-    phone:      { p: [.86, 1.25, -.95], t: [.88, .74, -1.6], label: 'The telephone' },
-    window:     { p: [1.15, 1.72, -.9], t: [1.25, 1.75, -2.2], label: 'The window' },
-    door:       { p: [-1.5, 1.35, -.4], t: [-2.15, 1.0, -2.2], label: 'The door' },
-    clock:      { p: [.2, 2.05, -1.25], t: [.2, 2.22, -2.2], label: 'The clock' },
-    photo:      { p: [.98, 1.04, -1.5], t: [1.12, .89, -1.95], label: 'The photograph' },
-    wall:       { p: [-.7, 1.7, -.95], t: [-.7, 1.8, -2.2], label: 'The wall' },
-    lamp:       null
-  };
-  const camPos = new THREE.Vector3(...V.home.p), camTgt = new THREE.Vector3(...V.home.t);
-  let tween = null, view = 'home', panX = 0;
+  // ---------- fixed camera, framed so all four things fit ----------
+  const CAM = { p: new THREE.Vector3(0, 1.4, -.12), t: new THREE.Vector3(.02, 1.13, -1.8) };
   const mouse = { x: 0, y: 0 };
-  function goTo(name) {
-    const v = V[name]; if (!v) return;
-    view = name; closePanels();
-    const portrait = innerWidth / innerHeight < .85;
-    const p = new THREE.Vector3(...v.p), t = new THREE.Vector3(...v.t);
-    if (portrait) p.add(p.clone().sub(t).multiplyScalar(name === 'home' ? .6 : name === 'typewriter' ? .1 : .55));
-    if (name !== 'home') panX = 0;
-    tween = { fp: camPos.clone(), ft: camTgt.clone(), tp: p, tt: t, s: performance.now(), d: reduce ? 1 : 1200 };
-    $('#where').textContent = v.label;
-    $('#backBtn').hidden = name === 'home';
-    setTimeout(() => openPanel(name), reduce ? 0 : 700);
-  }
-  function closePanels() { ['#radioPanel', '#twPanel', '#phonePanel'].forEach(s => $(s).hidden = true); document.body.classList.remove('paneled'); }
-  function openPanel(name) {
-    if (view !== name) return;
-    const pnl = { radio: '#radioPanel', typewriter: '#twPanel', phone: '#phonePanel' }[name];
-    if (!pnl) return;
-    $(pnl).hidden = false; document.body.classList.add('paneled');
-    if (name === 'typewriter') { onTypewriterOpen(); if (matchMedia('(pointer: fine)').matches) $('#twInput').focus(); }
-    if (name === 'radio') placeNeedle();
-  }
-  $('#backBtn').addEventListener('click', () => goTo('home'));
-  addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#notes').hidden) toggleNotes(false); else if (view !== 'home') goTo('home'); } });
-
   function resize() {
     renderer.setSize(innerWidth, innerHeight, false);
-    camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < .85 ? 68 : 50; camera.updateProjectionMatrix();
+    const aspect = innerWidth / innerHeight; camera.aspect = aspect;
+    // keep roughly the same width of desk on screen whatever the window shape
+    const hfov = 66 * Math.PI / 180;
+    let vfov = 2 * Math.atan(Math.tan(hfov / 2) / aspect) * 180 / Math.PI;
+    let back = 0;
+    if (vfov > 78) { back = (vfov - 78) / 40; vfov = 78; }
+    camera.fov = Math.max(46, vfov); camera.updateProjectionMatrix();
+    CAM.pp = CAM.p.clone().add(new THREE.Vector3(0, back * .2, back * .9));
+    CAM.tt = CAM.t.clone().add(new THREE.Vector3(0, back * .28, 0));
   }
   addEventListener('resize', resize); resize();
 
   // ---------- picking ----------
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-  const pickables = [lamp, winGroup, door, writing, clock, photo, radio, tw, phone];
-  const LABELS = { lamp: 'Lamp', window: 'Window', door: 'Door', wall: 'Wall', clock: 'Clock', photo: 'Photograph', radio: 'Radio', typewriter: 'Typewriter', phone: 'Telephone' };
+  const pickables = [lantern, winGroup, radio, tw];
+  const LABELS = { lantern: 'Lantern', window: 'Window', radio: 'Radio', typewriter: 'Typewriter' };
   function pickAt(cx, cy) {
     ndc.set(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    const hits = ray.intersectObjects(pickables, true);
-    for (const h of hits) { if (h.object.userData.obj === 'wall' && writingMat.opacity < .2 && hits.length > 1) continue; if (h.object.userData.obj) return h.object.userData.obj; }
-    return null;
+    const h = ray.intersectObjects(pickables, true).find(h => h.object.userData.obj);
+    return h ? { obj: h.object.userData.obj, uv: h.object === glass ? h.uv : null } : null;
   }
   const hoverLabel = $('#hoverLabel');
+  let downAt = null, wiping = false;
   canvas.addEventListener('pointermove', e => {
     if (e.pointerType === 'mouse') { mouse.x = e.clientX / innerWidth * 2 - 1; mouse.y = e.clientY / innerHeight * 2 - 1; }
-    if (!entered || e.pointerType === 'touch') return;
-    const o = pickAt(e.clientX, e.clientY);
-    document.body.classList.toggle('hovering', !!o);
-    hoverLabel.hidden = !o; if (o) { hoverLabel.textContent = LABELS[o]; hoverLabel.style.left = e.clientX + 'px'; hoverLabel.style.top = e.clientY + 'px'; }
+    if (!entered) return;
+    const h = pickAt(e.clientX, e.clientY);
+    if (wiping && h && h.uv) wipeAt(h.uv);
+    if (e.pointerType === 'touch') return;
+    document.body.classList.toggle('hovering', !!h);
+    hoverLabel.hidden = !h; if (h) { hoverLabel.textContent = LABELS[h.obj]; hoverLabel.style.left = e.clientX + 'px'; hoverLabel.style.top = e.clientY + 'px'; }
   });
-  let downAt = null, lastX = 0;
-  canvas.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY }; lastX = e.clientX; });
-  // swipe to look around the room (mainly for narrow touch screens)
-  canvas.addEventListener('pointermove', e => {
-    if (!downAt || !entered || view !== 'home' || e.pointerType === 'mouse') return;
-    panX = Math.max(-1.5, Math.min(1.5, panX - (e.clientX - lastX) / innerWidth * 2.4)); lastX = e.clientX;
+  canvas.addEventListener('pointerdown', e => {
+    downAt = { x: e.clientX, y: e.clientY };
+    if (!entered) return;
+    const h = pickAt(e.clientX, e.clientY);
+    if (h && h.uv) { wiping = true; canvas.setPointerCapture(e.pointerId); wipeAt(h.uv); }
   });
   canvas.addEventListener('pointerup', e => {
-    const moved = downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8; const was = downAt; downAt = null;
-    if (!entered || !was || moved) return;
-    const o = pickAt(e.clientX, e.clientY); if (o) interact(o);
+    const was = downAt; downAt = null; const wasWiping = wiping; wiping = false;
+    if (!entered || !was) return;
+    if (Math.hypot(e.clientX - was.x, e.clientY - was.y) > 10 && wasWiping) return windowLook();
+    const h = pickAt(e.clientX, e.clientY); if (h) interact(h.obj); else closePanels();
   });
 
   // ================= the radio =================
@@ -709,10 +581,10 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   const morseText = s => s.split(' ').map(w => [...w].map(c => MORSE[c]).join(' ')).join('  /  ');
   const WALTZ = [72, 0, 76, 79, 0, 79, 77, 0, 76, 74, 0, 72, 71, 0, 74, 67, 0, 0];
   const years = () => new Date().getFullYear() - 1961;
-  const who = () => state.name ? state.name : 'caller';
+  const who = () => state.name ? state.name.charAt(0) + state.name.slice(1).toLowerCase() : 'caller';
   const S = [
     { id: 'weather', band: 'am', f: 640, name: 'WKRS weather',
-      lines: () => ['WKRS weather for Marrow Falls.', 'Tonight: fog, low near forty.', 'Tomorrow: fog.', 'Every day after that: fog.', { t: 'Stay indoors. Keep the radio on.', cls: 'dim' }],
+      lines: () => ['WKRS weather for Marrow Falls.', 'Tonight: fog, low near forty.', 'Tomorrow: fog.', 'Every day after that: fog.', { t: 'Keep your lantern lit. Keep the radio on.', cls: 'dim' }],
       voice: 'all', audio: program(4, (g, t) => tone(g, 60, t, 4, 'sine', .15)) },
     { id: 'nightowl', band: 'am', f: 880, name: 'Night Owl with Ruth',
       lines: () => [{ t: 'A slow waltz plays through the crackle.', cls: 'dim' }, 'You are listening to Night Owl with Ruth Calloway, on WKRS.', 'Ruth’s show cut off in the middle of this song on October 14, 1961.', { t: 'On SHORT WAVE, somebody is reading numbers.', cls: 'dim' }],
@@ -727,20 +599,20 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
         return program(len, (g, t) => { let k = t; seq.forEach(s => { if (s > 0) tone(g, 640, k, s * u, 'sine', .3); k += Math.abs(s) * u; }); })();
       } },
     { id: 'hardware', band: 'am', f: 1210, name: 'Hartwell’s Hardware',
-      lines: () => ['Hartwell’s Hardware, on Main Street!', 'Flashlights. Batteries. Rope. Nails for the windows.', 'Everything you need for a long night in the fog.', { t: 'Hartwell’s closed in 1961. Nobody told the advertisement.', cls: 'dim' }],
+      lines: () => ['Hartwell’s Hardware, on Main Street!', 'Lamp oil. Matches. Nails for the windows.', 'Everything you need for a long night in the fog.', { t: 'Hartwell’s closed in 1961. Nobody told the advertisement.', cls: 'dim' }],
       voice: [0, 1, 2], audio: program(6, (g, t) => [67, 72, 76, 79, 76, 72].forEach((n, i) => tone(g, hz(n), t + i * .18, .3, 'square', .07))) },
     { id: 'backwards', band: 'am', f: 1490, name: 'The backwards voice',
       lines: () => ['A woman talking backwards. You write down what she says:', { t: 'DNAB KNALB EHT NO MI', cls: 'big' }, { t: 'She sounds very tired.', cls: 'dim' }],
       say: 'dnab. knalb. eht. no. mi.', audio: program(3, (g, t) => { for (let i = 0; i < 6; i++) tone(g, 180 + Math.random() * 220, t + i * .4, .35, 'sawtooth', .05); }) },
     { id: 'caller', band: 'am', f: 1560, name: 'The request line',
-      lines: () => { const n = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); return [`Night Owl request line. You’re on the air, ${who()}.`, `It’s ${n} where you are. We can hear the clock in your room.`, 'Don’t look behind you. It’s rude to look.', { t: 'The line goes quiet, but it doesn’t hang up.', cls: 'dim' }]; },
+      lines: () => { const n = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); return [`Night Owl request line. You’re on the air, ${who()}.`, `It’s ${n} where you are. We can see your lantern from here.`, 'Don’t look at the window. It’s rude to stare back.', { t: 'The line goes quiet, but nobody hangs up.', cls: 'dim' }]; },
       voice: [0, 1, 2], audio: program(1, (g, t) => tone(g, 2400, t, .02, 'square', .04)) },
     { id: 'buzzer', band: 'sw', f: 4.625, name: 'The buzzer',
       lines: () => ['BZZZT. BZZZT. BZZZT.', 'A buzzer that has sounded since before anyone in Marrow Falls was born.', { t: 'Once, it said a word. Nobody who heard it will say which.', cls: 'dim' }],
       audio: program(1.3, (g, t) => tone(g, 110, t, .9, 'sawtooth', .18)) },
     { id: 'numbers', band: 'sw', f: 7.31, name: 'The numbers',
-      lines: () => ['Four chimes. Then a flat voice:', { t: 'MARK. SEVEN. SEVEN. BAND: BLANK.', cls: 'big' }, { t: 'THE NIGHT LINE OPENS THE BAND.', cls: 'big' }],
-      say: 'Attention. Mark. Seven. Seven. Band. Blank. The night line opens the band. Repeat. Mark. Seven. Seven.', sayOpts: { rate: .7, pitch: .4 },
+      lines: () => ['Four chimes. Then a flat voice:', { t: 'MARK. SEVEN. SEVEN. BAND: BLANK.', cls: 'big' }, { t: state.xOpen ? 'The blank band is open. Go.' : 'The blank band is shut. Someone has to open it.', cls: 'dim' }],
+      say: 'Attention. Mark. Seven. Seven. Band. Blank. Repeat. Mark. Seven. Seven. Band. Blank.', sayOpts: { rate: .7, pitch: .4 },
       audio: program(11, (g, t) => [79, 74, 76, 67].forEach((n, i) => tone(g, hz(n), t + i * .5, 1.4, 'sine', .25))) },
     { id: 'lostfound', band: 'sw', f: 9.415, name: 'Lost and found',
       lines: () => ['Marrow Falls lost and found.', 'Found: one red glove. One dog, answers to Biscuit. One wristwatch, stopped at 3:12.', 'Still missing: Ruth Calloway. Four hundred residents. The year 1962.'],
@@ -762,9 +634,9 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
     });
   }
   function drawDial3D() {
-    const g = dialTex.userData.c.getContext('2d'), w = 512, h = 96, b = BANDS[band];
+    const g = dialTex.userData.g, w = 512, h = 96, b = BANDS[band];
     g.fillStyle = radioOn ? '#f3d58e' : '#6b5a44'; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#24170c'; g.strokeStyle = '#24170c'; g.font = 'bold 22px sans-serif'; g.textAlign = 'center';
+    g.fillStyle = '#24170c'; g.font = 'bold 22px sans-serif'; g.textAlign = 'center';
     b.major.forEach(v => { const x = 24 + toP(band, v) * (w - 48); g.fillRect(x - 1, 50, 2, 26); g.fillText(b.lab(v), x, 38); });
     g.font = '16px serif'; g.textAlign = 'left'; g.fillText(b.name, 8, 90);
     g.fillStyle = '#b3261e'; g.fillRect(24 + pos[band] * (w - 48) - 2, 4, 4, h - 8);
@@ -805,9 +677,8 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
     const b = BANDS[band]; nearest = null; let dist = 1;
     S.filter(s => s.band === band).forEach(s => { const d = Math.abs(s.p - pos[band]); if (d < dist) { dist = d; nearest = s; } });
     strength = Math.max(0, 1 - dist / b.hear);
-    const gap = band === 'x' ? 70 : 6 + 64 * (1 - strength);
-    magic.style.setProperty('--gap', `${gap}deg`);
-    eyeMat.color.setHex(radioOn ? 0x0b1a10 : 0x0b1a10).lerp(new THREE.Color(0x67f0a0), radioOn ? (band === 'x' ? .1 : .25 + .75 * strength) : 0);
+    magic.style.setProperty('--gap', `${band === 'x' ? 70 : 6 + 64 * (1 - strength)}deg`);
+    eyeMat.color.setHex(0x0b1a10).lerp(new THREE.Color(0x67f0a0), radioOn ? (band === 'x' ? .1 : .25 + .75 * strength) : 0);
     if (!radioOn) return;
     if (ctx) { radioNoise.gain.setTargetAtTime(.04 + .3 * (1 - strength), ctx.currentTime, .05); radioBus.gain.setTargetAtTime(strength, ctx.currentTime, .05); }
     if (current && (current !== nearest || dist > b.lock * 1.6)) stopStation();
@@ -844,7 +715,7 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   function setBand(b) {
     if (b === 'x' && !state.xOpen) {
       $('#band-' + band).checked = true; sfx.click();
-      txRun++; txEl.innerHTML = '<p>The unmarked switch won’t move. Something on the other end is holding it.</p><p class="dim">Maybe someone on the night line can let you through.</p>';
+      txRun++; txEl.innerHTML = '<p>The unmarked switch won’t move. Something is holding it shut.</p><p class="dim">Maybe whoever is in the typewriter knows how to open it.</p>';
       return;
     }
     if (current) stopStation();
@@ -865,72 +736,68 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   });
 
   // ================= the typewriter =================
-  const pageLines = []; let draft = '', carriageX = 0, twBusy = false, pendingName = false, twMisses = 0, greeted = false;
+  const pageLines = []; let draft = '', carriageX = 0, twBusy = false, pendingName = false, twMisses = 0;
+  const twLast = $('#twLast');
   function wrapLine(g, text, max) {
     const words = text.split(' '), out = []; let cur = '';
     words.forEach(w => { const t = cur ? cur + ' ' + w : w; if (g.measureText(t).width > max && cur) { out.push(cur); cur = w; } else cur = t; });
     out.push(cur); return out;
   }
+  const stains = Array.from({ length: 6 }, () => [rand(0, 512), rand(0, 640)]);
   function drawPaper() {
-    const g = paperTex.userData.c.getContext('2d'), w = 512, h = 640;
+    const g = paperTex.userData.g, w = 512, h = 640;
     g.fillStyle = '#ece2c9'; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 6; i++) { const gr = g.createRadialGradient(rand(0, w), rand(0, h), 5, rand(0, w), rand(0, h), 160); gr.addColorStop(0, 'rgba(120,90,40,.05)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
-    g.font = '32px "Special Elite", "Courier New", monospace'; g.textBaseline = 'alphabetic';
+    stains.forEach(([x, y]) => { const gr = g.createRadialGradient(x, y, 5, x, y, 150); gr.addColorStop(0, 'rgba(120,90,40,.07)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+    g.font = '34px "Special Elite", "Courier New", monospace'; g.textBaseline = 'alphabetic';
     const phys = [];
     pageLines.forEach(l => wrapLine(g, l.t, w - 60).forEach(t => phys.push({ t, who: l.who })));
-    phys.push({ t: (pendingName ? '' : '') + draft + '_', who: 'me' });
+    phys.push({ t: draft + '_', who: 'me' });
     const shown = phys.slice(-13);
-    shown.forEach((l, i) => { g.fillStyle = l.who === 'ghost' ? '#8a1610' : '#1a1712'; g.fillText(l.t, 30, h - 40 - (shown.length - 1 - i) * 44); });
+    shown.forEach((l, i) => { g.fillStyle = l.who === 'ghost' ? '#8a1610' : '#1a1712'; g.fillText(l.t, 30, h - 40 - (shown.length - 1 - i) * 46); });
     paperTex.needsUpdate = true;
   }
   function strike() { sfx.clack(); const k = pick(keys); k.position.y = k.userData.baseY - .006; setTimeout(() => k.position.y = k.userData.baseY, 80); carriageX = Math.min(.12, carriageX + .004); }
   async function ghostType(text, speed = 70) {
     twBusy = true;
     const line = { t: '', who: 'ghost' }; pageLines.push(line);
-    for (const ch of text) { line.t += ch; if (ch !== ' ') strike(); drawPaper(); await wait(speed + rand(0, 60)); }
+    for (const ch of text) { line.t += ch; if (ch !== ' ') strike(); drawPaper(); twLast.textContent = line.t; await wait(speed + rand(0, 60)); }
     sfx.ding(); carriageX = 0; await wait(250);
     twBusy = false; drawPaper();
   }
   const W = [
-    ['hello', ['hello', 'hi', 'hey', 'yes', 'imhere', 'hellothere', 'someone', 'me', 'yeah'], 'YOU CAN HEAR ME. GOOD. NOBODY HEARS ME ANYMORE. TURN OFF THE LAMP. LOOK AT THE WALL.'],
+    ['hello', ['hello', 'hi', 'hey', 'yes', 'imhere', 'hellothere', 'someone', 'me', 'yeah', 'iamhere'], 'YOU CAN HEAR ME. GOOD. PUT OUT THE LANTERN. THEN LOOK AT THE WINDOW.'],
     ['who', ['who', 'whoareyou', 'whoisthis', 'whoshere', 'whatareyou', 'whoisthere'], 'I READ THE WEATHER AT WKRS. NIGHT SHIFT. IT WAS ALWAYS FOG.'],
     ['ruth', ['ruth', 'ruthcalloway', 'calloway'], 'NOT SO LOUD. SHE CAN HEAR HER NAME ON EVERY FREQUENCY.'],
-    ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'whereruth', 'wheredidruthgo'], 'BETWEEN THE STATIONS. ON THE BAND WITH NO NAME. YOU NEED THE NUMBERS. AND THE NIGHT LINE.'],
-    ['fog', ['fog', 'thefog', 'mist'], 'IT CAME IN AT 3:12 AND NEVER LEFT. IT IS AT YOUR WINDOW NOW.', () => showFigure(9000)],
+    ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'whereruth', 'wheredidruthgo'], 'BETWEEN THE STATIONS. ON THE BAND WITH NO NAME. THE WINDOW KNOWS HOW TO OPEN IT.'],
+    ['band', ['opentheband', 'openband', 'theband', 'opentheblankband', 'open'], null],
+    ['fog', ['fog', 'thefog', 'mist'], 'IT CAME IN AT 3:12 AND NEVER LEFT. IT IS PRESSED AGAINST YOUR WINDOW NOW.', () => showFigure(9000)],
     ['1961', ['1961', 'october', 'october14', 'october141961', 'whathappened'], 'OCTOBER 14. THE TRANSMITTER SANG BY ITSELF. BY MORNING THE TOWN WAS EMPTY. ONLY HER VOICE STAYED.'],
-    ['312', ['312', '312am'], 'THAT IS A TIME. IT IS ALSO A NUMBER. THE PHONE STILL WORKS.'],
-    ['help', ['help', 'hint', 'helpme', 'what', 'idontunderstand'], 'I CANT HELP YOU. I CAN BARELY HELP MYSELF. ASK ME WHO. ASK ABOUT THE FOG. ASK ABOUT 1961.'],
-    ['biscuit', ['biscuit', 'dog', 'goodboy'], 'GOOD BOY. HE STILL WAITS BY THE DOOR.', () => setTimeout(() => { sfx.scratch(); caption('Something scratches at the bottom of the door. Then it stops.'); }, 1500)],
+    ['help', ['help', 'hint', 'helpme', 'what', 'idontunderstand'], 'I CANT HELP YOU. I CAN BARELY HELP MYSELF. ASK ME WHO. ASK ABOUT THE FOG. ASK WHERE RUTH IS.'],
+    ['biscuit', ['biscuit', 'dog', 'goodboy'], 'GOOD BOY. HE STILL WAITS OUTSIDE.', () => setTimeout(() => { sfx.scratch(); caption('Something scratches at the window glass. Low down. Then it stops.'); }, 1500)],
     ['marrowfalls', ['marrowfalls', 'marrow', 'town', 'whereami'], 'MARROW FALLS. POPULATION 400. POPULATION 1. POPULATION YOU.'],
     ['name', ['whatisyourname', 'whatsyourname', 'yourname', 'name'], 'I DONT REMEMBER MINE. WHAT IS YOURS?', () => { pendingName = true; }],
-    ['leave', ['leave', 'exit', 'goodbye', 'bye', 'letmeout', 'escape', 'iwanttoleave'], 'THE DOOR IS LOCKED FROM THE OTHER SIDE. YOU KNEW THAT.'],
-    ['door', ['door', 'whoisatthedoor', 'knock', 'knocking', 'whoisknocking'], 'NOBODY. NOBODY KNOCKS EVERY NIGHT AT THIS TIME.'],
+    ['leave', ['leave', 'exit', 'goodbye', 'bye', 'letmeout', 'escape', 'iwanttoleave'], 'THERE IS NOWHERE TO GO. THE FOG GOES ALL THE WAY OUT.'],
+    ['knock', ['knock', 'knocking', 'whoisknocking', 'tapping', 'whoistapping'], 'NOBODY. NOBODY TAPS ON THE GLASS EVERY NIGHT AT THIS TIME.'],
     ['radio', ['radio', 'wkrs', 'nightowl', 'station'], 'SHE IS ON THE RADIO. SHE IS ALWAYS ON THE RADIO.'],
-    ['dark', ['lamp', 'light', 'dark', 'thedark', 'lights'], 'LIGHT HIDES THINGS. THE DARK IS MORE HONEST.'],
+    ['dark', ['lantern', 'lamp', 'light', 'dark', 'thedark', 'fire'], 'LIGHT HIDES THINGS. THE DARK IS MORE HONEST.'],
     ['dead', ['areyoudead', 'dead', 'ghost', 'areyouaghost', 'areyoualive', 'alive'], 'DEFINE DEAD.'],
     ['scared', ['scared', 'imscared', 'afraid', 'imafraid', 'scary', 'thisisscary'], 'GOOD. IT MEANS YOU ARE PAYING ATTENTION.'],
     ['love', ['iloveyou', 'love'], 'NOBODY HAS TYPED THAT HERE SINCE 1961. THANK YOU.'],
     ['sorry', ['sorry', 'imsorry'], 'EVERYONE IS. NOBODY CAME BACK.'],
     ['time', ['time', 'whattimeisit', 'clock'], '3:12. ALWAYS 3:12.'],
     ['typewriter', ['typewriter', 'whoistyping', 'areyouthetypewriter'], 'I AM NOT THE TYPEWRITER. I AM INSIDE IT.'],
-    ['window', ['window', 'outside', 'whoisoutside', 'whoisatthewindow'], 'DONT LOOK OUT THE WINDOW TOO LONG. IT LOOKS BACK.'],
-    ['phone', ['phone', 'telephone', 'call', 'number', 'nightline'], 'THE NIGHT LINE IS WRITTEN ON THE WALL. YOU HAVE TO TURN OFF THE LIGHT TO READ IT.']
+    ['window', ['window', 'outside', 'whoisoutside', 'whoisatthewindow'], 'DONT WIPE THE GLASS TOO MUCH. IT LIKES TO SEE YOU TOO.'],
+    ['behind', ['behindme', 'whoisbehindme', 'lookbehind', 'turnaround'], 'DONT.']
   ];
   const WMAP = {}; W.forEach(([id, al, reply, fx]) => al.forEach(a => WMAP[a] = { id, reply, fx }));
   const twMisfires = ['I DONT UNDERSTAND.', 'WHAT?', 'THE KEYS ARE COLD.', 'TYPE SLOWER.', '...', 'NO.', 'SAY THAT AGAIN. NO. DONT.'];
-  function onTypewriterOpen() {
-    if (!greeted && !twBusy) { greeted = true; setTimeout(() => ghostType(state.ended ? 'YOU CAME BACK. GOOD. THE NIGHT SHIFT NEVER ENDS.' : 'IS SOMEONE THERE?'), 500); }
-  }
   const twInput = $('#twInput');
-  twInput.addEventListener('input', () => {
-    const v = twInput.value.toUpperCase();
-    if (v.length > draft.length) strike(); draft = v; drawPaper();
-  });
+  twInput.addEventListener('input', () => { const v = twInput.value.toUpperCase(); if (v.length > draft.length) strike(); draft = v; drawPaper(); });
   $('#twForm').addEventListener('submit', async e => {
     e.preventDefault();
     const raw = twInput.value.trim(); if (!raw || twBusy) return;
     twInput.value = ''; draft = '';
-    pageLines.push({ t: raw.toUpperCase(), who: 'me' }); sfx.ding(); carriageX = 0; drawPaper();
+    pageLines.push({ t: raw.toUpperCase(), who: 'me' }); sfx.ding(); carriageX = 0; drawPaper(); twLast.textContent = '';
     await wait(900 + rand(0, 700));
     const code = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (pendingName) {
@@ -941,145 +808,72 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
     }
     if (state.name && code === state.name.toLowerCase().replace(/[^a-z0-9]/g, '')) return ghostType('YES. I KNOW. I HAVE BEEN SAYING IT TO MYSELF.');
     const hit = WMAP[code];
-    if (!hit) { twMisses++; return ghostType(twMisses >= 4 && twMisses % 2 === 0 ? 'ASK ME WHO. ASK ME ABOUT THE FOG.' : pick(twMisfires)); }
+    if (!hit) { twMisses++; return ghostType(twMisses >= 4 && twMisses % 2 === 0 ? 'ASK ME WHO. ASK WHERE RUTH IS.' : pick(twMisfires)); }
     twMisses = 0;
+    if (hit.id === 'band') {
+      if (!state.room.includes('writing')) return ghostType('OPEN WHAT? YOU HAVENT READ THE WINDOW YET.');
+      const first = !state.xOpen; state.xOpen = true; save(); note('words', 'band');
+      await ghostType(first ? 'YOU READ IT. GOOD. THE BLANK BAND IS OPEN NOW. LISTEN FOR THE NUMBERS.' : 'IT IS ALREADY OPEN. LISTEN FOR THE NUMBERS.');
+      if (first) { sfx.click(); caption('Inside the radio, something goes click.'); }
+      return;
+    }
     if (note('words', hit.id)) setTimeout(() => caption('A new answer is in your notes.', 2200), 300);
     await ghostType(hit.reply);
     if (hit.fx) hit.fx();
   });
 
-  // ================= the telephone =================
-  const ring = $('#ring'), dialedEl = $('#dialed'), callTx = $('#callTx'), phoneState = $('#phoneState');
-  let digits = '', dialTimer = null, onCall = false, ringing = false, ringTimer = null, phoneShake = 0;
-  const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
-  DIGITS.forEach((d, i) => {
-    const a = (-60 - i * 30) * Math.PI / 180, b = document.createElement('button');
-    b.className = 'hole'; b.type = 'button'; b.textContent = d; b.setAttribute('aria-label', `Dial ${d}`);
-    b.style.left = `${50 + Math.cos(a) * 36}%`; b.style.top = `${50 + Math.sin(a) * 36}%`;
-    b.addEventListener('click', () => dial(d, i));
-    ring.appendChild(b);
-  });
-  let dialing = false;
-  async function dial(d, i) {
-    if (onCall || dialing) return;
-    initAudio(); dialing = true; clearTimeout(dialTimer);
-    const n = d === '0' ? 10 : +d;
-    ring.style.transition = 'transform .45s ease-out'; ring.style.transform = `rotate(${(i + 1) * 30 + 40}deg)`;
-    await wait(reduce ? 0 : 460);
-    const back = sfx.pulse(n);
-    ring.style.transition = `transform ${back}s linear`; ring.style.transform = 'rotate(0deg)';
-    await wait(reduce ? 0 : back * 1000);
-    dialing = false;
-    digits += d; dialedEl.textContent = digits.split('').join(' ');
-    clearTimeout(dialTimer); dialTimer = setTimeout(placeCall, 2400);
+  // ================= the lantern and the window =================
+  let lit = true, gutter = 0, flameLevel = 1;
+  function setLantern(on) {
+    lit = on; sfx.squeak(); if (!on) sfx.hiss();
+    if (!on && !state.room.includes('writing')) setTimeout(() => caption('With the lantern out, something shows in the fog on the window.'), 1600);
   }
-  const CALLS = {
-    '312': { id: 'nightline', name: 'The night line (312)', lines: ['WKRS night line.', 'Ruth can’t come to the phone. She’s on the air. She’s always on the air.', 'I’ll open the band for you. Don’t stay too long.'], fx: () => { if (!state.xOpen) { state.xOpen = true; save(); setTimeout(() => caption('Across the desk, inside the radio, something goes click.'), 600); sfx.click(); } }, opts: { rate: .78, pitch: .55 } },
-    '0': { id: 'operator', name: 'The operator (0)', lines: ['Operator.', 'There is no one left to connect you to.'] },
-    '911': { id: 'emergency', name: 'Emergency (911)', lines: ['All circuits are busy.', 'All circuits have been busy since nineteen sixty one.'], opts: { rate: .9, pitch: 1 } },
-    '1961': { id: 'year', name: 'The year (1961)', breath: true, lines: ['(breathing)', '...you found the year. Don’t find the rest of it.'], opts: { rate: .7, pitch: .5 } },
-    '880': { id: 'studio', name: 'The studio line (880)', lines: ['You can’t call a radio station by its frequency.', '...', 'Although. Hello?'], opts: { rate: .9, pitch: 1.1 } }
-  };
-  async function placeCall() {
-    const num = digits; if (!num) return;
-    onCall = true; phoneState.textContent = 'Calling';
-    handset.position.y = .25;
-    callTx.textContent = 'Ringing…'; sfx.ringback(); await wait(2600);
-    if (!onCall) return;
-    const c = CALLS[num];
-    if (!c) { callTx.textContent = 'The number you have dialed is not in service in Marrow Falls.'; await speak('The number you have dialed is not in service in Marrow Falls.', { rate: .95, pitch: 1 }); return hangUp('Click.'); }
-    phoneState.textContent = 'Connected';
-    if (note('calls', c.id)) caption(`Noted: ${c.name}.`, 2400);
-    if (c.breath && ctx) { for (let i = 0; i < 3; i++) burst(now() + i * 1.4, 1.1, 500, .25, .6); await wait(4200); }
-    callTx.textContent = '';
-    for (const l of c.lines) {
-      if (!onCall) return;
-      const p = document.createElement('p'); p.style.margin = '0 0 .3em'; p.textContent = l; callTx.appendChild(p);
-      if (!l.startsWith('(')) await speak(l, c.opts || { rate: .82, pitch: .7 }); else await wait(800);
-    }
-    if (c.fx) c.fx();
-    await wait(800); if (onCall) hangUp('The line goes dead.');
-  }
-  function hangUp(msg) {
-    onCall = false; hush(); digits = ''; dialedEl.textContent = ''; clearTimeout(dialTimer);
-    handset.position.y = .135; phoneState.textContent = 'Dial tone';
-    if (msg) { const p = document.createElement('p'); p.style.cssText = 'margin:0;color:var(--bone-dim)'; p.textContent = msg; callTx.appendChild(p); }
-    else callTx.innerHTML = '<span style="color:var(--bone-dim)">Click the holes to dial.</span>';
-    sfx.click();
-  }
-  $('#hangup').addEventListener('click', () => hangUp());
-  function startRinging() {
-    if (ringing || onCall || ending) return;
-    ringing = true; let n = 0;
-    caption('The telephone is ringing.');
-    const once = () => { if (!ringing) return; sfx.ring(); phoneShake = 1.6; if (++n >= 5) { ringing = false; afterUnanswered(); return; } ringTimer = setTimeout(once, 3800); };
-    once();
-  }
-  function afterUnanswered() {
-    fogWords = 'DONT\nPICK UP'; fogWordsA = 0;
-    caption('It stops. Something is written in the fog on the window now.');
-  }
-  async function answerRing() {
-    ringing = false; clearTimeout(ringTimer); onCall = true; handset.position.y = .25;
-    phoneState.textContent = 'Connected'; callTx.textContent = '';
-    if (ctx) burst(now(), 2, 600, .2, .5);
-    await wait(1800);
-    const p = document.createElement('p'); p.style.margin = '0'; p.textContent = '(a whisper) Turn around.'; callTx.appendChild(p);
-    await speak('Turn around.', { rate: .6, pitch: .3 });
-    note('room', 'whisper');
-    await wait(700); hangUp('Click. Nobody behind you, of course.');
-    caption('You turn around. There is nobody there. Of course there isn’t.');
-  }
-
-  // ================= room interactions =================
-  let lampOn = true, lampFlicker = 0;
-  function setLamp(on) {
-    lampOn = on; sfx.click();
-    lampLight.intensity = on ? 1.7 : 0; bulbMat.color.setHex(on ? 0xffe2a8 : 0x222018);
-    hemi.intensity = on ? .22 : .09;
-    if (!on && !state.room.includes('wall')) caption('In the dark, something on the wall starts to glow.');
-  }
-  let knockedAt = 0;
-  function interact(o) {
+  function wipeAt(uv) {
     initAudio();
-    if (o === 'lamp') return setLamp(!lampOn);
-    if (o === 'phone' && ringing) { goTo('phone'); return answerRing(); }
-    if (o !== view) goTo(o);
-    if (o === 'wall') {
-      if (!lampOn) { note('room', 'wall'); caption('Words glow on the wallpaper where the lamp was hiding them: 3 1 2. ASK FOR RUTH.', 7000); }
-      else caption('Faded wallpaper. Someone scrubbed something off it once.');
-    }
-    if (o === 'clock') { note('room', 'clock'); caption('3:12. The second hand twitches, but it never moves on.'); if (ctx) for (let i = 0; i < 5; i++) burst(now() + i, .02, 3000, .3, 5); }
-    if (o === 'photo') { note('room', 'photo'); caption(photoEmpty ? 'The photo shows an empty chair at the microphone now.' : 'R.C., WKRS, 1961. She is looking just past the camera. At you.'); }
-    if (o === 'door') {
-      note('room', 'door');
-      caption(Date.now() - knockedAt < 15000 ? 'Whoever knocked is gone. Or is being very quiet.' : 'Locked. From the other side. Light leaks under it.');
-    }
-    if (o === 'window') {
-      if (figure > .3) { note('room', 'figure'); caption('Someone is standing in the fog. When you look straight at them, they’re gone.'); figureTarget = 0; }
-      else if (fogWordsA > .3 || fogWords) caption('Someone wrote on the glass from the outside.');
-      else caption('Fog presses against the glass. It is very patient.');
-    }
+    wipes.push({ x: uv.x * WTX, y: (1 - uv.y) * WTY, r: rand(34, 46), a: 1 });
+    if (wipes.length > 400) wipes.shift();
+    if (Math.random() < .2) burst(now(), .08, 3000, .05, 2);
+  }
+  function windowLook() {
+    if (figure > .3) { note('room', 'figure'); caption('Someone is standing in the fog. When you look straight at them, they’re gone.'); figureTarget = 0; return; }
+    if (hand > .3) { note('room', 'hand'); caption('A handprint, pressed into the fog. From the outside.'); return; }
+    if (writingA > .3 || !lit) { note('room', 'writing'); caption(`Someone wrote in the fog with a finger: ${windowWords.replace('\n', ' ')}.`, 6500); return; }
+    caption(pick(['You wipe the glass. Only fog, and the trees.', 'The glass is ice cold.', 'Fog presses against the window. It is very patient.']));
   }
   function showFigure(ms) { figureTarget = 1; setTimeout(() => figureTarget = 0, ms); }
 
+  // ================= panels =================
+  let openPanel = null;
+  function closePanels() { ['#radioPanel', '#twPanel'].forEach(s => $(s).hidden = true); openPanel = null; }
+  function show(name) {
+    closePanels(); openPanel = name;
+    if (name === 'radio') { $('#radioPanel').hidden = false; placeNeedle(); }
+    if (name === 'typewriter') { $('#twPanel').hidden = false; if (matchMedia('(pointer: fine)').matches) twInput.focus(); }
+  }
+  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closePanels));
+  addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#notes').hidden) toggleNotes(false); else closePanels(); } });
+  function interact(o) {
+    initAudio();
+    if (o === 'lantern') return setLantern(!lit);
+    if (o === 'window') return windowLook();
+    show(o);
+  }
+
   // ================= random scares =================
-  let entered = false, ending = false, ghostLetterIdx = 0;
-  const GHOST = 'RUTH IS STILL HERE';
+  let entered = false, ending = false, ghostIdx = 0;
+  const GHOST = 'RUTH IS STILL HERE ';
   const events = [
-    [3, () => { lampFlicker = 1.4; sfx.hum(); }],
-    [2, () => { sfx.knock(); knockedAt = Date.now(); caption('Three knocks at the door.'); }],
-    [2, () => { feet.visible = true; feet.position.x = -.5; caption('A shadow moves under the door.', 3500); }],
-    [2, () => showFigure(lampOn ? 4000 : 8000)],
+    [3, () => { gutter = 1.4; }],
+    [2, () => { sfx.tap(); caption('Something taps on the glass. Three times.'); }],
+    [2, () => showFigure(lit ? 4500 : 9000)],
+    [2, () => { handTarget = 1; setTimeout(() => handTarget = 0, 12000); sfx.squeak(); caption('A squeak on the glass, like a palm pressed flat.', 3500); }],
     [2, () => {
-      if (view === 'typewriter' || twBusy) return;
-      const ch = GHOST[ghostLetterIdx % GHOST.length]; ghostLetterIdx++;
+      if (twBusy || openPanel === 'typewriter') return;
       let line = pageLines[pageLines.length - 1];
-      if (!line || line.who !== 'ghost' || !line.ghostLetters) { line = { t: '', who: 'ghost', ghostLetters: true }; pageLines.push(line); }
-      line.t += ch; strike(); drawPaper(); caption('Behind you, one typewriter key strikes by itself.', 3500);
+      if (!line || !line.ghostLetters) { line = { t: '', who: 'ghost', ghostLetters: true }; pageLines.push(line); }
+      line.t += GHOST[ghostIdx++ % GHOST.length]; strike(); drawPaper(); caption('One typewriter key strikes by itself.', 3500);
     }],
-    [1, () => { if (!radioOn) { initAudio(); if (ctx) { radioNoise.gain.setTargetAtTime(.3, now(), .05); radioNoise.gain.setTargetAtTime(0, now() + 1.6, .2); } dialMat.color.setHex(0xffffff); setTimeout(() => !radioOn && dialMat.color.setHex(0x5a4a38), 1700); caption('The radio crackles on for a moment. Nobody touched it.', 3500); } }],
-    [1, () => { if (!state.room.includes('whisper') && !ringing && !onCall) startRinging(); }],
+    [1, () => { if (!radioOn && ctx) { radioNoise.gain.setTargetAtTime(.3, now(), .05); radioNoise.gain.setTargetAtTime(0, now() + 1.6, .2); dialMat.color.setHex(0xffffff); setTimeout(() => !radioOn && dialMat.color.setHex(0x5a4a38), 1700); caption('The radio crackles on for a moment. Nobody touched it.', 3500); } }],
     [1, () => sfx.heartbeat()]
   ];
   function scheduleScare() {
@@ -1089,14 +883,14 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
         for (const [w, fn] of events) { if ((r -= w) <= 0) { fn(); break; } }
       }
       scheduleScare();
-    }, rand(lampOn ? 22000 : 14000, lampOn ? 40000 : 26000));
+    }, rand(lit ? 20000 : 12000, lit ? 36000 : 24000));
   }
 
   // ================= the ending =================
   async function runEnding() {
     if (ending) return; ending = true;
     note('radio', 'ruth');
-    const name = state.name ? state.name.charAt(0) + state.name.slice(1).toLowerCase() : '';
+    const name = state.name ? who() : '';
     const lines = ['Hello? Is someone there?', 'Oh. Oh, you found me.', `I’ve been talking into the fog for ${years()} years.${name ? ' Thank you, ' + name + '.' : ''}`, 'Let me finish the song. I hate leaving a song unfinished.'];
     speak(lines.join(' ... '), { rate: .9, pitch: 1.05 });
     await typeTx(lines.concat([{ t: 'The waltz picks up where it stopped in 1961.', cls: 'dim' }]));
@@ -1106,51 +900,48 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
     await typeTx(['This is WKRS, Marrow Falls, signing off.', 'Thank you for listening. Goodnight.']);
     if (ctx) program(0, (g, t) => tone(g, 1000, t, 3, 'sine', .15))();
     await wait(3400);
-    setRadio(false); ending = true;
-    state.ended = true; photoEmpty = true; photoTex.userData.draw(); save();
+    setRadio(false); closePanels();
+    state.ended = true; save();
     // the twist
-    goTo('home');
-    await wait(1600);
-    setLamp(false); $('#blackout').classList.add('on'); sfx.sting();
-    await wait(3200);
+    await wait(1200);
+    lit = false; sfx.hiss(); await wait(600);
+    $('#blackout').classList.add('on'); sfx.sting();
+    await wait(3000);
+    windowWords = 'STAY'; figureTarget = 1;
     $('#blackout').classList.remove('on');
-    fogWords = 'STAY'; fogWordsA = 0; figureTarget = 1;
-    await wait(1800);
-    goTo('typewriter'); closePanels();
-    await wait(1600);
+    await wait(2200);
     await ghostType('SOMEONE HAS TO STAY ON THE AIR.', 110);
     await wait(900);
-    radioOn = true; dialMat.color.setHex(0xffffff); radioGlow.intensity = .7;
-    if (ctx) { radioNoise.gain.setTargetAtTime(.12, now(), .1); }
+    dialMat.color.setHex(0xffffff); radioGlow.intensity = .7;
+    if (ctx) radioNoise.gain.setTargetAtTime(.12, now(), .1);
     await speak(`You’re listening to Night Owl. With ${name || 'you'}.`, { rate: .75, pitch: .5 });
-    radioOn = false; dialMat.color.setHex(0x5a4a38); radioGlow.intensity = 0; if (ctx) radioNoise.gain.setTargetAtTime(0, now(), .3);
-    figureTarget = 0; setLamp(true);
+    dialMat.color.setHex(0x5a4a38); radioGlow.intensity = 0; if (ctx) radioNoise.gain.setTargetAtTime(0, now(), .3);
+    figureTarget = 0; lit = true; sfx.squeak();
+    setTimeout(() => { windowWords = 'OPEN\nTHE BAND'; }, 6000);
     ending = false;
-    const total = S.length + W.length + Object.keys(CALLS).length + ROOM.length;
-    $('#endText').textContent = `Ruth signed off. Somebody had to take her place. You found ${foundCount()} of ${total} things in the booth. The rest are still here, and so are you.`;
+    $('#endText').textContent = `Ruth signed off. Somebody had to take her place. You found ${foundCount()} of ${totalCount()} things at the desk. The rest are still here, and so are you.`;
     $('#endcard').hidden = false;
   }
-  $('#endClose').addEventListener('click', () => { $('#endcard').hidden = true; goTo('home'); });
+  $('#endClose').addEventListener('click', () => { $('#endcard').hidden = true; });
 
   // ================= notes =================
-  const ROOM = [['wall', 'Writing on the wall'], ['clock', 'The stopped clock'], ['photo', 'The photograph'], ['door', 'The locked door'], ['figure', 'Someone in the fog'], ['whisper', 'The call you answered']];
-  const foundCount = () => state.radio.length + state.words.length + state.calls.length + state.room.length;
+  const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone outside'], ['hand', 'The handprint']];
+  const foundCount = () => state.radio.length + state.words.length + state.room.length;
+  const totalCount = () => S.length + W.length + ROOM.length;
   function updateNotesCount() { $('#notesCount').textContent = `${foundCount()}`; }
   function renderNotes() {
-    const sec = (title, all, have, nameOf) => {
-      const items = all.map(([id, nm]) => have.includes(id) ? `<li>${nm}</li>` : `<li class="unk">${'?'.repeat(Math.min(10, nm.length))}</li>`).join('');
+    const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const sec = (title, all, have) => {
+      const items = all.map(([id, nm]) => have.includes(id) ? `<li>${esc(nm)}</li>` : `<li class="unk">${'?'.repeat(Math.min(10, nm.length))}</li>`).join('');
       return `<h3><span>${title}</span><span class="count">${all.filter(([id]) => have.includes(id)).length} / ${all.length}</span></h3><ul>${items}</ul>`;
     };
-    const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     $('#notesBody').innerHTML =
       (state.ended ? '<span class="stamp">Signal recovered</span>' : '') +
-      sec('Radio stations', S.map(s => [s.id, esc(s.band === 'x' ? 'Mark 77: ' + s.name : `${BANDS[s.band].fmt(s.f)}: ${s.name}`)]), state.radio) +
-      sec('The typewriter answered', W.map(([id]) => [id, `“${esc(id.toUpperCase())}”`]), state.words) +
-      sec('Calls', Object.values(CALLS).map(c => [c.id, esc(c.name)]), state.calls) +
-      sec('The room', ROOM, state.room);
-    $('#notesBody').style.cssText = 'display:flex;flex-direction:column;gap:12px';
+      sec('Radio stations', S.map(s => [s.id, s.band === 'x' ? 'Mark 77: ' + s.name : `${BANDS[s.band].fmt(s.f)}: ${s.name}`]), state.radio) +
+      sec('The typewriter answered', W.map(([id]) => [id, `“${id.toUpperCase()}”`]), state.words) +
+      sec('The window', ROOM, state.room);
   }
-  function toggleNotes(show) { if (show) renderNotes(); $('#notes').hidden = !show; if (show) $('#closeNotes').focus(); }
+  function toggleNotes(on) { if (on) renderNotes(); $('#notes').hidden = !on; if (on) $('#closeNotes').focus(); }
   $('#notesBtn').addEventListener('click', () => toggleNotes(true));
   $('#closeNotes').addEventListener('click', () => toggleNotes(false));
   $('#notes').addEventListener('click', e => { if (e.target.id === 'notes') toggleNotes(false); });
@@ -1158,7 +949,7 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   fb.addEventListener('click', () => {
     if (!fb.dataset.armed) { fb.dataset.armed = '1'; fb.textContent = 'Tap again to erase'; setTimeout(() => { delete fb.dataset.armed; fb.textContent = 'Erase everything'; }, 3000); return; }
     delete fb.dataset.armed; fb.textContent = 'Erase everything';
-    state = fresh(); save(); photoEmpty = false; photoTex.userData.draw(); fogWords = ''; if (band === 'x') setBand('am');
+    state = fresh(); save(); windowWords = 'OPEN\nTHE BAND'; if (band === 'x') setBand('am');
     renderNotes(); updateNotesCount();
   });
 
@@ -1166,54 +957,41 @@ body.paneled #caption { bottom: auto; top: calc(56px + env(safe-area-inset-top, 
   $('#enter').addEventListener('click', () => {
     initAudio(); entered = true;
     $('#start').classList.add('gone'); setTimeout(() => $('#start').hidden = true, 1500);
-    caption(state.ended ? 'The booth again. The lamp is still on.' : 'Somewhere in the booth, a typewriter key strikes once.', 5000);
-    if (innerWidth / innerHeight < .85) setTimeout(() => caption('Swipe to look around. Tap things.', 4000), 5600);
-    setTimeout(() => sfx.clack(), 1200);
+    caption('The lantern hisses. The fog is thick tonight.', 4200);
+    setTimeout(() => ghostType(state.ended ? 'YOU CAME BACK. GOOD. THE NIGHT SHIFT NEVER ENDS.' : 'IS SOMEONE THERE?'), 5200);
+    setTimeout(() => caption('Click the typewriter to answer.', 4000), 9500);
     scheduleScare();
   });
 
   // ================= loop =================
-  const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   let last = performance.now(), frame = 0;
   function loop(t) {
     const dt = Math.min(.05, (t - last) / 1000); last = t; frame++;
-    if (tween) {
-      const k = Math.min(1, (t - tween.s) / tween.d), e = ease(k);
-      camPos.lerpVectors(tween.fp, tween.tp, e); camTgt.lerpVectors(tween.ft, tween.tt, e);
-      if (k >= 1) tween = null;
-    }
-    const sway = view === 'home' ? 1 : .25;
-    camera.position.set(camPos.x + mouse.x * .18 * sway + Math.sin(t / 3100) * .012, camPos.y - mouse.y * .08 * sway + Math.sin(t / 2300) * .008, camPos.z);
-    camera.position.x += panX * .35;
-    camera.lookAt(camTgt.x + mouse.x * .25 * sway + panX, camTgt.y - mouse.y * .12 * sway, camTgt.z);
-    // lamp flicker
-    if (lampOn) {
-      if (lampFlicker > 0) { lampFlicker -= dt; lampLight.intensity = Math.random() < .5 ? .2 : 1.7; }
-      else lampLight.intensity = 1.6 + Math.sin(t / 90) * .03 + (Math.random() < .004 ? -1 : 0);
-      bulbMat.color.setHex(lampLight.intensity > 1 ? 0xffe2a8 : 0x5a4a30);
-    }
-    // writing glows in the dark
-    writingMat.opacity += (((lampOn && lampLight.intensity > 1) ? 0 : .9) - writingMat.opacity) * Math.min(1, dt * 1.5);
-    // window
+    // only a slight drift: breathing plus a little lean toward the pointer
+    const lean = reduce ? 0 : 1;
+    camera.position.set(CAM.pp.x + (mouse.x * .035 + Math.sin(t / 3100) * .008) * lean, CAM.pp.y + (-mouse.y * .02 + Math.sin(t / 2300) * .006) * lean, CAM.pp.z);
+    camera.lookAt(CAM.tt);
+    // lantern flame
+    flameLevel += ((lit ? 1 : 0) - flameLevel) * Math.min(1, dt * (lit ? 2 : 4));
+    let flick = .9 + Math.sin(t / 70) * .05 + Math.sin(t / 23) * .04 + rand(-.04, .04);
+    if (gutter > 0) { gutter -= dt; flick *= Math.random() < .5 ? .25 : 1; }
+    const L = Math.max(0, flameLevel * flick);
+    lanternLight.intensity = 2 * L;
+    flame.scale.set(1, .4 + .6 * L + rand(0, .08) * L, 1); flame.visible = L > .03; flameCore.visible = L > .03;
+    glowMat.opacity = Math.min(1, L * .9); glow.scale.set(.16 + .08 * L, .22 + .1 * L, 1);
+    globeMat.emissiveIntensity = .05 + .4 * L;
+    hemi.intensity = .1 + .1 * L;
+    // window: the finger-writing only shows once the lantern is out
     figure += (figureTarget - figure) * Math.min(1, dt * 1.2);
-    if (fogWords) fogWordsA += (1 - fogWordsA) * Math.min(1, dt * .5);
+    hand += (handTarget - hand) * Math.min(1, dt * .8);
+    writingA += ((L < .2 ? 1 : 0) - writingA) * Math.min(1, dt * .7);
     if (frame % 2 === 0) drawWindow(t);
-    // feet under the door
-    if (feet.visible) { feet.position.x += dt * .22; if (feet.position.x > .5) feet.visible = false; }
-    spillMat.opacity = .16 * (feet.visible ? .55 : 1);
-    // phone rattles while ringing
-    if (phoneShake > 0) { phoneShake -= dt; phone.position.x = .88 + Math.sin(t / 18) * .004; handset.rotation.z = Math.sin(t / 22) * .03; } else { phone.position.x = .88; handset.rotation.z = 0; }
-    // typewriter carriage
     carriage.position.x += (-carriageX - carriage.position.x) * Math.min(1, dt * 12);
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
   }
-  drawScale(); placeNeedle(); evaluate(); updateNotesCount();
-  goTo('home'); if (tween) { camPos.copy(tween.tp); camTgt.copy(tween.tt); tween = null; }
-  addEventListener('resize', () => { if (view === 'home') goTo('home'); });
-  const fontsReady = document.fonts ? document.fonts.ready : Promise.resolve();
-  fontsReady.then(() => { drawPaper(); wallWriting.userData.draw(); photoTex.userData.draw(); placeNeedle(); });
-  drawPaper();
+  drawScale(); placeNeedle(); evaluate(); updateNotesCount(); drawPaper();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { drawPaper(); placeNeedle(); });
   requestAnimationFrame(loop);
 })();
 </script>
