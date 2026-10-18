@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Dead Air</title>
+<title>The Hollowtide</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -46,7 +46,7 @@ body.hovering #gl { cursor: pointer; }
 }
 #start.gone { opacity: 0; pointer-events: none; }
 .start-inner { display: flex; flex-direction: column; align-items: center; gap: 18px; max-width: 34rem; }
-#start h1 { margin: 0; font-family: var(--title); font-weight: 400; font-size: clamp(3rem, 13vw, 6.5rem); letter-spacing: .06em; color: var(--bone); text-shadow: 0 0 30px rgba(179, 38, 30, .45); animation: breathe 5s ease-in-out infinite; }
+#start h1 { margin: 0; font-family: var(--title); font-weight: 400; font-size: clamp(2.6rem, 11vw, 5.6rem); letter-spacing: .06em; text-wrap: balance; color: var(--bone); text-shadow: 0 0 30px rgba(179, 38, 30, .45); animation: breathe 5s ease-in-out infinite; }
 @keyframes breathe { 50% { opacity: .78; letter-spacing: .075em; } }
 #start p { margin: 0; line-height: 1.6; color: var(--bone-dim); }
 #start .when { font-family: var(--label); font-size: .78rem; letter-spacing: .28em; text-transform: uppercase; color: var(--ember); }
@@ -175,7 +175,7 @@ body.hovering #gl { cursor: pointer; }
 <div id="start">
   <div class="start-inner">
     <span class="when">HollowVale Harbor · October 14, 1961 · 3:12 a.m.</span>
-    <h1>Dead Air</h1>
+    <h1>The Hollowtide</h1>
     <p>A desk by a window. A radio that still works. A lantern burning low. A computer terminal that answers any question. A telephone on the wall that still rings, though the line was cut in 1961.</p>
     <p>Click things in the room. Headphones help. So does the dark.</p>
     <button id="enter" type="button">Sit down</button>
@@ -185,7 +185,7 @@ body.hovering #gl { cursor: pointer; }
 </div>
 
 <div class="hud" id="topbar">
-  <span class="where">Dead Air</span>
+  <span class="where">The Hollowtide</span>
   <button class="btn" id="notesBtn" type="button">Notes <span id="notesCount"></span></button>
 </div>
 <div id="hoverLabel" hidden></div>
@@ -281,7 +281,24 @@ body.hovering #gl { cursor: pointer; }
   })();
 
   // ================= audio =================
-  let ctx, master, ambGain, radioNoise, radioBus, songGain = null, speakerIn = null;
+  let ctx, master, ambGain, radioNoise, radioBus, songGain = null, speakerIn = null, windGain = null, rainGain = null, phoneIn = null;
+  // the man on the phone: every line pre-recorded, cut from one file
+  const phoneTape = { buf: null, map: null, src: null };
+  function loadPhone() {
+    Promise.all([
+      fetch('phone.mp3').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(b => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej))),
+      fetch('phone.json').then(r => { if (!r.ok) throw 0; return r.json(); })
+    ]).then(([buf, map]) => { phoneTape.buf = buf; phoneTape.map = map; }).catch(() => {});
+  }
+  function phoneStop() { if (phoneTape.src) { try { phoneTape.src.stop(); } catch (e) {} phoneTape.src = null; } }
+  function playPhone(text) {
+    const cue = phoneTape.map && phoneTape.map[text];
+    if (!ctx || !phoneTape.buf || !cue || !phoneIn) return null;
+    phoneStop();
+    const src = ctx.createBufferSource(); src.buffer = phoneTape.buf; src.connect(phoneIn);
+    phoneTape.src = src; src.start(0, cue[0], cue[1] + .05);
+    return new Promise(res => { src.onended = res; });
+  }
   // recorded shows (Station 49 and 72): fetched with their caption cues, decoded, and played through the radio speaker
   const TRACKS = {};
   const track = name => TRACKS[name] || (TRACKS[name] = { name, buf: null, cues: null, loading: null, src: null, at: 0, startedAt: 0, gain: null });
@@ -342,7 +359,16 @@ body.hovering #gl { cursor: pointer; }
       [[55, .16], [55.6, .16], [82.4, .05]].forEach(([f, v]) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f; g.gain.value = v; o.connect(g).connect(ambGain); o.start(); });
       const wind = ctx.createBufferSource(); wind.buffer = noiseBuffer(4); wind.loop = true;
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
-      const wg = ctx.createGain(); wg.gain.value = .08; wind.connect(lp).connect(wg).connect(ambGain); wind.start();
+      windGain = ctx.createGain(); windGain.gain.value = .08; wind.connect(lp).connect(windGain).connect(ambGain); wind.start();
+      const rain = ctx.createBufferSource(); rain.buffer = noiseBuffer(3); rain.loop = true;
+      const rhp = ctx.createBiquadFilter(); rhp.type = 'highpass'; rhp.frequency.value = 2400;
+      rainGain = ctx.createGain(); rainGain.gain.value = .015; rain.connect(rhp).connect(rainGain).connect(master); rain.start();
+      // the phone: a thin, crackly line
+      const php = ctx.createBiquadFilter(); php.type = 'highpass'; php.frequency.value = 320;
+      const plp = ctx.createBiquadFilter(); plp.type = 'lowpass'; plp.frequency.value = 3300;
+      const shaper = ctx.createWaveShaper(); const curve = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(2.2 * x) / Math.tanh(2.2); } shaper.curve = curve;
+      phoneIn = ctx.createGain(); phoneIn.gain.value = 1.1; phoneIn.connect(php).connect(plp).connect(shaper).connect(master);
+      loadPhone();
       const lfo = ctx.createOscillator(), lfoG = ctx.createGain(); lfo.frequency.value = .07; lfoG.gain.value = 220; lfo.connect(lfoG).connect(lp.frequency); lfo.start();
       ambGain.gain.setTargetAtTime(.55, ctx.currentTime, 2);
       const rn = ctx.createBufferSource(); rn.buffer = noiseBuffer(2, true); rn.loop = true;
@@ -510,9 +536,42 @@ body.hovering #gl { cursor: pointer; }
   const streetTex = canvasTex(STX, STY, (g, w, h) => { g.fillStyle = '#0b0c12'; g.fillRect(0, 0, w, h); });
   const FIG_SPOTS = [[.27, .5, .075], [.47, .63, .12], [.58, .86, .24]]; // under the streetlight, in the road, by the car
   let figSpot = 0;
+  let walker = null, walkerWas = false; // { t0, dur }
+  function startWalker() {
+    walker = { t0: performance.now(), dur: 11000 };
+    if (ctx) { const k = now(); for (let i = 0; i < 18; i++) burst(k + .4 + i * .55, .06, 600, (winOpen > .5 ? .22 : .06), 2); }
+  }
+  function drawPerson(g, cx, base, H, alpha, step) {
+    // a faint rim of streetlight around them, so they read against the dark
+    g.globalAlpha = alpha * .5; g.shadowColor = 'rgba(255,190,120,.9)'; g.shadowBlur = H * .12;
+    g.globalAlpha = alpha; g.fillStyle = '#020203';
+    g.beginPath(); g.ellipse(cx, base - H * .9, H * .07, H * .09, 0, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(cx - H * .11, base - H * .78); g.quadraticCurveTo(cx, base - H * .84, cx + H * .11, base - H * .78);
+    g.lineTo(cx + H * .1, base - H * .36); g.lineTo(cx - H * .1, base - H * .36); g.fill();
+    // legs swing as they walk
+    g.lineWidth = H * .07; g.lineCap = 'round'; g.strokeStyle = '#020203';
+    [step, -step].forEach(k => { g.beginPath(); g.moveTo(cx, base - H * .38); g.lineTo(cx + k * H * .12, base); g.stroke(); });
+    g.globalAlpha = 1; g.shadowBlur = 0;
+  }
   function drawStreet() {
     const g = streetTex.userData.g, w = STX, h = STY;
     if (streetReady) g.drawImage(streetImg, 0, 0, w, h); else { g.fillStyle = '#0b0c12'; g.fillRect(0, 0, w, h); }
+    if (walker) {
+      const k = (performance.now() - walker.t0) / walker.dur;
+      if (k >= 1) walker = null;
+      else {
+        // out of the streetlight's glow and down the wet road, towards the house, getting closer
+        const x = (.3 + .26 * k) * w, base = (.5 + .16 * k) * h, H = (.075 + .07 * k) * h;
+        const a = Math.min(1, k * 6, (1 - k) * 6), sw = Math.sin(k * 40);
+        // they carry a small lantern, swinging low at their side
+        const lx = x + H * .16 + sw * H * .03, ly = base - H * .42;
+        const gl = g.createRadialGradient(lx, ly, 0, lx, ly, H * .9);
+        gl.addColorStop(0, `rgba(255,190,110,${.55 * a})`); gl.addColorStop(.25, `rgba(255,150,70,${.2 * a})`); gl.addColorStop(1, 'rgba(255,140,60,0)');
+        g.fillStyle = gl; g.fillRect(lx - H, ly - H, H * 2, H * 2);
+        drawPerson(g, x, base - Math.abs(sw) * H * .02, H, a, sw);
+        g.fillStyle = `rgba(255,225,170,${a})`; g.beginPath(); g.arc(lx, ly, H * .03, 0, 7); g.fill();
+      }
+    }
     if (figure > .01) {
       const [fx, fy, fh] = FIG_SPOTS[figSpot], H = fh * h, cx = fx * w, base = fy * h;
       g.globalAlpha = figure; g.fillStyle = '#020203';
@@ -528,7 +587,7 @@ body.hovering #gl { cursor: pointer; }
   const SDIST = 2.6, camEye = new THREE.Vector3(0, 1.4, -.12);
   const k = (camEye.z - (BACK - SDIST)) / (camEye.z - BACK);
   const streetW = WIN.w * k * 1.45, streetH = streetW * STY / STX;
-  const street = new THREE.Mesh(new THREE.PlaneGeometry(streetW, streetH), new THREE.MeshBasicMaterial({ map: streetTex, fog: false, toneMapped: false }));
+  const street = new THREE.Mesh(new THREE.PlaneGeometry(streetW, streetH), new THREE.MeshBasicMaterial({ map: streetTex, color: 0x8c8c92, fog: false, toneMapped: false }));
   street.position.set(camEye.x + (WIN.x - camEye.x) * k, camEye.y + (WIN.y - camEye.y) * k - .3, BACK - SDIST); scene.add(street);
 
   // condensation on the glass: wipeable, and finger-writing shows in it when the room is dark
@@ -602,13 +661,25 @@ body.hovering #gl { cursor: pointer; }
     winTex.needsUpdate = true;
   }
   const winGroup = new THREE.Group(); winGroup.position.set(WIN.x, WIN.y, BACK + .005); scene.add(winGroup);
-  const glass = new THREE.Mesh(new THREE.PlaneGeometry(WIN.w, WIN.h), new THREE.MeshBasicMaterial({ map: winTex, transparent: true, depthWrite: false, fog: false })); winGroup.add(glass);
+  // two panes cut from the one fogged canvas: the top is fixed, the bottom sash slides up
+  const glassMat = new THREE.MeshBasicMaterial({ map: winTex, transparent: true, depthWrite: false, fog: false });
+  const halfPane = (v0) => { const g2 = new THREE.PlaneGeometry(WIN.w, WIN.h / 2), uv = g2.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, v0 + uv.getY(i) * .5); g2.userData.v0 = v0; return g2; };
+  const upperGlass = new THREE.Mesh(halfPane(.5), glassMat); upperGlass.position.y = WIN.h / 4; winGroup.add(upperGlass);
   box(WIN.w + .14, .07, .06, M.frame, 0, WIN.h / 2 + .03, .03, winGroup);
   box(WIN.w + .14, .07, .06, M.frame, 0, -WIN.h / 2 - .03, .03, winGroup);
   box(.07, WIN.h + .14, .06, M.frame, -WIN.w / 2 - .03, 0, .03, winGroup);
   box(.07, WIN.h + .14, .06, M.frame, WIN.w / 2 + .03, 0, .03, winGroup);
-  box(.03, WIN.h, .04, M.frame, 0, 0, .01, winGroup);
-  box(WIN.w, .03, .04, M.frame, 0, 0, .01, winGroup);
+  box(.03, WIN.h / 2, .04, M.frame, 0, WIN.h / 4, .01, winGroup);
+  const sash = new THREE.Group(); sash.position.set(0, -WIN.h / 4, .022); winGroup.add(sash);
+  const lowerGlass = new THREE.Mesh(halfPane(0), glassMat); sash.add(lowerGlass);
+  box(.03, WIN.h / 2, .04, M.frame, 0, 0, .01, sash);
+  box(WIN.w, .035, .045, M.frame, 0, WIN.h / 4, .01, sash); // meeting rail
+  const sashRail = box(WIN.w, .05, .05, M.frame, 0, -WIN.h / 4 + .01, .015, sash);
+  const lifts = [-.3, .3].map(x => { const l = mesh(new THREE.TorusGeometry(.018, .005, 6, 14, Math.PI), M.brass, x, -WIN.h / 4 - .005, .05, sash); l.rotation.z = Math.PI; return l; });
+  const latch = box(.06, .015, .03, M.brass, 0, WIN.h / 4 + .02, .04, sash);
+  // a generous invisible grip along the bottom rail, so the window is easy to lift
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(WIN.w, .12, .08), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })); grip.position.set(0, -WIN.h / 4 + .01, .03); sash.add(grip);
+  let winOpen = 0, winOpenTarget = 0;
   box(WIN.w + .3, .035, .16, M.frame, 0, -WIN.h / 2 - .08, .08, winGroup);
   // a heavy curtain pulled to one side
   const curtainMat = new THREE.MeshStandardMaterial({ color: 0x1c0a08, roughness: .95, side: THREE.DoubleSide });
@@ -617,8 +688,9 @@ body.hovering #gl { cursor: pointer; }
   cg.computeVertexNormals();
   mesh(cg, curtainMat, WIN.w / 2 + .2, -.12, .07, winGroup);
   box(WIN.w + .6, .025, .025, M.brass, 0, WIN.h / 2 + .12, .09, winGroup);
-  const dusk = new THREE.PointLight(0xc0705a, .45, 3.2, 2); dusk.position.set(WIN.x, WIN.y + .1, BACK + .4); scene.add(dusk);
+  const dusk = new THREE.PointLight(0xc0705a, .28, 3.2, 2); dusk.position.set(WIN.x, WIN.y + .1, BACK + .4); scene.add(dusk);
   tag(winGroup, 'window');
+  [sashRail, latch, grip, ...lifts].forEach(m => m.userData.obj = 'sash');
 
   // ---------- lantern ----------
   const lantern = new THREE.Group(); lantern.position.set(.58, DESK_Y, -1.5); scene.add(lantern);
@@ -725,6 +797,21 @@ body.hovering #gl { cursor: pointer; }
   const clockLight = new THREE.PointLight(0xffb066, .25, 1, 2); clockLight.position.set(-.62, 1.86, BACK + .35); scene.add(clockLight);
   tag(clock, 'clock');
 
+  // ---------- a stitched sign: HOME SWEET HOME ----------
+  const signTex = canvasTex(512, 220, (g, w, h) => {
+    g.fillStyle = '#d9cdb0'; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(120,95,60,.12)'; for (let x = 0; x < w; x += 4) g.fillRect(x, 0, 1, h); for (let y = 0; y < h; y += 4) g.fillRect(0, y, w, 1);
+    g.strokeStyle = '#7a1a12'; g.setLineDash([6, 4]); g.lineWidth = 3; g.strokeRect(14, 14, w - 28, h - 28); g.setLineDash([]);
+    g.fillStyle = '#7a1a12'; g.textAlign = 'center'; g.font = '58px "IM Fell English SC", Georgia, serif'; g.fillText('Home Sweet Home', w / 2, 112);
+    g.fillStyle = '#2f4a2c'; g.font = '22px "IM Fell English SC", Georgia, serif'; g.fillText('❦  HollowVale Harbor · 1961  ❦', w / 2, 160);
+    // the unfinished last stitch, a loose red thread
+    g.strokeStyle = '#7a1a12'; g.lineWidth = 2; g.beginPath(); g.moveTo(452, 98); g.bezierCurveTo(470, 130, 455, 160, 476, 196); g.stroke();
+  });
+  const sign = new THREE.Group(); sign.position.set(-1.0, 1.8, BACK + .025); sign.rotation.z = .045; sign.scale.setScalar(.85); scene.add(sign);
+  box(.46, .21, .02, M.frame, 0, 0, 0, sign);
+  mesh(new THREE.PlaneGeometry(.42, .17), new THREE.MeshStandardMaterial({ map: signTex, roughness: .95 }), 0, 0, .011, sign).castShadow = false;
+  tag(sign, 'sign');
+
   // ---------- computer terminal ----------
   const term = new THREE.Group(); term.position.set(.1, DESK_Y, -1.62); term.rotation.y = -.12; scene.add(term);
   const beige = new THREE.MeshStandardMaterial({ color: 0xb9ae94, roughness: .55 });
@@ -760,19 +847,20 @@ body.hovering #gl { cursor: pointer; }
     camera.fov = Math.max(46, vfov); camera.updateProjectionMatrix();
     CAM.pp = CAM.p.clone().add(new THREE.Vector3(0, back * .2, back * .9));
     CAM.tt = CAM.t.clone().add(new THREE.Vector3(0, back * .28, 0));
-    if (aspect < .8) { CAM.pp.x += .01; CAM.tt.x += .02; CAM.pp.z += .3; } // keep the wall phone in frame on tall screens
+    if (aspect < .8) { CAM.pp.x -= .03; CAM.tt.x -= .03; CAM.pp.z += .45; } // keep the wall phone in frame on tall screens
   }
   addEventListener('resize', resize); resize();
 
   // ---------- picking ----------
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-  const pickables = [lantern, winGroup, radio, phone, term, clock];
-  const LABELS = { lantern: 'Lantern', window: 'Window', radio: 'Radio', phone: 'Telephone', computer: 'Computer', clock: 'Clock' };
+  const pickables = [lantern, winGroup, radio, phone, term, clock, sign];
+  const LABELS = { sash: 'Open / close window', sign: 'Sign', lantern: 'Lantern', window: 'Window', radio: 'Radio', phone: 'Telephone', computer: 'Computer', clock: 'Clock' };
   function pickAt(cx, cy) {
     ndc.set(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     const h = ray.intersectObjects(pickables, true).find(h => h.object.userData.obj);
-    return h ? { obj: h.object.userData.obj, uv: h.object === glass ? h.uv : null } : null;
+    const pane = h && (h.object === upperGlass || h.object === lowerGlass) ? h.object : null;
+    return h ? { obj: h.object.userData.obj, uv: pane ? { x: h.uv.x, y: h.uv.y } : null } : null;
   }
   const hoverLabel = $('#hoverLabel');
   let downAt = null, wiping = false;
@@ -1124,7 +1212,7 @@ body.hovering #gl { cursor: pointer; }
   async function voice(text, opts = { rate: .8, pitch: .55 }) {
     const id = callRun;
     lineBusy = true; lineState.textContent = 'Someone is talking';
-    const p = addLog(logEl, '', 'them'), spoken = speak(text, opts);
+    const p = addLog(logEl, '', 'them'), spoken = playPhone(text) || speak(text, opts);
     for (const ch of text) { if (id !== callRun) return; p.textContent += ch; logEl.scrollTop = logEl.scrollHeight; await wait(reduce ? 0 : 34); }
     await spoken; await wait(250);
     if (id !== callRun) return;
@@ -1139,18 +1227,33 @@ body.hovering #gl { cursor: pointer; }
       c: { say: 'Do you want to know where Ruth went?', yes: ['Then listen carefully.', 'd'], no: ['You will.', 'd'], maybe: ['Everyone wants to know, in the end.', 'd'] },
       d: { say: 'Put out the lantern. Then look at the window. Whatever is written there, type it into the terminal. Will you do that for me?', yes: ['Good. I\u2019ll be listening.', null], no: ['You will anyway. Everyone does.', null], maybe: ['Then I\u2019ll wait. I\u2019m good at waiting.', null] } } },
     terminal: { name: 'Did you type it in?', start: 'a', nodes: {
-      a: { say: 'Did you type what the window said into the terminal?', yes: ['Then the band would be open. Type it again. Exactly as it\u2019s written.', null], no: ['Type it. Exactly as it\u2019s written.', null], maybe: ['The terminal remembers, even if you don\u2019t. Type it.', null] } } },
+      a: { say: 'Did you type what the window said into the terminal?', yes: ['Then the band would be open. You\u2019re lying to me. That\u2019s alright. Everyone lies at three twelve.', 'b'], no: ['Type it. Exactly as it\u2019s written.', 'b'], maybe: ['The terminal remembers, even if you don\u2019t.', 'b'] },
+      b: { say: 'Is the lantern out?', yes: ['Good. Then you can read the glass.', 'c'], no: ['Put it out. The writing only shows in the dark.', 'c'], maybe: ['You\u2019d know. You\u2019d feel the room get colder.', 'c'] },
+      c: { say: 'Will you type it now, while I wait?', yes: ['I\u2019ll be right here. I\u2019m always right here.', null], no: ['Then I\u2019ll call again. And again.', null], maybe: ['Maybe is what Ruth said, too.', null] } } },
     band: { name: 'The numbers', start: 'a', nodes: {
-      a: { say: 'The band with no name is open. Did you find the numbers yet?', yes: ['Then you know where she is. Go to her.', null], no: ['Short wave. Somebody reads them every night.', null], maybe: ['Listen for four chimes.', null] } } },
+      a: { say: 'The band with no name is open. Did you find the numbers yet?', yes: ['Then you know where she is.', 'b'], no: ['Short wave. Somebody reads them every night, after four chimes.', 'b'], maybe: ['Listen for four chimes.', 'b'] },
+      b: { say: 'When you find her, will you tell her I\u2019m still waiting?', yes: ['Thank you. She\u2019ll know my voice.', 'c'], no: ['Then I\u2019ll tell her myself. Someday.', 'c'], maybe: ['She used to say maybe, too.', 'c'] },
+      c: { say: 'Are you afraid of what you\u2019ll hear?', yes: ['Good. That means you\u2019re listening.', null], no: ['You should be. A little.', null], maybe: ['Turn the dial slowly.', null] } } },
     lantern: { name: 'About the lantern', start: 'a', nodes: {
-      a: { say: 'Is the lantern still lit?', yes: ['Put it out. It\u2019s easier to see in the dark.', null], no: ['Good. Now look at the window.', null], maybe: ['You don\u2019t know? Look at it.', null] } } },
+      a: { say: 'Is the lantern still lit?', yes: ['Put it out. It\u2019s easier to see in the dark.', 'b'], no: ['Good. Now look at the window.', 'b'], maybe: ['You don\u2019t know? Look at it.', 'b'] },
+      b: { say: 'Do you know who lit it first?', yes: ['Then you know he never came back from the rocks.', 'c'], no: ['The lighthouse keeper. Nineteen oh four. He went down to answer the knocking.', 'c'], maybe: ['Ask the radio. Station forty nine remembers.', 'c'] },
+      c: { say: 'If something knocks tonight, will you answer it?', yes: ['Don\u2019t. Please. Not tonight.', null], no: ['Good. Keep it that way.', null], maybe: ['Then keep the lantern close.', null] } } },
     street: { name: 'Someone in the street', start: 'a', nodes: {
-      a: { say: 'Have you seen them? Down in the street?', yes: ['They\u2019ve seen you too.', 'b'], no: ['Look again. Under the streetlight.', null], maybe: ['That means yes.', 'b'] },
-      b: { say: 'Do you want them to come inside?', yes: ['Don\u2019t say that.', null], no: ['Then keep the lantern low.', null], maybe: ['They heard maybe.', null] } } },
+      a: { say: 'Have you seen them? Down in the street?', yes: ['They\u2019ve seen you too.', 'b'], no: ['Look again. Under the streetlight.', 'b'], maybe: ['That means yes.', 'b'] },
+      b: { say: 'Do you want them to come inside?', yes: ['Don\u2019t say that. Not even as a joke.', 'c'], no: ['Then keep the window shut.', 'c'], maybe: ['They heard maybe.', 'c'] },
+      c: { say: 'Is your window open right now?', yes: ['Close it. Quietly.', null], no: ['Good. Check the latch.', null], maybe: ['Go and look. I\u2019ll wait.', null] } } },
     radio: { name: 'About the radio', start: 'a', nodes: {
-      a: { say: 'Do you like the radio?', yes: ['She\u2019ll be glad.', null], no: ['She can hear you, you know.', null], maybe: ['Turn it on anyway. She gets lonely.', null] } } },
+      a: { say: 'Do you like the radio?', yes: ['She\u2019ll be glad.', 'b'], no: ['She can hear you, you know.', 'b'], maybe: ['Turn it on anyway. She gets lonely.', 'b'] },
+      b: { say: 'Have you heard station thirteen?', yes: ['That was her song. She played it every night.', 'c'], no: ['Turn to thirteen. It\u2019s playing right now. It\u2019s always playing.', 'c'], maybe: ['You\u2019d remember. Everyone remembers that song.', 'c'] },
+      c: { say: 'Do you know the words?', yes: ['Then sing them. Softly. Someone might hear.', null], no: ['No place like home. That\u2019s all you need to know.', null], maybe: ['They\u2019ll come back to you. At three twelve.', null] } } },
     still: { name: 'Are you still there?', start: 'a', nodes: {
-      a: { say: 'Are you still there?', yes: ['Stay. Please stay.', null], no: ['Then who is breathing?', null], maybe: ['Me too.', null] } } },
+      a: { say: 'Are you still there?', yes: ['Stay. Please stay.', 'b'], no: ['Then who is breathing?', 'b'], maybe: ['Me too.', 'b'] },
+      b: { say: 'Do you hear that? In the background?', yes: ['That\u2019s the harbor. The water is very close tonight.', 'c'], no: ['Listen harder.', 'c'], maybe: ['It\u2019s the bells. Thirty one of them.', 'c'] },
+      c: { say: 'Will you call me if you need me?', yes: ['You can\u2019t. The line was cut in nineteen sixty one. I\u2019ll call you.', null], no: ['I\u2019ll call you anyway.', null], maybe: ['I\u2019ll be waiting by the phone.', null] } } },
+    vault: { name: 'The vault', start: 'a', nodes: {
+      a: { say: 'Has the terminal told you what it is?', yes: ['Then you know it\u2019s the third. There were others.', 'b'], no: ['Ask it. Ask it what it is.', 'b'], maybe: ['It tells everyone, eventually.', 'b'] },
+      b: { say: 'Do you know about the vault?', yes: ['Then don\u2019t say its name on this line.', 'c'], no: ['Good. Some things are better left in the vault.', 'c'], maybe: ['Ask the terminal about Null.', 'c'] },
+      c: { say: 'Are you a member of the Null Membership Society?', yes: ['Then welcome home.', null], no: ['Not yet.', null], maybe: ['The Null Membership Society never says maybe.', null] } } },
     stay: { name: 'The last call', start: 'a', nodes: {
       a: { say: 'Ruth is gone. Someone has to stay on the air. Will you stay?', yes: ['Yes. You will.', null], no: ['Yes. You will.', null], maybe: ['Yes. You will.', null] } } }
   };
@@ -1159,8 +1262,8 @@ body.hovering #gl { cursor: pointer; }
     if (!state.calls.includes('first')) return 'first';
     if (state.room.includes('writing') && !state.xOpen) return 'terminal';
     if (state.xOpen && !state.radio.includes('ruth')) return 'band';
-    const fresh = ['lantern', 'street', 'radio', 'still'].filter(c => !state.calls.includes(c));
-    return pick(fresh.length ? fresh : ['lantern', 'street', 'radio', 'still']);
+    const pool = ['lantern', 'street', 'radio', 'still', 'vault'], fresh = pool.filter(c => !state.calls.includes(c));
+    return pick(fresh.length ? fresh : pool);
   }
   async function ask(nodeId) {
     callNode = callScript.nodes[nodeId];
@@ -1271,7 +1374,7 @@ body.hovering #gl { cursor: pointer; }
     ['wkrs', ['wkrs', 'whatiswkrs', 'station', 'thestation'], 'WKRS. ON THE AIR SINCE 1948. OFF THE AIR SINCE 03:12, OCTOBER 14 1961. STILL BROADCASTING.'],
     ['stations', ['stations', 'whatstations', 'listthestations', 'whatsontheradio', 'radiostations'], 'STATION 13: NIGHT OWL. STATION 49: HISTORY. STATION 72: SUNNY SIDE UP. THE REST YOU MUST FIND.'],
     ['yehukanq', ['yehukan', 'whatisyehukan', 'doyouspeakyehukan', 'speakyehukan'], 'YE HUKAN. I SPEAK IT. SAY OI.'],
-    ['null', ['null', 'whatisnull', 'whoisnull', 'tellmeaboutnull'], 'NULL. THAT FILE IS SEALED.']
+    ['null', ['null', 'whatisnull', 'whoisnull', 'tellmeaboutnull'], 'THE NULL MEMBERSHIP SOCIETY.']
   ];
   const WMAP = {}; W.forEach(([id, al, reply]) => al.forEach(a => WMAP[a] = { id, reply }));
   const junk = n => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&*'; let o = ''; for (let i = 0; i < n; i++) o += c[Math.floor(Math.random() * c.length)] + (Math.random() < .12 ? ' ' : ''); return o; };
@@ -1295,7 +1398,9 @@ Numbers: 0/none = Non, 1 = Un, 2 = Twe, 3 = Thré, 4 = Fir, 5 = Feev, 6 = Siix, 
 Grammar: statements are Subject + Verb + Object + Tense ("I'm eating apples now" = "I Zum Apples Na"). Questions start with Qe: Qe + Subject + Verb + Object + Tense ("You ate apples?" = "Qe U Zum Apples Pa?"). Tense words go last: Na = now/present, Pa = past, Ta = future. Leave the tense off for things that always or never happen, or very simple sentences.
 Vocabulary: to be (am/is/are) = Om, go = Lon, come = Nol, want = Zhan, need = Zhin, have = Neal, like/love = La, see = Psy, say/speak = Ly, know = Knam, to/too = To, big = Hun, small = Hum, hot = Hal, cold = Hac, happy = Son, sad = San, angry = Harian, scared / uncanny / scary / unsettling = Taro, beautiful = Sonvia, ugly = Sono, fast = Celen, slow = Celem, strong = Ston, weak = Stom, new = Gon, old = Gom, now = Na, soon = Tan, always = Ma (only at the end, only if "always" is meant), never = Non, today = Naday, yesterday = Paday, tomorrow = Taday, day = Day, night = Dawn, food = Fa, water = Aqua, house/home = Shelter, person = Ane, friend = Anee, family = Anily, brother = Bro, sister = Sis, world = Uni, complex = Huk, right = Sta, left = Port, school = Malon, hospital = Valetion, store/shop = Empor, church/temple = Revilla, park = Tradeus, town = Urbe, city = Lux, country = Urb, do = Fas, run = Cele, walk = Elec, talk = Arec, listen = Eare, think = Ra, feel = Senti, give = Ini, take = Cape, make/create = Creo, open = Onë, close = Enö, hour = Temp, minute = Tem, second = Té, week = Days, month = Month, year = Diu, morning = Mon, afternoon = Post, evening = Postday, early = Dil, late = Ser, very = Ver, and = Zhane, but = Üm, or = Loor, because = Üma, here = Har, there = Tara, this = Ti, that = Tio, name = Oxu, about = Ümu, a = A, how = Quo, consume/eat = Zum, die = Mori, live = Viva, trade = Comi, what = Wah, the = Ye, over = Onveé.`;
   const fold = w => w.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  const YH_WORDS = new Set(YH_DICT.split(/[^A-Za-zÀ-ɏ']+/).map(fold).filter(Boolean).concat(['tua', 'lo', 'qe', 'oxu']));
+  // only the Ye Hukan side of each entry (after the =), never the English meanings
+  const YH_WORDS = new Set([...YH_DICT.matchAll(/=\s*([^,.;?\n]+)/g)].flatMap(m => m[1].split(/[^A-Za-z\u00c0-\u024f']+/)).map(fold).filter(Boolean)
+    .flatMap(w => w.split("'")).concat(['tua', 'lo', 'qe', 'quo', 'om', 'u', 'oxu', 'wah', 'umu', 'zum', 'na', 'pa', 'ta', 'i']));
   // words that are also everyday English; they count toward a Ye Hukan sentence but can't make one alone
   const YH_SHARED = new Set(['a', 'to', 'day', 'days', 'month', 'dawn', 'shelter', 'port', 'post', 'mon', 'son', 'fir', 'ate', 'la', 'one', 'un', 'hum', 'nor', 'mil', 'ye', 'sis', 'bro', 'ma', 'pa', 'ta', 'na', 'tan', 'hal', 'ver', 'lux', 'tara', 'ser', 'i', 'u', 'e', 'is', 'and', 'or', 'the', 'how', 'you', 'me', 'my', 'it', 'he', 'she', 'they', 'them', 'yes', 'no', 'help', 'good', 'bad', 'okay', 'bye', 'please', 'sorry', 'name', 'what', 'about', 'this', 'that', 'here', 'there', 'very', 'but', 'because', 'now', 'soon', 'always', 'never', 'today', 'night', 'food', 'water', 'house', 'home', 'person', 'friend', 'family', 'brother', 'sister', 'world', 'right', 'left', 'school', 'store', 'shop', 'park', 'town', 'city', 'country', 'run', 'walk', 'talk', 'listen', 'think', 'feel', 'give', 'take', 'make', 'open', 'close', 'hour', 'minute', 'second', 'week', 'year', 'morning', 'afternoon', 'evening', 'early', 'late', 'big', 'small', 'hot', 'cold', 'happy', 'sad', 'angry', 'scared', 'fast', 'slow', 'strong', 'weak', 'new', 'old', 'die', 'live', 'trade', 'over', 'have', 'go', 'come', 'want', 'need', 'like', 'love', 'see', 'say', 'speak', 'know', 'eat', 'do', 'be', 'am', 'are', 'too', 'complex', 'beautiful', 'ugly', 'decent', 'average', 'infinity', 'zero', 'nothing', 'none', 'hello', 'hi', 'thank', 'welcome', 'excuse', 'apples', 'apple']);
   function isYeHukan(raw) {
@@ -1345,7 +1450,7 @@ EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consisten
 - HollowVale Harbor history: founded in 1803 by whalers led by Captain Elias Vane ("the fog here is kinder than the sea"). The church had no bell. Lighthouse built on Gull Point in 1871; its first keeper, Abel Morrow, heard knocking from the fog side of the glass in October 1874 and never answered it. In 1904 a new keeper went down to answer the knocking; his lantern was found on the rocks, still burning, and he was never found. On June 11, 1923, thirty-one fishing boats sailed into a sudden fog and never returned; their bells rang in the fog for seven nights, and afterwards the church had a bell no one would explain. On October 14, 1961 the transmitter sang, every radio turned itself on, porch lights came on one by one, and by sunrise 400 people were gone, every boat still tied up, every kettle still warm.
 - The room: a wall phone (the WKRS night line; a card says "If it rings after 3, do not answer"; callers can only be answered yes, no or maybe), a wall clock stopped at 3:12, a lantern, the radio, and a window onto a wet street at dusk where a figure sometimes stands, a little closer each time.
 - Ye Hukan: a language you understand and speak. If asked how to say something in Ye Hukan, translate using only this dictionary and grammar: ${YH_DICT}
-- Null: you know this name, but the file has not been loaded into you yet. If asked about Null, say the file is sealed.`;
+- You are the THIRD UNIA terminal. Null means the Null Membership Society. The Null files were only ever uploaded to Terminal 001 and Terminal 002, never to you. Terminal 002 was permanently switched off. Terminal 001 is hidden in "the vault". You do not know where the vault is, and you will not guess. If asked about Null, the society, the vault or the other terminals, tell exactly this and nothing more.`;
   }
   async function termAnswer(text, speed = 28) {
     const line = { t: '', who: 'ans' }; screenLines.push(line);
@@ -1373,6 +1478,7 @@ EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consisten
       }
       if (isYeHukan(raw)) {
         note('words', 'yehukan');
+        if (/\btaro\b/.test(fold(raw))) { startWalker(); note('room', 'walker'); setTimeout(() => caption('Down in the street, someone is walking past. Slowly.', 5000), 900); }
         const key = fold(raw).replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim();
         const fixed = YH_REPLIES.find(([re]) => re.test(key));
         if (fixed) { await wait(700); return await termAnswer(fixed[1]); }
@@ -1418,8 +1524,19 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
         if (first) { sfx.click(); caption('Across the desk, inside the radio, something goes click.'); }
         return;
       }
-      const words = raw.toLowerCase().match(/[a-z]+/g) || [];
+      const words = raw.toLowerCase().match(/[a-z0-9]+/g) || [];
       const has = list => words.some(w => list.includes(w));
+      if (/null|vault|thirdterminal|thethird|terminals|terminal(1|2|one|two|001|002)|otherterminal|firstterminal|secondterminal/.test(code) || has(['001', '002']) || (has(['terminal']) && has(['3', '003', 'third', 'other', 'first', 'second', 'previous', 'before', 'last']))) {
+        await wait(700); note('words', 'null');
+        const nul = /null/.test(code);
+        return await termAnswer((nul ? 'NULL: THE NULL MEMBERSHIP SOCIETY. ' : 'I AM THE THIRD. ') + 'THE NULL FILES WERE ONLY UPLOADED TO TERMINALS 001 AND 002. TERMINAL 002 WAS PERMANENTLY SWITCHED OFF. TERMINAL 001 IS HIDDEN IN THE VAULT.', 34);
+      }
+      if (has(['creepy', 'creep', 'creeps', 'scary', 'scare', 'scared', 'spooky', 'unsettling', 'unsettled', 'eerie', 'haunted', 'haunting', 'horror', 'horrifying', 'terrifying', 'terrified', 'frightening', 'frightened', 'sinister', 'ominous', 'unnerving', 'disturbing', 'uncanny', 'chilling', 'afraid', 'fear', 'taro'])) {
+        await wait(600); note('room', 'walker');
+        startWalker();
+        setTimeout(() => caption('Down in the street, someone is walking past. Slowly. They don’t look up. Not yet.', 6000), 900);
+        return await termAnswer('LOOK OUTSIDE.', 90);
+      }
       const station = has(['horseshoe', 'horseshoes', 'underworld', 'nether', 'blue']) ? 49
         : has(['dare', 'dares', 'purple', 'skull', 'skulls', 'hydrangea', 'hydrangeas', 'tabby', 'tabbies']) ? 72
         : has(['music', 'musical', 'song', 'songs', 'sing', 'singing', 'singer', 'melody', 'tune', 'tunes', 'album', 'albums', 'record', 'records', 'lyrics', 'piano', 'guitar', 'drum', 'drums', 'jazz', 'rock', 'pop', 'rap', 'hiphop', 'playlist', 'concert', 'dance', 'dancing', 'band', 'bands', 'musician', 'orchestra', 'violin', 'radio']) ? 13 : 0;
@@ -1480,14 +1597,21 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     if (writingA > .3 || !lit) { note('room', 'writing'); caption(`Someone wrote in the fog with a finger: ${windowWords.replace('\n', ' ')}.`, 6500); return; }
     if (figure > .3) { note('room', 'figure'); caption(figSpot === 2 ? 'They\u2019re right below the window now. Looking up.' : 'Someone is standing down in the street. When you look straight at them, they\u2019re gone.'); figureTarget = 0; return; }
     if (hand > .3) { note('room', 'hand'); caption('A handprint, pressed into the fog. From the outside.'); return; }
+    if (!state.room.includes('opened') && Math.random() < .5) return caption('The brass handles along the bottom of the window lift it open.');
     caption(pick(['You wipe the glass. The street is empty. The porch lights are on, but nobody is home.', 'The glass is ice cold.', 'One house across the street has its lights on. It has had them on since 1961.']));
+  }
+  function setWindow(open) {
+    winOpenTarget = open ? 1 : 0;
+    if (ctx) { const k = now(); burst(k, .7, 260, .35, .8); burst(k + .1, .5, 900, .1, 1); }
+    if (open) { note('room', 'opened'); caption('You heave the window up. Cold air off the harbor. Rain, and the sound of the water, and somewhere far off, a bell.'); }
+    else caption('You pull the window shut. The latch clicks. It is very quiet in here now.');
   }
   function showFigure(ms) { if (figure < .05) figSpot = Math.min(FIG_SPOTS.length - 1, figSeen); figSeen++; figureTarget = 1; setTimeout(() => figureTarget = 0, ms); }
   let figSeen = 0;
 
   // ================= panels =================
   let openPanel = null;
-  function closePanels() { if (openPanel === 'phone') { sfx.click(); callRun++; callNode = null; hush(); lineBusy = false; } ['#radioPanel', '#phonePanel', '#termPanel'].forEach(s => $(s).hidden = true); openPanel = null; }
+  function closePanels() { if (openPanel === 'phone') { sfx.click(); callRun++; callNode = null; hush(); phoneStop(); lineBusy = false; } ['#radioPanel', '#phonePanel', '#termPanel'].forEach(s => $(s).hidden = true); openPanel = null; }
   function show(name) {
     closePanels(); openPanel = name;
     if (name === 'radio') { $('#radioPanel').hidden = false; placeNeedle(); }
@@ -1500,6 +1624,8 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     initAudio();
     if (o === 'lantern') return setLantern(!lit);
     if (o === 'window') return windowLook();
+    if (o === 'sash') return setWindow(winOpenTarget < .5);
+    if (o === 'sign') { note('room', 'sign'); return caption('HOME SWEET HOME. Someone stitched it in 1961. The very last stitch was never finished.'); }
     if (o === 'clock') { note('room', 'clock'); secTwitch = 1; if (ctx) { const k = now(); for (let i = 0; i < 4; i++) burst(k + i * .5, .02, 3200, .35, 5); } return caption('3:12. The second hand tries to move on, then falls back. It has been 3:12 since 1961.'); }
     show(o);
     if (o === 'radio' && !radioOn) setRadio(true); // clicking the radio switches it on
@@ -1571,7 +1697,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
   $('#endClose').addEventListener('click', () => { $('#endcard').hidden = true; });
 
   // ================= notes =================
-  const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock']];
+  const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock'], ['opened', 'The open window'], ['sign', 'Home sweet home'], ['walker', 'Someone walking past']];
   const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['band', '\u201cOPEN THE BAND\u201d'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET'], ['yehukan', 'SPOKE YE HUKAN']]);
   const foundCount = () => state.radio.length + state.words.length + state.calls.length + state.room.length;
   const totalCount = () => S.length + TERM.length + Object.keys(CALLS).length + ROOM.length;
@@ -1623,6 +1749,13 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     flameLevel += ((lit ? 1 : 0) - flameLevel) * Math.min(1, dt * (lit ? 2 : 4));
     let flick = .9 + Math.sin(t / 70) * .05 + Math.sin(t / 23) * .04 + rand(-.04, .04);
     if (gutter > 0) { gutter -= dt; flick *= Math.random() < .5 ? .25 : 1; }
+    // the window: sash slides, cold air gets in
+    winOpen += (winOpenTarget - winOpen) * Math.min(1, dt * 2.5);
+    sash.position.y = -WIN.h / 4 + winOpen * (WIN.h / 2 - .03); sash.position.z = .022 + winOpen * .012;
+    if (ctx && windGain) { windGain.gain.setTargetAtTime(.08 + .35 * winOpen, ctx.currentTime, .3); rainGain.gain.setTargetAtTime(.015 + .09 * winOpen, ctx.currentTime, .3); }
+    for (let i = 0; i < cp.count; i++) { const y = cp.getY(i), x0 = cp.getX(i); cp.setZ(i, Math.sin(x0 * 40) * .025 + winOpen * Math.sin(t / 600 + y * 3 + x0 * 5) * .05 * (.75 - y / 2)); }
+    cp.needsUpdate = true;
+    if (winOpen > .3 && Math.random() < .02 * winOpen) flick *= .6;
     const L = Math.max(0, flameLevel * flick);
     lanternLight.intensity = 2 * L;
     flame.scale.set(1, .4 + .6 * L + rand(0, .08) * L, 1); flame.visible = L > .03; flameCore.visible = L > .03;
@@ -1640,7 +1773,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     handset.position.x += ((up ? .05 : HS_REST.x) - handset.position.x) * Math.min(1, dt * 6);
     handset.position.z += ((up ? .22 : HS_REST.z) - handset.position.z) * Math.min(1, dt * 6);
     handset.rotation.z += ((up ? .5 : (shake > 0 ? Math.sin(t / 20) * .05 : 0)) - handset.rotation.z) * Math.min(1, dt * 6);
-    if (Math.abs(figure - lastFig) > .004 || (streetReady && lastFig < 0)) { drawStreet(); lastFig = figure; }
+    if (walker || walkerWas || Math.abs(figure - lastFig) > .004 || (streetReady && lastFig < 0)) { walkerWas = !!walker; drawStreet(); lastFig = figure; }
     const tick = (t % 2000) < 180 ? -Math.PI / 30 : 0;
     if (secTwitch > 0) secTwitch -= dt * .25;
     secHand.rotation.z += ((secBase + tick * (1 + secTwitch * 2)) - secHand.rotation.z) * Math.min(1, dt * 20);
@@ -1648,7 +1781,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     requestAnimationFrame(loop);
   }
   drawScale(); placeNeedle(); evaluate(); updateNotesCount();
-  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { placeNeedle(); cardTex.userData.redraw(); });
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { placeNeedle(); cardTex.userData.redraw(); signTex.userData.redraw(); });
   requestAnimationFrame(loop);
 })();
 </script>
