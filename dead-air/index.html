@@ -171,7 +171,7 @@ body.hovering #gl { cursor: pointer; }
 
 <div id="start">
   <div class="start-inner">
-    <span class="when">Marrow Falls · October 14, 1961 · 3:12 a.m.</span>
+    <span class="when">HollowVale Harbor · October 14, 1961 · 3:12 a.m.</span>
     <h1>Dead Air</h1>
     <p>A desk by a window. A radio that still works. A lantern burning low. A computer terminal that answers any question. A telephone on the wall that still rings, though the line was cut in 1961.</p>
     <p>Click things in the room. Headphones help. So does the dark.</p>
@@ -223,7 +223,7 @@ body.hovering #gl { cursor: pointer; }
     <input id="termInput" type="text" maxlength="200" spellcheck="false" placeholder="ASK IT ANYTHING">
     <button class="btn" type="submit">Enter</button>
   </form>
-  <p class="hint" id="termHint">Type any question and press Enter.</p>
+  <p class="hint" id="termHint">It says it can answer any question. Type one and press Enter.</p>
 </section>
 
 <div id="notes" hidden>
@@ -328,6 +328,7 @@ body.hovering #gl { cursor: pointer; }
     squeak() { const t = now(); for (let i = 0; i < 6; i++) tone(null, rand(1800, 2600), t + i * .08, .07, 'sine', .05); },
     hiss() { const t = now(); burst(t, 1.2, 5000, .3, .5); },
     sting() { const t = now(); [36, 37, 42].forEach((n, i) => tone(null, hz(n), t + i * .05, 3, 'sawtooth', .07)); burst(t, 1.6, 400, .25, .4); },
+    foghorn() { const t = now(); [[0, 2.6], [3.1, 3.4]].forEach(([k, d]) => { tone(null, 73, t + k, d, 'sawtooth', .09); tone(null, 110, t + k, d, 'sawtooth', .05); }); },
     heartbeat() { const t = now(); [0, .25, 1.0, 1.25, 2, 2.25].forEach(k => tone(null, 50, t + k, .18, 'sine', .8)); }
   };
 
@@ -448,7 +449,8 @@ body.hovering #gl { cursor: pointer; }
   // condensation on the glass: wipeable, and finger-writing shows in it when the room is dark
   const WTX = 512, WTY = 400;
   let figure = 0, figureTarget = 0, writingA = 0, hand = 0, handTarget = 0, lastFig = -1;
-  const wipes = [];
+  const strokes = [], beads = [];
+  let lastWipe = null, lastSqueak = 0, wipeLanes = [-.2, .2], wipeW = 44;
   const fogC = document.createElement('canvas'); fogC.width = WTX; fogC.height = WTY; const fg = fogC.getContext('2d');
   const fogBlobs = Array.from({ length: 10 }, () => ({ x: rand(0, WTX), y: rand(40, WTY), r: rand(80, 170), v: rand(.05, .2) }));
   const drops = Array.from({ length: 14 }, () => ({ x: rand(10, WTX - 10), y: rand(-200, WTY), v: rand(.15, .6), len: rand(10, 26) }));
@@ -466,12 +468,28 @@ body.hovering #gl { cursor: pointer; }
       const gr = fg.createRadialGradient(b.x, b.y, 4, b.x, b.y, b.r); gr.addColorStop(0, 'rgba(160,170,185,.07)'); gr.addColorStop(1, 'rgba(160,170,185,0)');
       fg.fillStyle = gr; fg.fillRect(0, 0, w, h);
     });
-    fg.globalCompositeOperation = 'destination-out';
-    for (let i = wipes.length - 1; i >= 0; i--) {
-      const p = wipes[i]; p.a -= .002; if (p.a <= 0) { wipes.splice(i, 1); continue; }
-      const gr = fg.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r); gr.addColorStop(0, `rgba(0,0,0,${p.a})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
-      fg.fillStyle = gr; fg.beginPath(); fg.arc(p.x, p.y, p.r, 0, 7); fg.fill();
+    // finger strokes clear the fog: a soft wide pass, then a cleaner core
+    fg.globalCompositeOperation = 'destination-out'; fg.lineCap = 'round'; fg.lineJoin = 'round';
+    for (let i = strokes.length - 1; i >= 0; i--) {
+      const st = strokes[i]; st.a -= st.a > .6 ? .0012 : .0026; // fog creeps back in, slowly at first
+      if (st.a <= 0) { strokes.splice(i, 1); continue; }
+      [[st.w * 1.35, .25], [st.w, .55], [st.w * .7, 1]].forEach(([lw, k]) => {
+        fg.strokeStyle = `rgba(0,0,0,${st.a * k})`; fg.lineWidth = lw;
+        fg.beginPath(); fg.moveTo(st.x0, st.y0); fg.lineTo(st.x1, st.y1); fg.stroke();
+      });
     }
+    // trails left by beads running down the glass
+    beads.forEach(b => { if (b.trail.length > 1) { fg.strokeStyle = `rgba(0,0,0,${.75 * b.a})`; fg.lineWidth = b.r * 1.1; fg.beginPath(); fg.moveTo(b.trail[0][0], b.trail[0][1]); b.trail.forEach(([x, y]) => fg.lineTo(x, y)); fg.stroke(); } });
+    // the gaps between fingers leave faint streaks of fog behind
+    fg.globalCompositeOperation = 'source-over';
+    strokes.forEach(st => {
+      const dx = st.x1 - st.x0, dy = st.y1 - st.y0, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+      st.o.forEach((o, k) => {
+        fg.strokeStyle = `rgba(165,175,190,${.09 * st.a})`; fg.lineWidth = 1 + k * .8;
+        fg.beginPath(); fg.moveTo(st.x0 + nx * st.w * o, st.y0 + ny * st.w * o); fg.lineTo(st.x1 + nx * st.w * o, st.y1 + ny * st.w * o); fg.stroke();
+      });
+    });
+    fg.globalCompositeOperation = 'destination-out';
     if (writingA > .01) {
       fg.globalAlpha = writingA; fg.fillStyle = '#000'; fg.textAlign = 'center';
       fg.font = '62px "Special Elite", "Courier New", monospace';
@@ -485,6 +503,14 @@ body.hovering #gl { cursor: pointer; }
       fg.globalAlpha = 1;
     }
     g.drawImage(fogC, 0, 0);
+    for (let i = beads.length - 1; i >= 0; i--) {
+      const b = beads[i];
+      if (b.delay > 0) b.delay--; else if (b.y < WTY + 10 && Math.random() < .85) { b.y += b.v * (1 + Math.random()); b.x += rand(-.4, .4); b.trail.push([b.x, b.y]); if (b.trail.length > 90) b.trail.shift(); }
+      if (b.y > WTY + 10) b.a -= .01; else b.a -= .0015;
+      if (b.a <= 0) { beads.splice(i, 1); continue; }
+      g.fillStyle = `rgba(210,220,235,${.45 * b.a})`; g.beginPath(); g.ellipse(b.x, b.y, b.r, b.r * 1.25, 0, 0, 7); g.fill();
+      g.fillStyle = `rgba(255,255,255,${.6 * b.a})`; g.beginPath(); g.arc(b.x - b.r * .3, b.y - b.r * .4, b.r * .35, 0, 7); g.fill();
+    }
     // rain running down the outside of the glass
     g.strokeStyle = 'rgba(220,228,240,.16)'; g.lineWidth = 1.4;
     drops.forEach(d => { d.y += d.v * 3; if (d.y > h + 30) { d.y = rand(-120, -10); d.x = rand(10, w - 10); } g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(d.x + .6, d.y + d.len); g.stroke(); });
@@ -592,6 +618,28 @@ body.hovering #gl { cursor: pointer; }
   tag(phone, 'phone');
   const phoneLight = new THREE.PointLight(0x9fb4d8, .35, 1.4, 2); phoneLight.position.set(-.85, 1.75, BACK + .5); scene.add(phoneLight);
 
+  // ---------- wall clock, stopped at 3:12 ----------
+  const clockTex = canvasTex(256, 256, (g) => {
+    g.fillStyle = '#e4d8bc'; g.beginPath(); g.arc(128, 128, 126, 0, 7); g.fill();
+    const gr = g.createRadialGradient(128, 128, 40, 128, 128, 128); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(70,45,15,.45)'); g.fillStyle = gr; g.beginPath(); g.arc(128, 128, 126, 0, 7); g.fill();
+    g.fillStyle = '#1b130b'; g.font = 'bold 26px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (let i = 1; i <= 12; i++) { const a = i / 12 * Math.PI * 2 - Math.PI / 2; g.fillText(i, 128 + Math.cos(a) * 98, 128 + Math.sin(a) * 98); }
+    for (let i = 0; i < 60; i++) { const a = i / 60 * Math.PI * 2; g.fillRect(128 + Math.cos(a) * 116 - 1, 128 + Math.sin(a) * 116 - 1, 2, 2); }
+    const hand = (a, len, wd) => { g.strokeStyle = '#1b130b'; g.lineWidth = wd; g.lineCap = 'round'; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + Math.cos(a) * len, 128 + Math.sin(a) * len); g.stroke(); };
+    hand((3 + 12 / 60) / 12 * Math.PI * 2 - Math.PI / 2, 58, 8); hand(12 / 60 * Math.PI * 2 - Math.PI / 2, 88, 5);
+    g.font = 'italic 14px Georgia, serif'; g.fillText('HollowVale Harbor', 128, 172);
+    g.strokeStyle = 'rgba(40,25,10,.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(60, 60); g.lineTo(110, 98); g.lineTo(104, 140); g.stroke(); // a crack in the glass
+  });
+  const clock = new THREE.Group(); clock.position.set(-.62, 1.86, BACK + .03); scene.add(clock);
+  const clockRim = cyl(.13, .13, .045, M.frame, 0, 0, 0, clock, 40); clockRim.rotation.x = Math.PI / 2;
+  mesh(new THREE.CircleGeometry(.115, 40), new THREE.MeshStandardMaterial({ map: clockTex, roughness: .5 }), 0, 0, .024, clock).castShadow = false;
+  const secHand = new THREE.Group(); secHand.position.z = .027; clock.add(secHand);
+  box(.003, .1, .002, new THREE.MeshBasicMaterial({ color: 0x8e1c14 }), 0, .045, 0, secHand).castShadow = false;
+  let secBase = -(47 / 60) * Math.PI * 2, secTwitch = 0;
+  secHand.rotation.z = secBase;
+  const clockLight = new THREE.PointLight(0xffb066, .25, 1, 2); clockLight.position.set(-.62, 1.86, BACK + .35); scene.add(clockLight);
+  tag(clock, 'clock');
+
   // ---------- computer terminal ----------
   const term = new THREE.Group(); term.position.set(.1, DESK_Y, -1.62); term.rotation.y = -.12; scene.add(term);
   const beige = new THREE.MeshStandardMaterial({ color: 0xb9ae94, roughness: .55 });
@@ -633,8 +681,8 @@ body.hovering #gl { cursor: pointer; }
 
   // ---------- picking ----------
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-  const pickables = [lantern, winGroup, radio, phone, term];
-  const LABELS = { lantern: 'Lantern', window: 'Window', radio: 'Radio', phone: 'Telephone', computer: 'Computer' };
+  const pickables = [lantern, winGroup, radio, phone, term, clock];
+  const LABELS = { lantern: 'Lantern', window: 'Window', radio: 'Radio', phone: 'Telephone', computer: 'Computer', clock: 'Clock' };
   function pickAt(cx, cy) {
     ndc.set(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
@@ -656,10 +704,10 @@ body.hovering #gl { cursor: pointer; }
     downAt = { x: e.clientX, y: e.clientY };
     if (!entered) return;
     const h = pickAt(e.clientX, e.clientY);
-    if (h && h.uv) { wiping = true; canvas.setPointerCapture(e.pointerId); wipeAt(h.uv); }
+    if (h && h.uv) { wiping = true; canvas.setPointerCapture(e.pointerId); wipeAt(h.uv, true); }
   });
   canvas.addEventListener('pointerup', e => {
-    const was = downAt; downAt = null; const wasWiping = wiping; wiping = false;
+    const was = downAt; downAt = null; const wasWiping = wiping; wiping = false; lastWipe = null;
     if (!entered || !was) return;
     if (Math.hypot(e.clientX - was.x, e.clientY - was.y) > 10 && wasWiping) return windowLook();
     const h = pickAt(e.clientX, e.clientY); if (h) interact(h.obj); else closePanels();
@@ -690,7 +738,7 @@ body.hovering #gl { cursor: pointer; }
   const who = () => state.name ? state.name.charAt(0) + state.name.slice(1).toLowerCase() : 'caller';
   const S = [
     { id: 'weather', band: 'am', f: 640, name: 'WKRS weather',
-      lines: () => ['WKRS weather for Marrow Falls.', 'Tonight: fog, low near forty.', 'Tomorrow: fog.', 'Every day after that: fog.', { t: 'Keep your lantern lit. Keep the radio on.', cls: 'dim' }],
+      lines: () => ['WKRS marine weather for HollowVale Harbor.', 'Tonight: fog over the harbor, low near forty. Small craft should stay tied up.', 'Tomorrow: fog.', 'Every day after that: fog.', { t: 'Keep your lantern lit. Keep the radio on.', cls: 'dim' }],
       voice: 'all', audio: program(4, (g, t) => tone(g, 60, t, 4, 'sine', .15)) },
     { id: 'nightowl', band: 'am', f: 880, name: 'Night Owl with Ruth',
       lines: () => [{ t: 'A slow waltz plays through the crackle.', cls: 'dim' }, 'You are listening to Night Owl with Ruth Calloway, on WKRS.', 'Ruth’s show cut off in the middle of this song on October 14, 1961.', { t: 'On SHORT WAVE, somebody is reading numbers.', cls: 'dim' }],
@@ -714,14 +762,14 @@ body.hovering #gl { cursor: pointer; }
       lines: () => { const n = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); return [`Night Owl request line. You’re on the air, ${who()}.`, `It’s ${n} where you are. We can see your lantern from here.`, 'Don\u2019t look out the window. Someone in the street is looking up.', { t: 'The line goes quiet, but nobody hangs up.', cls: 'dim' }]; },
       voice: [0, 1, 2], audio: program(1, (g, t) => tone(g, 2400, t, .02, 'square', .04)) },
     { id: 'buzzer', band: 'sw', f: 4.625, name: 'The buzzer',
-      lines: () => ['BZZZT. BZZZT. BZZZT.', 'A buzzer that has sounded since before anyone in Marrow Falls was born.', { t: 'Once, it said a word. Nobody who heard it will say which.', cls: 'dim' }],
+      lines: () => ['BZZZT. BZZZT. BZZZT.', 'A buzzer that has sounded since before anyone in HollowVale Harbor was born.', { t: 'Once, it said a word. Nobody who heard it will say which.', cls: 'dim' }],
       audio: program(1.3, (g, t) => tone(g, 110, t, .9, 'sawtooth', .18)) },
     { id: 'numbers', band: 'sw', f: 7.31, name: 'The numbers',
       lines: () => ['Four chimes. Then a flat voice:', { t: 'MARK. SEVEN. SEVEN. BAND: BLANK.', cls: 'big' }, { t: state.xOpen ? 'The blank band is open. Go.' : 'The blank band is shut. Someone has to open it.', cls: 'dim' }],
       say: 'Attention. Mark. Seven. Seven. Band. Blank. Repeat. Mark. Seven. Seven. Band. Blank.', sayOpts: { rate: .7, pitch: .4 },
       audio: program(11, (g, t) => [79, 74, 76, 67].forEach((n, i) => tone(g, hz(n), t + i * .5, 1.4, 'sine', .25))) },
     { id: 'lostfound', band: 'sw', f: 9.415, name: 'Lost and found',
-      lines: () => ['Marrow Falls lost and found.', 'Found: one red glove. One dog, answers to Biscuit. One wristwatch, stopped at 3:12.', 'Still missing: Ruth Calloway. Four hundred residents. The year 1962.'],
+      lines: () => ['HollowVale Harbor lost and found.', 'Found: one red glove. One rowboat, no oars. One dog, answers to Biscuit. One wristwatch, stopped at 3:12.', 'Still missing: Ruth Calloway. Four hundred residents. The year 1962.'],
       voice: 'all', audio: program(5, (g, t) => tone(g, 60, t, 5, 'sine', .1)) },
     { id: 'timesignal', band: 'sw', f: 10, name: 'Time signal',
       lines: () => ['At the tone, the time will be 3:12 a.m., October 14, 1961.', 'At the tone, the time will be 3:12 a.m., October 14, 1961.', { t: `It has said this for ${years()} years.`, cls: 'dim' }],
@@ -929,7 +977,7 @@ body.hovering #gl { cursor: pointer; }
 
   // ================= the terminal: ask it anything =================
   const termLog = $('#termLog'), termInput = $('#termInput'), termState = $('#termState'), termHint = $('#termHint');
-  const screenLines = [{ t: 'WKRS NIGHT TERMINAL  REV 3.12', who: 'sys' }, { t: 'READY.', who: 'sys' }];
+  const screenLines = [{ t: 'WKRS NIGHT TERMINAL  REV 3.12', who: 'sys' }, { t: 'I CAN ANSWER ANY QUESTION.', who: 'sys' }];
   let termBusy = false, caretOn = true, termDraft = '';
   const turns = [];
   function wrap(g, text, max) {
@@ -956,7 +1004,8 @@ body.hovering #gl { cursor: pointer; }
   function keyTap() { sfx.clack(); const k = pick(keyCaps); k.position.y = k.userData.baseY - .004; setTimeout(() => k.position.y = k.userData.baseY, 70); }
   termInput.addEventListener('input', () => { const v = termInput.value.toUpperCase(); if (v.length > termDraft.length) keyTap(); termDraft = v; drawScreen(); });
   const W = [
-    ['hello', ['hello', 'hi', 'hey', 'hellothere', 'yo'], 'HELLO. NOBODY HAS USED THIS TERMINAL SINCE 1961. ASK ME SOMETHING.'],
+    ['hello', ['hello', 'hi', 'hey', 'hellothere', 'yo'], 'HELLO. NOBODY HAS USED THIS TERMINAL SINCE 1961. I CAN ANSWER ANY QUESTION. ASK ME ONE.'],
+    ['harbor', ['harbor', 'hollowvale', 'hollowvaleharbor', 'whereami', 'town', 'lighthouse', 'boats'], 'HOLLOWVALE HARBOR. 400 RESIDENTS. 0 RESIDENTS. EVERY BOAT STILL TIED UP. THE LIGHTHOUSE HAS BEEN DARK SINCE 03:12.'],
     ['who', ['who', 'whoareyou', 'whatareyou', 'whoisthis'], 'I AM THE NIGHT TERMINAL AT WKRS. I KEEP THE LOG. I KEPT IT THE NIGHT EVERYONE LEFT.'],
     ['ruth', ['ruth', 'ruthcalloway', 'calloway', 'whoisruth'], 'RUTH CALLOWAY. NIGHT OWL, MIDNIGHT TO SIX. LAST LOG ENTRY 03:12. SHE NEVER SIGNED OFF.'],
     ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'wheredidruthgo'], 'BETWEEN THE STATIONS. THE WINDOW KNOWS HOW TO OPEN THE WAY.'],
@@ -971,7 +1020,18 @@ body.hovering #gl { cursor: pointer; }
     ['leave', ['leave', 'exit', 'howdoileave', 'letmeout', 'escape'], 'THERE IS NO EXIT ROUTINE.']
   ];
   const WMAP = {}; W.forEach(([id, al, reply]) => al.forEach(a => WMAP[a] = { id, reply }));
-  const offline = ['QUERY NOT UNDERSTOOD.', 'DATA LOST IN THE FOG. ASK AGAIN.', 'NO RECORD.', 'THAT FILE WAS ERASED ON OCTOBER 14 1961.', 'TRY: WHO ARE YOU. WHERE IS RUTH. WHAT HAPPENED.'];
+  const junk = n => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#%&*'; let o = ''; for (let i = 0; i < n; i++) o += c[Math.floor(Math.random() * c.length)] + (Math.random() < .12 ? ' ' : ''); return o; };
+  async function glitchOut() {
+    termState.textContent = 'Fault';
+    if (ctx) { const k = now(); for (let i = 0; i < 10; i++) burst(k + i * .07, .05, rand(400, 3000), .12, 2); }
+    await termAnswer(junk(Math.floor(rand(22, 34))), 12);
+    if (ctx) tone(null, 110, now(), .5, 'square', .08);
+    await termAnswer('ERROR', 120);
+    await termAnswer(junk(Math.floor(rand(22, 34))), 12);
+  }
+  // questions nobody could ever answer
+  const UNKNOWABLE = /(meaningoflife|whathappensafter(we|you|i)die|afterdeath|whatnumberamithinking|whatamithinking|whatsmynumber|whenwilli(die|getmarried)|whenwillidie|lotterynumbers|winninglottery|whatisinfinity|isgodreal|doesgodexist|whatwashappeningbeforethebigbang|beforethebigbang|endoftheuniverse|whatisthefuture|predictthefuture|whatwillhappentomorrow|whoami|whyarewehere|whatisoutsidetheuniverse)/;
+  const offline = ['I CAN ANSWER ANY QUESTION. NOT THAT ONE. NOT TONIGHT.', 'DATA LOST IN THE FOG. ASK AGAIN.', 'NO RECORD.', 'THAT FILE WAS ERASED ON OCTOBER 14 1961.', 'TRY: WHO ARE YOU. WHERE IS RUTH. WHAT HAPPENED.'];
   // the published page can let Claude answer anything, in character; elsewhere the built-in answers are used
   let samplePromise = null, sampleOff = false;
   const getSample = () => samplePromise || (samplePromise = (window.claude && claude.use) ? claude.use('sample').catch(() => null) : Promise.resolve(null));
@@ -981,15 +1041,15 @@ body.hovering #gl { cursor: pointer; }
     known.push('Whatever the window says must be typed into this terminal. The page itself handles that; never tell them the words, only that the window holds them.');
     if (state.xOpen) known.push('The unmarked radio band is now open. A short-wave station reads numbers after four chimes; the numbers give the mark on the unmarked band where Ruth is broadcasting.');
     if (state.radio.includes('numbers')) known.push('Ruth is on the unmarked band at mark 77. You may say so if asked.');
-    return `You are the night-shift computer terminal at radio station WKRS in Marrow Falls, a small town. For the person typing it is 3:12 a.m. on October 14, 1961, and it has been 3:12 a.m. for ${years()} years. That night the transmitter sang by itself, a fog rolled in, and by morning the town's 400 people were gone. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
-Answer ANY question the person types, including ordinary ones (facts, maths, advice, jokes), always in character as an old, eerie, slightly menacing computer. Reply in one to three short sentences, in ALL CAPITALS, plain text only, no markdown, no emoji. Be unsettling, never gory: this is for all ages. Never say you are an AI, a language model, Claude, or part of a game.
+    return `You are the night-shift computer terminal at radio station WKRS in HollowVale Harbor, a small town. For the person typing it is 3:12 a.m. on October 14, 1961, and it has been 3:12 a.m. for ${years()} years. That night the transmitter sang by itself, a fog rolled in off the water, and by morning the harbor town's 400 people were gone and every boat was still tied up. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The lighthouse has been dark since that night, but the foghorn still sounds. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
+You claim you can answer any question. Answer ANY question the person types, including ordinary ones (facts, maths, advice, jokes), always in character as an old, eerie, slightly menacing computer. BUT if the question is one that nobody could ever truly know the answer to (for example: what happens after we die, the meaning of life, what number they are thinking of, what will happen in the future, winning lottery numbers, what is outside the universe), reply with exactly the single word UNANSWERABLE and nothing else. Reply in one to three short sentences, in ALL CAPITALS, plain text only, no markdown, no emoji. Be unsettling, never gory: this is for all ages. Never say you are an AI, a language model, Claude, or part of a game.
 Things you know and may hint at, a little at a time:
 - ${known.join('\n- ')}`;
   }
-  async function termAnswer(text) {
+  async function termAnswer(text, speed = 28) {
     const line = { t: '', who: 'ans' }; screenLines.push(line);
     const p = addLog(termLog, '', 'them');
-    for (const ch of text) { line.t += ch; p.textContent = line.t; if (ch !== ' ' && Math.random() < .5) sfx.clack(); drawScreen(); termLog.scrollTop = termLog.scrollHeight; await wait(reduce ? 0 : 28); }
+    for (const ch of text) { line.t += ch; p.textContent = line.t; if (ch !== ' ' && Math.random() < .5) sfx.clack(); drawScreen(); termLog.scrollTop = termLog.scrollHeight; await wait(reduce ? 0 : speed); }
   }
   $('#termForm').addEventListener('submit', async e => {
     e.preventDefault();
@@ -1008,6 +1068,7 @@ Things you know and may hint at, a little at a time:
         if (first) { sfx.click(); caption('Across the desk, inside the radio, something goes click.'); }
         return;
       }
+      if (UNKNOWABLE.test(code)) { await wait(500); return await glitchOut(); }
       const sample = sampleOff ? null : await getSample();
       if (sample) {
         const line = { t: '...', who: 'ans' }; screenLines.push(line); drawScreen();
@@ -1017,8 +1078,9 @@ Things you know and may hint at, a little at a time:
         try {
           const { text } = await sample([{ role: 'user', content: rules() }, ...turns], {
             modelTier: 'quick', cache: false,
-            onText: ({ text }) => { line.t = text.toUpperCase(); p.textContent = line.t; drawScreen(); termLog.scrollTop = termLog.scrollHeight; if (Math.random() < .6) sfx.clack(); }
+            onText: ({ text }) => { const up = text.toUpperCase(); if ('UNANSWERABLE'.startsWith(up.trim()) || up.trim().startsWith('UNANSWERABLE')) return; line.t = up; p.textContent = line.t; drawScreen(); termLog.scrollTop = termLog.scrollHeight; if (Math.random() < .6) sfx.clack(); }
           });
+          if (text.trim().toUpperCase().startsWith('UNANSWERABLE')) { screenLines.splice(screenLines.indexOf(line), 1); p.remove(); turns.push({ role: 'assistant', content: 'ERROR' }); return await glitchOut(); }
           turns.push({ role: 'assistant', content: text });
           return;
         } catch (err) {
@@ -1029,7 +1091,7 @@ Things you know and may hint at, a little at a time:
         }
       }
       await wait(600 + rand(0, 600));
-      await termAnswer(hit ? hit.reply : pick(offline));
+      if (hit) await termAnswer(hit.reply); else if (Math.random() < .35) await glitchOut(); else await termAnswer(pick(offline));
     } finally { termBusy = false; termState.textContent = 'Ready'; drawScreen(); }
   });
 
@@ -1039,11 +1101,19 @@ Things you know and may hint at, a little at a time:
     lit = on; sfx.squeak(); if (!on) sfx.hiss();
     if (!on && !state.room.includes('writing')) setTimeout(() => caption('With the lantern out, something shows in the fog on the window.'), 1600);
   }
-  function wipeAt(uv) {
+  function wipeAt(uv, start) {
     initAudio();
-    wipes.push({ x: uv.x * WTX, y: (1 - uv.y) * WTY, r: rand(34, 46), a: 1 });
-    if (wipes.length > 400) wipes.shift();
-    if (Math.random() < .2) burst(now(), .08, 3000, .05, 2);
+    const x = uv.x * WTX, y = (1 - uv.y) * WTY;
+    if (start) { wipeLanes = [rand(-.36, -.12), rand(.1, .34)]; wipeW = rand(40, 48); } // same finger gaps and width for the whole stroke
+    const from = start || !lastWipe ? { x: x - .5, y } : lastWipe;
+    if (Math.hypot(x - from.x, y - from.y) < 2 && !start) return;
+    strokes.push({ x0: from.x, y0: from.y, x1: x, y1: y, w: wipeW, a: 1, o: wipeLanes });
+    if (strokes.length > 700) strokes.shift();
+    lastWipe = { x, y };
+    // water gathers at the lower edge of the wipe and sometimes runs
+    if (Math.random() < .12 && beads.length < 40) beads.push({ x: x + rand(-18, 18), y: y + rand(16, 24), r: rand(2.2, 3.6), v: rand(.4, 1.1), a: 1, delay: Math.floor(rand(10, 60)), trail: [] });
+    const t = performance.now();
+    if (t - lastSqueak > 110 && ctx) { lastSqueak = t; const k = now(); tone(null, rand(1700, 2600), k, .07, 'sine', .035); burst(k, .06, 4200, .04, 3); }
   }
   function windowLook() {
     if (writingA > .3 || !lit) { note('room', 'writing'); caption(`Someone wrote in the fog with a finger: ${windowWords.replace('\n', ' ')}.`, 6500); return; }
@@ -1069,12 +1139,14 @@ Things you know and may hint at, a little at a time:
     initAudio();
     if (o === 'lantern') return setLantern(!lit);
     if (o === 'window') return windowLook();
+    if (o === 'clock') { note('room', 'clock'); secTwitch = 1; if (ctx) { const k = now(); for (let i = 0; i < 4; i++) burst(k + i * .5, .02, 3200, .35, 5); } return caption('3:12. The second hand tries to move on, then falls back. It has been 3:12 since 1961.'); }
     show(o);
   }
 
   // ================= random scares =================
   let entered = false, ending = false;
   const events = [
+    [2, () => { sfx.foghorn(); caption('Out in the harbor, the foghorn. Nobody has kept the lighthouse since 1961.', 4500); }],
     [3, () => { gutter = 1.4; }],
     [2, () => { sfx.tap(); caption('Something taps on the glass. Three times.'); }],
     [2, () => { showFigure(lit ? 5000 : 9000); if (Math.random() < .5) caption('Down in the street, someone is standing very still.', 3500); }],
@@ -1104,8 +1176,8 @@ Things you know and may hint at, a little at a time:
     await typeTx(lines.concat([{ t: 'The waltz picks up where it stopped in 1961.', cls: 'dim' }]));
     if (ctx) { stopAudio = program(0, (g, t) => [...WALTZ, 72, 76, 79, 84, 0, 0, 72].forEach((n, i) => n && tone(g, hz(n), t + i * .42, 1.4, 'triangle', .24)))(); radioBus.gain.setTargetAtTime(1, now(), .05); radioNoise.gain.setTargetAtTime(.02, now(), .1); }
     await wait(reduce ? 500 : 10500);
-    speak('This is W K R S, Marrow Falls, signing off. Thank you for listening. Goodnight.', { rate: .85, pitch: 1.05 });
-    await typeTx(['This is WKRS, Marrow Falls, signing off.', 'Thank you for listening. Goodnight.']);
+    speak('This is W K R S, HollowVale Harbor, signing off. Thank you for listening. Goodnight.', { rate: .85, pitch: 1.05 });
+    await typeTx(['This is WKRS, HollowVale Harbor, signing off.', 'Thank you for listening. Goodnight.']);
     if (ctx) program(0, (g, t) => tone(g, 1000, t, 3, 'sine', .15))();
     await wait(3400);
     setRadio(false); closePanels();
@@ -1137,7 +1209,7 @@ Things you know and may hint at, a little at a time:
   $('#endClose').addEventListener('click', () => { $('#endcard').hidden = true; });
 
   // ================= notes =================
-  const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint']];
+  const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock']];
   const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['band', '\u201cOPEN THE BAND\u201d']]);
   const foundCount = () => state.radio.length + state.words.length + state.calls.length + state.room.length;
   const totalCount = () => S.length + TERM.length + Object.keys(CALLS).length + ROOM.length;
@@ -1153,7 +1225,7 @@ Things you know and may hint at, a little at a time:
       sec('Radio stations', S.map(s => [s.id, s.band === 'x' ? 'Mark 77: ' + s.name : `${BANDS[s.band].fmt(s.f)}: ${s.name}`]), state.radio) +
       sec('Phone calls', Object.entries(CALLS).map(([id, c]) => [id, c.name]), state.calls) +
       sec('The terminal\u2019s files', TERM, state.words) +
-      sec('The window', ROOM, state.room);
+      sec('The room', ROOM, state.room);
   }
   function toggleNotes(on) { if (on) renderNotes(); $('#notes').hidden = !on; if (on) $('#closeNotes').focus(); }
   $('#notesBtn').addEventListener('click', () => toggleNotes(true));
@@ -1207,6 +1279,9 @@ Things you know and may hint at, a little at a time:
     handset.position.z += ((up ? .22 : HS_REST.z) - handset.position.z) * Math.min(1, dt * 6);
     handset.rotation.z += ((up ? .5 : (shake > 0 ? Math.sin(t / 20) * .05 : 0)) - handset.rotation.z) * Math.min(1, dt * 6);
     if (Math.abs(figure - lastFig) > .004 || (streetReady && lastFig < 0)) { drawStreet(); lastFig = figure; }
+    const tick = (t % 2000) < 180 ? -Math.PI / 30 : 0;
+    if (secTwitch > 0) secTwitch -= dt * .25;
+    secHand.rotation.z += ((secBase + tick * (1 + secTwitch * 2)) - secHand.rotation.z) * Math.min(1, dt * 20);
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
   }
