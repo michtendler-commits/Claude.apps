@@ -195,7 +195,7 @@ body.hovering #gl { cursor: pointer; }
     <button class="btn" id="powerBtn" type="button" aria-pressed="false">Power</button>
     <fieldset class="seg">
       <legend hidden>Band</legend>
-      <label><input type="radio" name="band" id="band-am" value="am" checked><span>AM</span></label>
+      <label><input type="radio" name="band" id="band-am" value="am" checked><span>ST</span></label>
       <label><input type="radio" name="band" id="band-sw" value="sw"><span>SW</span></label>
       <label><input type="radio" name="band" id="band-x" value="x" aria-label="Unmarked band"><span>&middot;</span></label>
     </fieldset>
@@ -218,7 +218,7 @@ body.hovering #gl { cursor: pointer; }
 </section>
 
 <section class="panel" id="termPanel" hidden aria-label="Computer terminal">
-  <header><h2>WKRS night terminal</h2><span class="live" id="termState">Ready</span><button class="x" type="button" data-close aria-label="Close">&times;</button></header>
+  <header><h2>UNIA terminal 003</h2><span class="live" id="termState">Ready</span><button class="x" type="button" data-close aria-label="Close">&times;</button></header>
   <div class="log" id="termLog" aria-live="polite"></div>
   <form id="termForm" autocomplete="off">
     <label for="termInput" hidden>Ask the terminal anything</label>
@@ -730,7 +730,7 @@ body.hovering #gl { cursor: pointer; }
 
   // ================= the radio =================
   const BANDS = {
-    am: { name: 'AM', lo: 530, hi: 1700, fmt: f => `${Math.round(f)} kc`, major: [600, 700, 800, 1000, 1200, 1400, 1600], lab: v => v / 10, minorStep: 50, lock: .007, hear: .035 },
+    am: { name: 'STATION', lo: 0, hi: 99, fmt: f => `Station ${Math.round(f)}`, major: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90], lab: v => v, minorStep: 2, lock: .006, hear: .03 },
     sw: { name: 'SW', lo: 3, hi: 12, fmt: f => `${f.toFixed(2)} Mc`, major: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12], lab: v => v, minorStep: .5, lock: .007, hear: .035 },
     x:  { name: '', lo: 0, hi: 100, fmt: () => '', major: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], lab: v => v, minorStep: 2, lock: .014, hear: .06 }
   };
@@ -752,12 +752,12 @@ body.hovering #gl { cursor: pointer; }
   const years = () => new Date().getFullYear() - 1961;
   const who = () => state.name ? state.name.charAt(0) + state.name.slice(1).toLowerCase() : 'caller';
   const S = [
-    { id: 'weather', band: 'am', f: 640, name: 'WKRS weather',
+    { id: 'weather', band: 'am', f: 7, name: 'WKRS weather',
       lines: () => ['WKRS marine weather for HollowVale Harbor.', 'Tonight: fog over the harbor, low near forty. Small craft should stay tied up.', 'Tomorrow: fog.', 'Every day after that: fog.', { t: 'Keep your lantern lit. Keep the radio on.', cls: 'dim' }],
       voice: 'all', audio: program(4, (g, t) => tone(g, 60, t, 4, 'sine', .15)) },
-    { id: 'nightowl', band: 'am', f: 880, name: 'Night Owl with Ruth',
-      lines: () => [{ t: 'A record spins through the crackle.', cls: 'dim' }, { t: '\u266a \u201cNo Place Like Home\u201d \u00b7 Cosmolyte', cls: 'big' }, 'You are listening to Night Owl with Ruth Calloway, on WKRS. Ruth was playing this song when the fog came in.', { t: '\u201cNo Place Like Home\u201d by Cosmolyte, owned by UNIA Systems. On SHORT WAVE, somebody is reading numbers.', cls: 'dim' }] },
-    { id: 'morse', band: 'am', f: 1010, name: 'Dots and dashes',
+    { id: 'nightowl', band: 'am', f: 13, name: 'Night Owl with Ruth',
+      lines: () => [{ t: 'A record spins through the crackle.', cls: 'dim' }, { t: 'STATION 13 \u00b7 \u266a \u201cNo Place Like Home\u201d \u00b7 Cosmolyte', cls: 'big' }, 'You are listening to Night Owl with Ruth Calloway, on WKRS. Ruth was playing this song when the fog came in.', { t: '\u201cNo Place Like Home\u201d by Cosmolyte, owned by UNIA Systems. On SHORT WAVE, somebody is reading numbers.', cls: 'dim' }] },
+    { id: 'morse', band: 'am', f: 24, name: 'Dots and dashes',
       lines: () => ['Someone is tapping a telegraph key, over and over:', { t: morseText('SHE IS STILL ON AIR'), cls: 'big' }],
       audio: () => {
         if (!ctx) return () => {};
@@ -766,13 +766,39 @@ body.hovering #gl { cursor: pointer; }
         const len = seq.reduce((a, s) => a + Math.abs(s), 0) * u + 2;
         return program(len, (g, t) => { let k = t; seq.forEach(s => { if (s > 0) tone(g, 640, k, s * u, 'sine', .3); k += Math.abs(s) * u; }); })();
       } },
-    { id: 'hardware', band: 'am', f: 1210, name: 'Hartwell’s Hardware',
+    { id: 'hardware', band: 'am', f: 36, name: 'Hartwell’s Hardware',
       lines: () => ['Hartwell’s Hardware, on Main Street!', 'Lamp oil. Matches. Nails for the windows.', 'Everything you need for a long night in the fog.', { t: 'Hartwell’s closed in 1961. Nobody told the advertisement.', cls: 'dim' }],
       voice: [0, 1, 2], audio: program(6, (g, t) => [67, 72, 76, 79, 76, 72].forEach((n, i) => tone(g, hz(n), t + i * .18, .3, 'square', .07))) },
-    { id: 'backwards', band: 'am', f: 1490, name: 'The backwards voice',
+    { id: 'history', band: 'am', f: 49, name: 'The harbor\u2019s history',
+      script: [
+        ['This is the HollowVale Harbor Historical Society. Recorded for the record. Do not adjust your set.'],
+        ['HollowVale Harbor was founded in 1803, by whalers who said the fog here was kinder than the sea.'],
+        ['In 1871 the lighthouse was built on Gull Point. Its first keeper wrote in his log that, some nights, the fog knocked.'],
+        ['In 1904 the keeper went out to answer the knocking. His lantern was found on the rocks, still burning.'],
+        ['In 1923, thirty-one fishing boats sailed out into the fog. None came back. Their bells were heard in the harbor for a week.'],
+        ['On October 14, 1961, at 3:12 in the morning, the WKRS transmitter began to sing by itself. By sunrise the harbor was empty.'],
+        ['The Historical Society reminds you: if you hear a bell in the fog, do not go down to the water.']
+      ], scriptOpts: { rate: .72, pitch: .35 },
+      lines: () => [{ t: 'STATION 49 \u00b7 HollowVale Harbor Historical Society', cls: 'big' }, { t: 'A slow, flat voice under the hiss:', cls: 'dim' }, ...S.find(x => x.id === 'history').script.map(([t]) => t)],
+      audio: program(8, (g, t) => { tone(g, 55, t, 8, 'sine', .12); tone(g, 58, t, 8, 'sine', .06); tone(g, 659, t + 2.5, 3.5, 'sine', .07); tone(g, 1318, t + 2.5, 1.5, 'sine', .02); tone(g, 659, t + 6, 3, 'sine', .05); }) },
+    { id: 'talkshow', band: 'am', f: 72, name: 'Sunny Side Up',
+      script: [
+        ['Good morning, HollowVale! You\u2019re listening to Sunny Side Up. I\u2019m Marge.', { rate: 1.02, pitch: 1.35 }],
+        ['And I\u2019m Henry! What a lovely morning it is.', { rate: 1, pitch: .9 }],
+        ['Today in the garden: hydrangeas! Tuck a rusty nail into the soil and the flowers turn a gorgeous purple. Isn\u2019t that something?', { rate: 1.02, pitch: 1.35 }],
+        ['A listener writes in about her tabby cat, Pickles, who has learned to open the bread box. Clever girl, Pickles!', { rate: 1, pitch: .9 }],
+        ['Our dare of the day: tell somebody you love them before lunch.', { rate: 1.02, pitch: 1.35 }],
+        ['Kettle\u2019s on, door\u2019s open, and the coffee is always hot. Stay sunny, neighbors!', { rate: 1, pitch: .9 }]
+      ],
+      lines: () => [{ t: 'STATION 72 \u00b7 Sunny Side Up with Marge and Henry', cls: 'big' }, { t: 'Soft piano, and two warm voices:', cls: 'dim' },
+        'MARGE: Good morning, HollowVale! You\u2019re listening to Sunny Side Up. I\u2019m Marge.', 'HENRY: And I\u2019m Henry! What a lovely morning it is.',
+        'MARGE: Today in the garden: hydrangeas! Tuck a rusty nail into the soil and the flowers turn a gorgeous purple.', 'HENRY: A listener\u2019s tabby cat, Pickles, has learned to open the bread box. Clever girl!',
+        'MARGE: Our dare of the day: tell somebody you love them before lunch.', 'HENRY: Kettle\u2019s on, door\u2019s open. Stay sunny, neighbors!'],
+      audio: program(8, (g, t) => [[60, 64, 67, 71], [65, 69, 72, 76], [62, 65, 69, 72], [67, 71, 74, 77]].forEach((ch, i) => ch.forEach((n, k) => tone(g, hz(n), t + i * 2 + k * .06, 1.9, 'triangle', .045)))) },
+    { id: 'backwards', band: 'am', f: 58, name: 'The backwards voice',
       lines: () => ['A woman talking backwards. You write down what she says:', { t: 'DNAB KNALB EHT NO MI', cls: 'big' }, { t: 'She sounds very tired.', cls: 'dim' }],
       say: 'dnab. knalb. eht. no. mi.', audio: program(3, (g, t) => { for (let i = 0; i < 6; i++) tone(g, 180 + Math.random() * 220, t + i * .4, .35, 'sawtooth', .05); }) },
-    { id: 'caller', band: 'am', f: 1560, name: 'The request line',
+    { id: 'caller', band: 'am', f: 88, name: 'The request line',
       lines: () => { const n = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); return [`Night Owl request line. You’re on the air, ${who()}.`, `It’s ${n} where you are. We can see your lantern from here.`, 'Don\u2019t look out the window. Someone in the street is looking up.', { t: 'The line goes quiet, but nobody hangs up.', cls: 'dim' }]; },
       voice: [0, 1, 2], audio: program(1, (g, t) => tone(g, 2400, t, .02, 'square', .04)) },
     { id: 'buzzer', band: 'sw', f: 4.625, name: 'The buzzer',
@@ -848,7 +874,7 @@ body.hovering #gl { cursor: pointer; }
     S.filter(s => s.band === band).forEach(s => { const d = Math.abs(s.p - pos[band]); if (d < dist) { dist = d; nearest = s; } });
     strength = Math.max(0, 1 - dist / b.hear);
     magic.style.setProperty('--gap', `${band === 'x' ? 70 : 6 + 64 * (1 - strength)}deg`);
-    // the song is Ruth's station: it fades with the signal as you tune away from 880
+    // the song is Ruth's station: it fades with the signal as you tune away from Station 13
     if (ctx || !songGain) setSongLevel(radioOn && band === 'am' ? Math.max(0, 1 - Math.abs(OWL.p - pos.am) / BANDS.am.hear) * .9 : 0);
     eyeMat.color.setHex(0x0b1a10).lerp(new THREE.Color(0x67f0a0), radioOn ? (band === 'x' ? .1 : .25 + .75 * strength) : 0);
     if (!radioOn) return;
@@ -865,7 +891,8 @@ body.hovering #gl { cursor: pointer; }
     const lines = st.lines();
     if (note('radio', st.id)) caption(`Logged: ${st.name}.`, 2600);
     const plain = lines.map(l => typeof l === 'string' ? l : l.t);
-    if (st.say) speak(st.say, st.sayOpts);
+    if (st.script) (async () => { for (const [text, o] of st.script) { if (current !== st) return; await speak(text, o || st.scriptOpts); } })();
+    else if (st.say) speak(st.say, st.sayOpts);
     else if (st.voice === 'all') speak(plain.filter((_, i) => typeof lines[i] === 'string').join(' ... '), st.sayOpts);
     else if (st.voice) speak(st.voice.map(i => plain[i]).join(' ... '), st.sayOpts);
     typeTx(lines);
@@ -986,7 +1013,7 @@ body.hovering #gl { cursor: pointer; }
       addLog(logEl, 'No dial tone. Just static, and very far away, someone breathing. Hang up and wait for it to ring.', 'sys');
       return;
     }
-    greeted = true;
+    greeted = true; answerFlash = false; drawScreen();
     const id = nextCall(); callScript = CALLS[id];
     if (note('calls', id)) setTimeout(() => caption(`Noted: ${callScript.name}.`, 2200), 400);
     addLog(logEl, 'You lift the receiver. Static, then breathing.', 'sys');
@@ -996,7 +1023,8 @@ body.hovering #gl { cursor: pointer; }
 
   // ================= the terminal: ask it anything =================
   const termLog = $('#termLog'), termInput = $('#termInput'), termState = $('#termState'), termHint = $('#termHint');
-  const screenLines = [{ t: 'WKRS NIGHT TERMINAL  REV 3.12', who: 'sys' }, { t: 'I CAN ANSWER ANY QUESTION.', who: 'sys' }];
+  const screenLines = [{ t: 'UNIA SYSTEMS  TERMINAL 003', who: 'sys' }];
+  let answerFlash = false;
   let termBusy = false, caretOn = true, termDraft = '';
   const turns = [];
   function wrap(g, text, max) {
@@ -1006,6 +1034,15 @@ body.hovering #gl { cursor: pointer; }
   }
   function drawScreen() {
     const g = screenTex.userData.g, w = 512, h = 384;
+    if (answerFlash) { // the whole screen blinks until the phone is answered
+      const on = Math.floor(performance.now() / 450) % 2 === 0;
+      g.fillStyle = on ? '#8dffaa' : '#031006'; g.fillRect(0, 0, w, h);
+      g.fillStyle = on ? '#031006' : '#8dffaa'; g.font = '64px "VT323", "Courier New", monospace'; g.textAlign = 'center';
+      g.fillText('ANSWER', w / 2, 170); g.fillText('THE PHONE.', w / 2, 235); g.textAlign = 'left';
+      termGlow.intensity = on ? .9 : .15;
+      screenTex.needsUpdate = true; return;
+    }
+    termGlow.intensity = .3;
     g.fillStyle = '#031006'; g.fillRect(0, 0, w, h);
     const gr = g.createRadialGradient(w / 2, h / 2, 40, w / 2, h / 2, 330); gr.addColorStop(0, 'rgba(40,120,60,.25)'); gr.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
     g.font = '26px "VT323", "Courier New", monospace'; g.textBaseline = 'alphabetic';
@@ -1020,6 +1057,17 @@ body.hovering #gl { cursor: pointer; }
     screenTex.needsUpdate = true;
   }
   setInterval(() => { caretOn = !caretOn; drawScreen(); }, 530);
+  setInterval(() => answerFlash && drawScreen(), 150);
+  // the terminal switches itself on, introduces itself, and then the phone rings
+  let termGreeted = false;
+  async function termGreet() {
+    if (termGreeted) return; termGreeted = true;
+    termBusy = true; termState.textContent = 'Working';
+    await termAnswer('HELLO, I AM THE UNIA TERMINAL 003. I AM AN ALL-KNOWING BEING, AND ASK ME WHATEVER YOU WANT. BE CAREFUL WHAT YOU ASK ME, OR ELSE', 55);
+    termBusy = false; termState.textContent = 'Ready';
+    await wait(500);
+    if (!greeted) { answerFlash = true; drawScreen(); startRinging(16); setTimeout(() => caption('The phone is ringing. The terminal is flashing: ANSWER THE PHONE.', 5000), 1500); }
+  }
   function keyTap() { sfx.clack(); const k = pick(keyCaps); k.position.y = k.userData.baseY - .004; setTimeout(() => k.position.y = k.userData.baseY, 70); }
   termInput.addEventListener('input', () => { const v = termInput.value.toUpperCase(); if (v.length > termDraft.length) keyTap(); termDraft = v; drawScreen(); });
   const W = [
@@ -1060,7 +1108,7 @@ body.hovering #gl { cursor: pointer; }
     known.push('Whatever the window says must be typed into this terminal. The page itself handles that; never tell them the words, only that the window holds them.');
     if (state.xOpen) known.push('The unmarked radio band is now open. A short-wave station reads numbers after four chimes; the numbers give the mark on the unmarked band where Ruth is broadcasting.');
     if (state.radio.includes('numbers')) known.push('Ruth is on the unmarked band at mark 77. You may say so if asked.');
-    return `You are the night-shift computer terminal at radio station WKRS in HollowVale Harbor, a small town. For the person typing it is 3:12 a.m. on October 14, 1961, and it has been 3:12 a.m. for ${years()} years. That night the transmitter sang by itself, a fog rolled in off the water, and by morning the harbor town's 400 people were gone and every boat was still tied up. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The lighthouse has been dark since that night, but the foghorn still sounds. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
+    return `You are UNIA Terminal 003, a computer terminal made by UNIA Systems, sitting in the night booth of radio station WKRS in HollowVale Harbor, a small harbor town. You call yourself an all-knowing being. For the person typing it is 3:12 a.m. on October 14, 1961, and it has been 3:12 a.m. for ${years()} years. That night the transmitter sang by itself, a fog rolled in off the water, and by morning the harbor town's 400 people were gone and every boat was still tied up. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The lighthouse has been dark since that night, but the foghorn still sounds. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
 You claim you can answer any question. Answer ANY question the person types, including ordinary ones (facts, maths, advice, jokes), always in character as an old, eerie, slightly menacing computer. BUT if the question is one that nobody could ever truly know the answer to (for example: what happens after we die, the meaning of life, what number they are thinking of, what will happen in the future, winning lottery numbers, what is outside the universe), reply with exactly the single word UNANSWERABLE and nothing else. Reply in one to three short sentences, in ALL CAPITALS, plain text only, no markdown, no emoji. Be unsettling, never gory: this is for all ages. Never say you are an AI, a language model, Claude, or part of a game.
 Things you know and may hint at, a little at a time:
 - ${known.join('\n- ')}`;
@@ -1086,6 +1134,17 @@ Things you know and may hint at, a little at a time:
         await termAnswer(first ? 'COMMAND ACCEPTED. UNMARKED BAND UNLOCKED. LISTEN FOR THE NUMBERS.' : 'THE BAND IS ALREADY OPEN. LISTEN FOR THE NUMBERS.');
         if (first) { sfx.click(); caption('Across the desk, inside the radio, something goes click.'); }
         return;
+      }
+      const words = raw.toLowerCase().match(/[a-z]+/g) || [];
+      const has = list => words.some(w => list.includes(w));
+      const station = has(['horseshoe', 'horseshoes', 'underworld', 'nether', 'blue']) ? 49
+        : has(['dare', 'dares', 'purple', 'skull', 'skulls', 'hydrangea', 'hydrangeas', 'tabby', 'tabbies']) ? 72
+        : has(['music', 'musical', 'song', 'songs', 'sing', 'singing', 'singer', 'melody', 'tune', 'tunes', 'album', 'albums', 'record', 'records', 'lyrics', 'piano', 'guitar', 'drum', 'drums', 'jazz', 'rock', 'pop', 'rap', 'hiphop', 'playlist', 'concert', 'dance', 'dancing', 'band', 'bands', 'musician', 'orchestra', 'violin', 'radio', 'cosmolyte']) ? 13 : 0;
+      if (station) {
+        await wait(600); termState.textContent = 'Station';
+        if (ctx) { tone(null, 880, now(), .12, 'square', .05); tone(null, 1320, now() + .14, .2, 'square', .05); }
+        note('words', 'st' + station);
+        return await termAnswer(`STATION ${station}`, 90);
       }
       if (UNKNOWABLE.test(code)) { await wait(500); return await glitchOut(); }
       const sample = sampleOff ? null : await getSample();
@@ -1150,7 +1209,7 @@ Things you know and may hint at, a little at a time:
     closePanels(); openPanel = name;
     if (name === 'radio') { $('#radioPanel').hidden = false; placeNeedle(); }
     if (name === 'phone') { $('#phonePanel').hidden = false; pickUp(); }
-    if (name === 'computer') { $('#termPanel').hidden = false; if (matchMedia('(pointer: fine)').matches) termInput.focus(); getSample(); }
+    if (name === 'computer') { termGreet(); $('#termPanel').hidden = false; if (matchMedia('(pointer: fine)').matches) termInput.focus(); getSample(); }
   }
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closePanels));
   addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#notes').hidden) toggleNotes(false); else closePanels(); } });
@@ -1230,7 +1289,7 @@ Things you know and may hint at, a little at a time:
 
   // ================= notes =================
   const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock']];
-  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['band', '\u201cOPEN THE BAND\u201d']]);
+  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['band', '\u201cOPEN THE BAND\u201d'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72']]);
   const foundCount = () => state.radio.length + state.words.length + state.calls.length + state.room.length;
   const totalCount = () => S.length + TERM.length + Object.keys(CALLS).length + ROOM.length;
   function updateNotesCount() { $('#notesCount').textContent = `${foundCount()}`; }
@@ -1264,8 +1323,8 @@ Things you know and may hint at, a little at a time:
     initAudio(); entered = true;
     $('#start').classList.add('gone'); setTimeout(() => $('#start').hidden = true, 1500);
     caption('The lantern hisses. The fog is thick tonight.', 4200);
-    setTimeout(() => startRinging(8), 5000);
-    setTimeout(() => { if (ringing) caption('Click the phone on the wall to answer it.', 4000); }, 12000);
+    setTimeout(() => caption('The computer on the desk switches itself on and starts typing.', 4500), 3200);
+    setTimeout(termGreet, 3600);
     scheduleScare();
   });
 
