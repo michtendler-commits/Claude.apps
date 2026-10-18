@@ -54,6 +54,7 @@ body.hovering #gl { cursor: pointer; }
 #enter:hover { background: rgba(232,220,194,.08); }
 #enter:focus-visible { outline: 2px solid var(--ember); outline-offset: 4px; }
 #nogl { color: var(--blood); }
+#start .credit { font-family: var(--label); font-size: .72rem; letter-spacing: .12em; color: var(--bone-dim); }
 
 /* ---------- HUD ---------- */
 .hud { position: fixed; z-index: 10; }
@@ -176,6 +177,7 @@ body.hovering #gl { cursor: pointer; }
     <p>A desk by a window. A radio that still works. A lantern burning low. A computer terminal that answers any question. A telephone on the wall that still rings, though the line was cut in 1961.</p>
     <p>Click things in the room. Headphones help. So does the dark.</p>
     <button id="enter" type="button">Sit down</button>
+    <p class="credit">Music: “No Place Like Home” by Cosmolyte · owned by UNIA Systems</p>
     <p id="nogl" hidden>This scene needs WebGL, and your browser has it switched off.</p>
   </div>
 </div>
@@ -277,7 +279,13 @@ body.hovering #gl { cursor: pointer; }
   })();
 
   // ================= audio =================
-  let ctx, master, ambGain, radioNoise, radioBus;
+  let ctx, master, ambGain, radioNoise, radioBus, songGain = null;
+  // Ruth's record: "No Place Like Home" by Cosmolyte, played through the radio's speaker
+  const song = new Audio('no-place-like-home.mp3'); song.loop = true; song.preload = 'auto';
+  function setSongLevel(v) {
+    if (songGain) songGain.gain.setTargetAtTime(v, ctx.currentTime, .08);
+    else song.volume = Math.max(0, Math.min(1, v));
+  }
   function initAudio() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try {
@@ -295,6 +303,13 @@ body.hovering #gl { cursor: pointer; }
       radioNoise = ctx.createGain(); radioNoise.gain.value = 0; rn.connect(bp).connect(radioNoise).connect(master); rn.start();
       const eq = ctx.createBiquadFilter(); eq.type = 'bandpass'; eq.frequency.value = 1100; eq.Q.value = .5;
       radioBus = ctx.createGain(); radioBus.gain.value = 0; radioBus.connect(eq).connect(master);
+      try {
+        const src = ctx.createMediaElementSource(song);
+        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 160;
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5500;
+        songGain = ctx.createGain(); songGain.gain.value = 0;
+        src.connect(hp).connect(lp).connect(songGain).connect(master);
+      } catch (e) { songGain = null; }
     } catch (e) { ctx = null; }
   }
   function noiseBuffer(sec, crackle) {
@@ -741,8 +756,7 @@ body.hovering #gl { cursor: pointer; }
       lines: () => ['WKRS marine weather for HollowVale Harbor.', 'Tonight: fog over the harbor, low near forty. Small craft should stay tied up.', 'Tomorrow: fog.', 'Every day after that: fog.', { t: 'Keep your lantern lit. Keep the radio on.', cls: 'dim' }],
       voice: 'all', audio: program(4, (g, t) => tone(g, 60, t, 4, 'sine', .15)) },
     { id: 'nightowl', band: 'am', f: 880, name: 'Night Owl with Ruth',
-      lines: () => [{ t: 'A slow waltz plays through the crackle.', cls: 'dim' }, 'You are listening to Night Owl with Ruth Calloway, on WKRS.', 'Ruth’s show cut off in the middle of this song on October 14, 1961.', { t: 'On SHORT WAVE, somebody is reading numbers.', cls: 'dim' }],
-      voice: [1, 2], audio: program(WALTZ.length * .42, (g, t) => WALTZ.forEach((n, i) => { if (n) { tone(g, hz(n), t + i * .42, 1.2, 'triangle', .22); if (i % 3 === 0) tone(g, hz(n - 24), t + i * .42, .9, 'sine', .14); } })) },
+      lines: () => [{ t: 'A record spins through the crackle.', cls: 'dim' }, { t: '\u266a \u201cNo Place Like Home\u201d \u00b7 Cosmolyte', cls: 'big' }, 'You are listening to Night Owl with Ruth Calloway, on WKRS. Ruth was playing this song when the fog came in.', { t: '\u201cNo Place Like Home\u201d by Cosmolyte, owned by UNIA Systems. On SHORT WAVE, somebody is reading numbers.', cls: 'dim' }] },
     { id: 'morse', band: 'am', f: 1010, name: 'Dots and dashes',
       lines: () => ['Someone is tapping a telegraph key, over and over:', { t: morseText('SHE IS STILL ON AIR'), cls: 'big' }],
       audio: () => {
@@ -777,6 +791,8 @@ body.hovering #gl { cursor: pointer; }
     { id: 'ruth', band: 'x', f: 77, name: 'Ruth, between the stations', ending: true }
   ];
   S.forEach(s => s.p = toP(s.band, s.f));
+  const OWL = S.find(st => st.id === 'nightowl');
+  pos.am = OWL.p; // the dial is left on Ruth's show
 
   const strip = $('#strip'), scaleEl = $('#scale'), needle = $('#needle'), readout = $('#readout'), magic = $('#magic'), txEl = $('#tx'), txState = $('#txState');
   function drawScale() {
@@ -832,6 +848,8 @@ body.hovering #gl { cursor: pointer; }
     S.filter(s => s.band === band).forEach(s => { const d = Math.abs(s.p - pos[band]); if (d < dist) { dist = d; nearest = s; } });
     strength = Math.max(0, 1 - dist / b.hear);
     magic.style.setProperty('--gap', `${band === 'x' ? 70 : 6 + 64 * (1 - strength)}deg`);
+    // the song is Ruth's station: it fades with the signal as you tune away from 880
+    if (ctx || !songGain) setSongLevel(radioOn && band === 'am' ? Math.max(0, 1 - Math.abs(OWL.p - pos.am) / BANDS.am.hear) * .9 : 0);
     eyeMat.color.setHex(0x0b1a10).lerp(new THREE.Color(0x67f0a0), radioOn ? (band === 'x' ? .1 : .25 + .75 * strength) : 0);
     if (!radioOn) return;
     if (ctx) { radioNoise.gain.setTargetAtTime(.04 + .3 * (1 - strength), ctx.currentTime, .05); radioBus.gain.setTargetAtTime(strength, ctx.currentTime, .05); }
@@ -858,9 +876,10 @@ body.hovering #gl { cursor: pointer; }
     strip.classList.toggle('on', on); magic.classList.toggle('on', on);
     dialMat.color.setHex(on ? 0xffffff : 0x5a4a38); radioGlow.intensity = on ? .7 : 0;
     knobs[0].rotation.y = on ? 2 : 0;
-    if (on) { initAudio(); txState.textContent = 'Warming up'; txEl.innerHTML = '<p class="static">The tubes are warming up…</p>'; setTimeout(() => radioOn && evaluate(), reduce ? 0 : 900); }
+    if (on) { initAudio(); song.play().catch(() => {}); txState.textContent = 'Warming up'; txEl.innerHTML = '<p class="static">The tubes are warming up…</p>'; setTimeout(() => radioOn && evaluate(), reduce ? 0 : 900); }
     else {
       stopStation(); clearInterval(staticTimer); staticTimer = null; txState.textContent = 'Off';
+      song.pause(); setSongLevel(0);
       if (ctx) { radioNoise.gain.setTargetAtTime(0, ctx.currentTime, .05); radioBus.gain.setTargetAtTime(0, ctx.currentTime, .05); }
       txEl.innerHTML = '<p class="dim">The radio is off.</p>'; evaluate();
     }
@@ -1141,6 +1160,7 @@ Things you know and may hint at, a little at a time:
     if (o === 'window') return windowLook();
     if (o === 'clock') { note('room', 'clock'); secTwitch = 1; if (ctx) { const k = now(); for (let i = 0; i < 4; i++) burst(k + i * .5, .02, 3200, .35, 5); } return caption('3:12. The second hand tries to move on, then falls back. It has been 3:12 since 1961.'); }
     show(o);
+    if (o === 'radio' && !radioOn) setRadio(true); // clicking the radio switches it on
   }
 
   // ================= random scares =================
