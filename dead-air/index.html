@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Special+Elite&family=Josefin+Sans:wght@400;600&display=swap">
 <style>
-/* Layout: one fixed close-up of a desk by a window (3D, barely drifting); small HTML panels rise over it when you use something. Single dark look by choice. */
+/* Layout: one fixed close-up of a desk and a wall phone by a window (3D, barely drifting); small HTML panels rise over it when you use something. Single dark look by choice. */
 :root {
   --void: #050608;
   --smoke: rgba(10, 11, 14, .88);
@@ -112,11 +112,16 @@ body.hovering #gl { cursor: pointer; }
 #tx .big { color: var(--ember); letter-spacing: .08em; }
 #tx .static { color: var(--bone-dim); letter-spacing: .05em; }
 
-/* typewriter */
-#twLast { min-height: 1.5em; font-size: 1.05rem; line-height: 1.45; color: #e0675c; text-shadow: 0 0 8px rgba(179,38,30,.4); overflow-wrap: anywhere; }
-#twForm { display: flex; gap: 8px; }
-#twInput { flex: 1; min-width: 0; font-family: var(--type); font-size: 1.1rem; text-transform: uppercase; color: var(--bone); background: rgba(0,0,0,.5); border: 1px solid var(--line); border-radius: 2px; padding: 9px 10px; }
-#twInput:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
+/* phone */
+#log { max-height: 26vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 1rem; line-height: 1.45; }
+#log p { margin: 0; overflow-wrap: anywhere; }
+#log .you { color: var(--bone-dim); }
+#log .you::before { content: "You: "; }
+#log .them { color: #e0675c; text-shadow: 0 0 8px rgba(179,38,30,.4); }
+#log .sys { color: var(--bone-dim); font-style: italic; }
+#lineForm { display: flex; gap: 8px; }
+#lineInput { flex: 1; min-width: 0; font-family: var(--type); font-size: 1.05rem; color: var(--bone); background: rgba(0,0,0,.5); border: 1px solid var(--line); border-radius: 2px; padding: 9px 10px; }
+#lineInput:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
 
 /* notes */
 #notes { position: fixed; z-index: 30; inset: 0; background: rgba(0,0,0,.7); display: grid; place-items: center;
@@ -155,8 +160,8 @@ body.hovering #gl { cursor: pointer; }
   <div class="start-inner">
     <span class="when">Marrow Falls · October 14, 1961 · 3:12 a.m.</span>
     <h1>Dead Air</h1>
-    <p>A desk by a window. A radio that still works. A lantern burning low. A typewriter that someone is still using.</p>
-    <p>Click the things on the desk. Headphones help. So does the dark.</p>
+    <p>A desk by a window. A radio that still works. A lantern burning low. A telephone on the wall that still rings, though the line was cut in 1961.</p>
+    <p>Click things in the room. Headphones help. So does the dark.</p>
     <button id="enter" type="button">Sit down</button>
     <p id="nogl" hidden>This scene needs WebGL, and your browser has it switched off.</p>
   </div>
@@ -187,15 +192,15 @@ body.hovering #gl { cursor: pointer; }
   <div id="tx" aria-live="polite"><p class="dim">Turn it on, then drag along the dial. When the green eye closes, you're on a station.</p></div>
 </section>
 
-<section class="panel" id="twPanel" hidden aria-label="Typewriter">
-  <header><h2>The typewriter</h2><span class="live">Someone is listening</span><button class="x" type="button" data-close aria-label="Close">&times;</button></header>
-  <div id="twLast" aria-live="polite"></div>
-  <form id="twForm" autocomplete="off">
-    <label for="twInput" hidden>Type a message</label>
-    <input id="twInput" type="text" maxlength="60" spellcheck="false" autocapitalize="characters" placeholder="Type something">
-    <button class="btn" type="submit">Return</button>
+<section class="panel" id="phonePanel" hidden aria-label="Wall telephone">
+  <header><h2>The wall phone</h2><span class="live" id="lineState">Line open</span><button class="x" type="button" data-close aria-label="Hang up">&times;</button></header>
+  <div id="log" aria-live="polite"></div>
+  <form id="lineForm" autocomplete="off">
+    <label for="lineInput" hidden>What you say into the phone</label>
+    <input id="lineInput" type="text" maxlength="60" spellcheck="false" placeholder="Type what you say">
+    <button class="btn" type="submit">Say it</button>
   </form>
-  <p class="hint">Type to whoever is there and press Return. It answers in red.</p>
+  <p class="hint">Type what you want to say into the receiver. Someone on the line answers.</p>
 </section>
 
 <div id="notes" hidden>
@@ -293,6 +298,7 @@ body.hovering #gl { cursor: pointer; }
   const sfx = {
     clack() { const t = now(); burst(t, .045, rand(2200, 3200), .5, 2); tone(null, 140, t, .05, 'square', .06); },
     ding() { const t = now(); tone(null, 2100, t, 1.4, 'sine', .14); tone(null, 4200, t, .6, 'sine', .04); },
+    ring() { const t = now(); for (let i = 0; i < 32; i++) { const k = t + i * .05; tone(null, i % 2 ? 1180 : 1240, k, .09, 'sine', .12); tone(null, 2650, k, .05, 'sine', .03); } },
     tap() { const t = now(); [0, .45, .9].forEach(k => { burst(t + k, .05, 3500, .55, 3); tone(null, 900, t + k, .04, 'sine', .15); }); },
     click() { const t = now(); burst(t, .03, 1500, .4, 3); },
     scratch() { const t = now(); for (let i = 0; i < 14; i++) burst(t + i * .09 + rand(0, .04), .07, rand(2500, 4000), .18, 4); },
@@ -372,83 +378,116 @@ body.hovering #gl { cursor: pointer; }
 
   // ---------- room: one corner by a window ----------
   const BACK = -2.05, DESK_Y = .78;
-  const back = mesh(new THREE.PlaneGeometry(5, 3), M.wall, 0, 1.5, BACK); back.castShadow = false;
   const left = mesh(new THREE.PlaneGeometry(3, 3), M.wall, -1.6, 1.5, -.6); left.rotation.y = Math.PI / 2; left.castShadow = false;
   const floor = mesh(new THREE.PlaneGeometry(5, 3), new THREE.MeshStandardMaterial({ color: 0x1a110a, roughness: .9 }), 0, 0, -.6); floor.rotation.x = -Math.PI / 2;
   box(2.4, .05, .9, M.desk, 0, DESK_Y - .025, -1.6);
   box(2.4, .12, .03, M.desk, 0, DESK_Y - .1, -1.16);
   const sheet = (x, z, r) => { const p = mesh(new THREE.PlaneGeometry(.21, .29), M.cream, x, DESK_Y + .002, z); p.rotation.x = -Math.PI / 2; p.rotation.z = r; p.castShadow = false; };
-  sheet(-.25, -1.3, .5); sheet(.62, -1.33, -.25);
+  sheet(-.75, -1.45, .5); sheet(-.68, -1.4, .2); sheet(.85, -1.4, -.25);
   const hemi = new THREE.HemisphereLight(0x223040, 0x080604, .2); scene.add(hemi);
 
-  // ---------- window ----------
-  const WIN = { x: .12, y: 1.62, w: 1.2, h: .9 };
-  const WTX = 512, WTY = 384;
-  let figure = 0, figureTarget = 0, writingA = 0, hand = 0, handTarget = 0;
-  const wipes = [];
-  const fogC = document.createElement('canvas'); fogC.width = WTX; fogC.height = WTY; const fg = fogC.getContext('2d');
-  const fogBlobs = Array.from({ length: 10 }, () => ({ x: rand(0, WTX), y: rand(40, WTY), r: rand(80, 170), v: rand(.1, .35) }));
-  const winTex = canvasTex(WTX, WTY, () => {});
-  let windowWords = 'OPEN\nTHE BAND';
-  function drawWindow(t) {
-    const g = winTex.userData.g, w = WTX, h = WTY;
-    // outside
-    const sky = g.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#0b1320'); sky.addColorStop(1, '#1a2330'); g.fillStyle = sky; g.fillRect(0, 0, w, h);
-    g.fillStyle = 'rgba(200,215,235,.5)'; g.beginPath(); g.arc(400, 70, 22, 0, 7); g.fill();
-    g.fillStyle = '#04070b';
-    for (let i = 0; i < 9; i++) { const x = i * 62 + 14; g.beginPath(); g.moveTo(x - 34, h); g.lineTo(x, 150 + (i % 3) * 22); g.lineTo(x + 34, h); g.fill(); }
+  // ---------- window: a real opening onto the street ----------
+  const WIN = { x: .22, y: 1.62, w: 1.2, h: .95 };
+  const wl = WIN.x - WIN.w / 2, wr = WIN.x + WIN.w / 2, wb = WIN.y - WIN.h / 2, wt = WIN.y + WIN.h / 2;
+  const wallPiece = (x0, x1, y0, y1) => { const m = mesh(new THREE.PlaneGeometry(x1 - x0, y1 - y0), M.wall, (x0 + x1) / 2, (y0 + y1) / 2, BACK); m.castShadow = false; };
+  wallPiece(-2.5, wl, 0, 3); wallPiece(wr, 2.5, 0, 3); wallPiece(wl, wr, wt, 3); wallPiece(wl, wr, 0, wb);
+  const DEPTH = .22; // thickness of the wall around the window
+  box(WIN.w, .01, DEPTH, M.wall, WIN.x, wt, BACK - DEPTH / 2); box(WIN.w, .01, DEPTH, M.wall, WIN.x, wb, BACK - DEPTH / 2);
+  box(.01, WIN.h, DEPTH, M.wall, wl, WIN.y, BACK - DEPTH / 2); box(.01, WIN.h, DEPTH, M.wall, wr, WIN.y, BACK - DEPTH / 2);
+
+  // the street outside, far enough back to shift a little as you lean
+  const STX = 1024, STY = 877;
+  const streetImg = new Image(); let streetReady = false;
+  const streetTex = canvasTex(STX, STY, (g, w, h) => { g.fillStyle = '#0b0c12'; g.fillRect(0, 0, w, h); });
+  const FIG_SPOTS = [[.27, .5, .075], [.47, .63, .12], [.58, .86, .24]]; // under the streetlight, in the road, by the car
+  let figSpot = 0;
+  function drawStreet() {
+    const g = streetTex.userData.g, w = STX, h = STY;
+    if (streetReady) g.drawImage(streetImg, 0, 0, w, h); else { g.fillStyle = '#0b0c12'; g.fillRect(0, 0, w, h); }
     if (figure > .01) {
-      g.globalAlpha = figure; g.fillStyle = '#010203';
-      g.beginPath(); g.arc(300, 205, 17, 0, 7); g.fill();
-      g.beginPath(); g.moveTo(276, 232); g.quadraticCurveTo(300, 216, 324, 232); g.lineTo(336, h); g.lineTo(264, h); g.fill();
+      const [fx, fy, fh] = FIG_SPOTS[figSpot], H = fh * h, cx = fx * w, base = fy * h;
+      g.globalAlpha = figure; g.fillStyle = '#020203';
+      g.beginPath(); g.ellipse(cx, base - H * .9, H * .07, H * .09, 0, 0, 7); g.fill();
+      g.beginPath(); g.moveTo(cx - H * .11, base - H * .78); g.quadraticCurveTo(cx, base - H * .84, cx + H * .11, base - H * .78);
+      g.lineTo(cx + H * .1, base - H * .35); g.lineTo(cx + H * .06, base); g.lineTo(cx - H * .06, base); g.lineTo(cx - H * .1, base - H * .35); g.fill();
       g.globalAlpha = 1;
     }
-    // fog layer, with wiped patches and finger-writing cleared out of it
+    streetTex.needsUpdate = true;
+  }
+  streetImg.onload = () => { streetReady = true; drawStreet(); };
+  streetImg.src = 'street.webp';
+  const SDIST = 2.6, camEye = new THREE.Vector3(0, 1.4, -.12);
+  const k = (camEye.z - (BACK - SDIST)) / (camEye.z - BACK);
+  const streetW = WIN.w * k * 1.45, streetH = streetW * STY / STX;
+  const street = new THREE.Mesh(new THREE.PlaneGeometry(streetW, streetH), new THREE.MeshBasicMaterial({ map: streetTex, fog: false, toneMapped: false }));
+  street.position.set(camEye.x + (WIN.x - camEye.x) * k, camEye.y + (WIN.y - camEye.y) * k - .3, BACK - SDIST); scene.add(street);
+
+  // condensation on the glass: wipeable, and finger-writing shows in it when the room is dark
+  const WTX = 512, WTY = 400;
+  let figure = 0, figureTarget = 0, writingA = 0, hand = 0, handTarget = 0, lastFig = -1;
+  const wipes = [];
+  const fogC = document.createElement('canvas'); fogC.width = WTX; fogC.height = WTY; const fg = fogC.getContext('2d');
+  const fogBlobs = Array.from({ length: 10 }, () => ({ x: rand(0, WTX), y: rand(40, WTY), r: rand(80, 170), v: rand(.05, .2) }));
+  const drops = Array.from({ length: 14 }, () => ({ x: rand(10, WTX - 10), y: rand(-200, WTY), v: rand(.15, .6), len: rand(10, 26) }));
+  const winTex = canvasTex(WTX, WTY, () => {});
+  let windowWords = 'OPEN\nTHE BAND';
+  function drawWindow() {
+    const g = winTex.userData.g, w = WTX, h = WTY;
+    g.clearRect(0, 0, w, h);
     fg.globalCompositeOperation = 'source-over'; fg.clearRect(0, 0, w, h);
-    fg.fillStyle = `rgba(140,152,168,${.26 + .3 * writingA})`; fg.fillRect(0, 0, w, h);
+    const edge = fg.createRadialGradient(w / 2, h / 2, w * .2, w / 2, h / 2, w * .7);
+    edge.addColorStop(0, `rgba(150,160,175,${.03 + .4 * writingA})`); edge.addColorStop(1, `rgba(150,160,175,${.3 + .35 * writingA})`);
+    fg.fillStyle = edge; fg.fillRect(0, 0, w, h);
     fogBlobs.forEach(b => {
       b.x += b.v; if (b.x - b.r > w) b.x = -b.r;
-      const gr = fg.createRadialGradient(b.x, b.y, 4, b.x, b.y, b.r); gr.addColorStop(0, 'rgba(160,172,188,.28)'); gr.addColorStop(1, 'rgba(160,172,188,0)');
+      const gr = fg.createRadialGradient(b.x, b.y, 4, b.x, b.y, b.r); gr.addColorStop(0, 'rgba(160,170,185,.07)'); gr.addColorStop(1, 'rgba(160,170,185,0)');
       fg.fillStyle = gr; fg.fillRect(0, 0, w, h);
     });
     fg.globalCompositeOperation = 'destination-out';
     for (let i = wipes.length - 1; i >= 0; i--) {
-      const p = wipes[i]; p.a -= .0025; if (p.a <= 0) { wipes.splice(i, 1); continue; }
+      const p = wipes[i]; p.a -= .002; if (p.a <= 0) { wipes.splice(i, 1); continue; }
       const gr = fg.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r); gr.addColorStop(0, `rgba(0,0,0,${p.a})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
       fg.fillStyle = gr; fg.beginPath(); fg.arc(p.x, p.y, p.r, 0, 7); fg.fill();
     }
     if (writingA > .01) {
       fg.globalAlpha = writingA; fg.fillStyle = '#000'; fg.textAlign = 'center';
-      fg.font = '50px "Special Elite", "Courier New", monospace';
-      windowWords.split('\n').forEach((l, i, a) => { fg.save(); fg.translate(378, 215 + (i - (a.length - 1) / 2) * 60); fg.rotate(-.05 + i * .06); fg.fillText(l, 0, 0); fg.restore(); });
+      fg.font = '62px "Special Elite", "Courier New", monospace';
+      windowWords.split('\n').forEach((l, i, a) => { fg.save(); fg.translate(w * .5, 190 + (i - (a.length - 1) / 2) * 72); fg.rotate(-.05 + i * .06); fg.fillText(l, 0, 0); fg.restore(); });
       fg.globalAlpha = 1;
     }
     if (hand > .01) {
       fg.globalAlpha = hand; fg.fillStyle = '#000';
-      fg.beginPath(); fg.ellipse(130, 250, 34, 42, 0, 0, 7); fg.fill();
-      [[-26, -44, -.35], [-10, -60, -.12], [8, -62, .05], [24, -54, .2], [40, -6, .9]].forEach(([dx, dy, r]) => { fg.save(); fg.translate(130 + dx, 250 + dy); fg.rotate(r); fg.beginPath(); fg.ellipse(0, 0, 8, 26, 0, 0, 7); fg.fill(); fg.restore(); });
+      fg.beginPath(); fg.ellipse(120, 280, 34, 42, 0, 0, 7); fg.fill();
+      [[-26, -44, -.35], [-10, -60, -.12], [8, -62, .05], [24, -54, .2], [40, -6, .9]].forEach(([dx, dy, r]) => { fg.save(); fg.translate(120 + dx, 280 + dy); fg.rotate(r); fg.beginPath(); fg.ellipse(0, 0, 8, 26, 0, 0, 7); fg.fill(); fg.restore(); });
       fg.globalAlpha = 1;
     }
     g.drawImage(fogC, 0, 0);
-    // drips
-    g.strokeStyle = 'rgba(210,220,230,.18)'; g.lineWidth = 2;
-    for (let i = 0; i < 5; i++) { const x = 60 + i * 97, y0 = 40 + (i * 37) % 120; g.beginPath(); g.moveTo(x, y0); g.lineTo(x + 2, y0 + 60 + ((t / 90 + i * 50) % 140)); g.stroke(); }
+    // rain running down the outside of the glass
+    g.strokeStyle = 'rgba(220,228,240,.16)'; g.lineWidth = 1.4;
+    drops.forEach(d => { d.y += d.v * 3; if (d.y > h + 30) { d.y = rand(-120, -10); d.x = rand(10, w - 10); } g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(d.x + .6, d.y + d.len); g.stroke(); });
     winTex.needsUpdate = true;
   }
-    const winGroup = new THREE.Group(); winGroup.position.set(WIN.x, WIN.y, BACK + .01); scene.add(winGroup);
-  const glass = new THREE.Mesh(new THREE.PlaneGeometry(WIN.w, WIN.h), new THREE.MeshBasicMaterial({ map: winTex, fog: false })); winGroup.add(glass);
-  box(WIN.w + .14, .08, .08, M.frame, 0, WIN.h / 2 + .03, .04, winGroup);
-  box(WIN.w + .14, .08, .08, M.frame, 0, -WIN.h / 2 - .03, .04, winGroup);
-  box(.08, WIN.h + .14, .08, M.frame, -WIN.w / 2 - .03, 0, .04, winGroup);
-  box(.08, WIN.h + .14, .08, M.frame, WIN.w / 2 + .03, 0, .04, winGroup);
-  box(.035, WIN.h, .05, M.frame, 0, 0, .03, winGroup);
-  box(WIN.w, .035, .05, M.frame, 0, 0, .03, winGroup);
-  box(WIN.w + .3, .04, .16, M.frame, 0, -WIN.h / 2 - .09, .09, winGroup);
-  const moon = new THREE.PointLight(0x7092c8, .55, 3.2, 2); moon.position.set(WIN.x, WIN.y, BACK + .45); scene.add(moon);
+  const winGroup = new THREE.Group(); winGroup.position.set(WIN.x, WIN.y, BACK + .005); scene.add(winGroup);
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(WIN.w, WIN.h), new THREE.MeshBasicMaterial({ map: winTex, transparent: true, depthWrite: false, fog: false })); winGroup.add(glass);
+  box(WIN.w + .14, .07, .06, M.frame, 0, WIN.h / 2 + .03, .03, winGroup);
+  box(WIN.w + .14, .07, .06, M.frame, 0, -WIN.h / 2 - .03, .03, winGroup);
+  box(.07, WIN.h + .14, .06, M.frame, -WIN.w / 2 - .03, 0, .03, winGroup);
+  box(.07, WIN.h + .14, .06, M.frame, WIN.w / 2 + .03, 0, .03, winGroup);
+  box(.03, WIN.h, .04, M.frame, 0, 0, .01, winGroup);
+  box(WIN.w, .03, .04, M.frame, 0, 0, .01, winGroup);
+  box(WIN.w + .3, .035, .16, M.frame, 0, -WIN.h / 2 - .08, .08, winGroup);
+  // a heavy curtain pulled to one side
+  const curtainMat = new THREE.MeshStandardMaterial({ color: 0x1c0a08, roughness: .95, side: THREE.DoubleSide });
+  const cg = new THREE.PlaneGeometry(.36, 1.5, 24, 1), cp = cg.attributes.position;
+  for (let i = 0; i < cp.count; i++) cp.setZ(i, Math.sin(cp.getX(i) * 40) * .025);
+  cg.computeVertexNormals();
+  mesh(cg, curtainMat, WIN.w / 2 + .2, -.12, .07, winGroup);
+  box(WIN.w + .6, .025, .025, M.brass, 0, WIN.h / 2 + .12, .09, winGroup);
+  const dusk = new THREE.PointLight(0xc0705a, .45, 3.2, 2); dusk.position.set(WIN.x, WIN.y + .1, BACK + .4); scene.add(dusk);
   tag(winGroup, 'window');
 
   // ---------- lantern ----------
-  const lantern = new THREE.Group(); lantern.position.set(.68, DESK_Y, -1.62); scene.add(lantern);
+  const lantern = new THREE.Group(); lantern.position.set(.44, DESK_Y, -1.52); scene.add(lantern);
   cyl(.085, .095, .07, M.tin, 0, .035, 0, lantern, 28);
   cyl(.06, .085, .02, M.tin, 0, .08, 0, lantern, 28);
   const globeMat = new THREE.MeshStandardMaterial({ color: 0xfff1d6, roughness: .05, metalness: 0, transparent: true, opacity: .22, emissive: 0xff9a3c, emissiveIntensity: .35, depthWrite: false });
@@ -466,13 +505,13 @@ body.hovering #gl { cursor: pointer; }
   const glow = new THREE.Sprite(glowMat); glow.position.set(0, .15, 0); glow.scale.set(.2, .26, 1); lantern.add(glow);
   box(.025, .012, .012, M.brass, .09, .095, 0, lantern); // wick key
   const lanternLight = new THREE.PointLight(0xff9d4d, 1.9, 5, 1.6);
-  lanternLight.position.set(.68, DESK_Y + .17, -1.62); lanternLight.castShadow = true;
+  lanternLight.position.set(.44, DESK_Y + .17, -1.52); lanternLight.castShadow = true;
   lanternLight.shadow.mapSize.set(1024, 1024); lanternLight.shadow.bias = -.004; lanternLight.shadow.radius = 4;
   scene.add(lanternLight);
   tag(lantern, 'lantern');
 
   // ---------- radio ----------
-  const radio = new THREE.Group(); radio.position.set(-.62, DESK_Y, -1.72); radio.rotation.y = .28; scene.add(radio);
+  const radio = new THREE.Group(); radio.position.set(-.2, DESK_Y, -1.72); radio.rotation.y = .12; scene.add(radio);
   box(.58, .34, .28, M.bakelite, 0, .17, 0, radio);
   const top = cyl(.14, .14, .58, M.bakelite, 0, .34, 0, radio, 32); top.rotation.z = Math.PI / 2; top.scale.set(1, 1, .9);
   const grilleTex = canvasTex(256, 128, (g, w, h) => { g.fillStyle = '#1b0f07'; g.fillRect(0, 0, w, h); for (let y = 8; y < h; y += 13) { g.fillStyle = '#b8954d'; g.fillRect(0, y, w, 5); } });
@@ -486,30 +525,52 @@ body.hovering #gl { cursor: pointer; }
   mesh(new THREE.TorusGeometry(.032, .006, 8, 24), M.chrome, .19, .25, .142, radio);
   const knobs = [-.2, .2].map(x => { const k = cyl(.034, .038, .035, M.black, x, .045, .155, radio, 20); k.rotation.x = Math.PI / 2; return k; });
   [[-.24, -.11], [.24, -.11], [-.24, .11], [.24, .11]].forEach(([x, z]) => box(.04, .012, .04, M.black, x, -.006, z, radio));
-  const radioGlow = new THREE.PointLight(0xffa64d, 0, 1.2, 2); radioGlow.position.set(-.55, DESK_Y + .12, -1.45); scene.add(radioGlow);
+  const radioGlow = new THREE.PointLight(0xffa64d, 0, 1.2, 2); radioGlow.position.set(-.2, DESK_Y + .12, -1.45); scene.add(radioGlow);
   tag(radio, 'radio');
 
-  // ---------- typewriter (front and centre) ----------
-  const tw = new THREE.Group(); tw.position.set(.02, DESK_Y, -1.38); tw.rotation.y = -.04; scene.add(tw);
-  box(.5, .1, .34, M.metal, 0, .05, 0, tw);
-  box(.5, .09, .12, M.metal, 0, .13, -.11, tw);
-  const keyMat = new THREE.MeshStandardMaterial({ color: 0xe0d6c0, roughness: .4 });
-  const keys = [];
-  for (let r = 0; r < 4; r++) for (let c = 0; c < (r === 3 ? 1 : 10); c++) {
-    const k = r === 3 ? box(.2, .012, .025, M.black, 0, .104 - r * .012, .14, tw) : cyl(.014, .014, .012, keyMat, -.18 + c * .04 + r * .01, .115 - r * .012, .045 + r * .03, tw, 14);
-    k.userData.baseY = k.position.y; keys.push(k);
+  // ---------- wall telephone ----------
+  const ivory = new THREE.MeshStandardMaterial({ color: 0xcfc4a8, roughness: .35, metalness: .05 });
+  const phone = new THREE.Group(); phone.position.set(-1.0, 1.5, BACK); scene.add(phone);
+  box(.22, .33, .015, M.frame, 0, 0, .008, phone);
+  box(.19, .28, .085, ivory, 0, -.01, .055, phone);
+  const capTop = cyl(.0425, .0425, .19, ivory, 0, .13, .055, phone, 20); capTop.rotation.z = Math.PI / 2;
+  const dialFaceTex = canvasTex(256, 256, (g) => {
+    g.fillStyle = '#0d0d0d'; g.beginPath(); g.arc(128, 128, 126, 0, 7); g.fill();
+    g.fillStyle = '#e4d8bc'; g.beginPath(); g.arc(128, 128, 46, 0, 7); g.fill();
+    g.fillStyle = '#7a1a12'; g.font = 'bold 18px Georgia, serif'; g.textAlign = 'center'; g.fillText('NIGHT', 128, 122); g.fillText('LINE', 128, 144);
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].forEach((d, i) => { const a = (-60 - i * 30) * Math.PI / 180, x = 128 + Math.cos(a) * 88, y = 128 + Math.sin(a) * 88; g.fillStyle = '#d8cdb2'; g.beginPath(); g.arc(x, y, 19, 0, 7); g.fill(); g.fillStyle = '#1a120b'; g.font = 'bold 18px sans-serif'; g.textBaseline = 'middle'; g.fillText(d, x, y); });
+  });
+  mesh(new THREE.CircleGeometry(.068, 36), new THREE.MeshStandardMaterial({ map: dialFaceTex, roughness: .3 }), 0, .01, .0985, phone).castShadow = false;
+  mesh(new THREE.TorusGeometry(.069, .004, 8, 36), M.chrome, 0, .01, .099, phone);
+  box(.04, .01, .01, M.chrome, .055, -.05, .1, phone).rotation.z = .6; // finger stop
+  // a hook on the left side, handset hanging off it
+  box(.03, .012, .05, M.chrome, -.105, .09, .06, phone);
+  const handset = new THREE.Group(); phone.add(handset);
+  const HS_REST = { x: -.13, y: -.02, z: .07, r: 0 };
+  handset.position.set(HS_REST.x, HS_REST.y, HS_REST.z);
+  box(.034, .2, .04, ivory, 0, 0, 0, handset);
+  [-1, 1].forEach(s => { const c = cyl(.03, .026, .04, ivory, 0, s * .1, .015, handset, 18); c.rotation.x = Math.PI / 2; });
+  // coiled cord from the handset down and back up into the base
+  const cordPts = [];
+  for (let i = 0; i <= 600; i++) {
+    const u = i / 600;
+    const bx = -.13 + .12 * u, by = -.1 - .32 * Math.sin(u * Math.PI) + .0 * u, bz = .07;
+    const a = u * Math.PI * 2 * 38;
+    cordPts.push(new THREE.Vector3(bx + Math.cos(a) * .008, by, bz + Math.sin(a) * .008));
   }
-  const carriage = new THREE.Group(); carriage.position.set(0, .2, -.12); tw.add(carriage);
-  const platen = cyl(.04, .04, .56, M.black, 0, 0, 0, carriage, 24); platen.rotation.z = Math.PI / 2;
-  [-.3, .3].forEach(x => { const k = cyl(.03, .03, .03, M.chrome, x, 0, 0, carriage, 18); k.rotation.z = Math.PI / 2; });
-  box(.05, .015, .015, M.chrome, -.33, .03, .02, carriage).rotation.z = .4;
-  const paperTex = canvasTex(512, 640, () => {});
-  const paperMat = new THREE.MeshStandardMaterial({ map: paperTex, emissiveMap: paperTex, emissive: 0x7a6a52, roughness: .9, side: THREE.DoubleSide });
-  const paper = mesh(new THREE.PlaneGeometry(.32, .4), paperMat, 0, .21, -.02, carriage); paper.rotation.x = -.2; paper.castShadow = false;
-  tag(tw, 'typewriter');
+  mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(cordPts), 1200, .0025, 5, false), ivory, 0, 0, 0, phone).castShadow = false;
+  // a card tacked up beside it
+  const cardTex = canvasTex(256, 160, (g, w, h) => {
+    g.fillStyle = '#ddd0b0'; g.fillRect(0, 0, w, h); g.fillStyle = '#2a1d10'; g.font = '22px "Special Elite", monospace';
+    g.fillText('WKRS NIGHT LINE', 16, 40); g.font = '18px "Special Elite", monospace'; g.fillText('If it rings after 3,', 16, 84); g.fillText('do not answer.', 16, 112);
+    g.strokeStyle = '#7a1a12'; g.lineWidth = 3; g.beginPath(); g.moveTo(14, 120); g.lineTo(170, 116); g.stroke();
+  });
+  const card = mesh(new THREE.PlaneGeometry(.16, .1), new THREE.MeshStandardMaterial({ map: cardTex, roughness: .9 }), .21, -.08, .006, phone); card.rotation.z = -.06; card.castShadow = false;
+  tag(phone, 'phone');
+  const phoneLight = new THREE.PointLight(0x9fb4d8, .35, 1.4, 2); phoneLight.position.set(-.85, 1.75, BACK + .5); scene.add(phoneLight);
 
   // ---------- fixed camera, framed so all four things fit ----------
-  const CAM = { p: new THREE.Vector3(0, 1.4, -.12), t: new THREE.Vector3(.02, 1.13, -1.8) };
+  const CAM = { p: new THREE.Vector3(-.1, 1.42, -.12), t: new THREE.Vector3(-.12, 1.24, -1.9) };
   const mouse = { x: 0, y: 0 };
   function resize() {
     renderer.setSize(innerWidth, innerHeight, false);
@@ -522,13 +583,14 @@ body.hovering #gl { cursor: pointer; }
     camera.fov = Math.max(46, vfov); camera.updateProjectionMatrix();
     CAM.pp = CAM.p.clone().add(new THREE.Vector3(0, back * .2, back * .9));
     CAM.tt = CAM.t.clone().add(new THREE.Vector3(0, back * .28, 0));
+    if (aspect < .8) { CAM.pp.x -= .05; CAM.tt.x -= .07; CAM.pp.z += .2; } // keep the wall phone in frame on tall screens
   }
   addEventListener('resize', resize); resize();
 
   // ---------- picking ----------
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-  const pickables = [lantern, winGroup, radio, tw];
-  const LABELS = { lantern: 'Lantern', window: 'Window', radio: 'Radio', typewriter: 'Typewriter' };
+  const pickables = [lantern, winGroup, radio, phone];
+  const LABELS = { lantern: 'Lantern', window: 'Window', radio: 'Radio', phone: 'Telephone' };
   function pickAt(cx, cy) {
     ndc.set(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
@@ -605,7 +667,7 @@ body.hovering #gl { cursor: pointer; }
       lines: () => ['A woman talking backwards. You write down what she says:', { t: 'DNAB KNALB EHT NO MI', cls: 'big' }, { t: 'She sounds very tired.', cls: 'dim' }],
       say: 'dnab. knalb. eht. no. mi.', audio: program(3, (g, t) => { for (let i = 0; i < 6; i++) tone(g, 180 + Math.random() * 220, t + i * .4, .35, 'sawtooth', .05); }) },
     { id: 'caller', band: 'am', f: 1560, name: 'The request line',
-      lines: () => { const n = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); return [`Night Owl request line. You’re on the air, ${who()}.`, `It’s ${n} where you are. We can see your lantern from here.`, 'Don’t look at the window. It’s rude to stare back.', { t: 'The line goes quiet, but nobody hangs up.', cls: 'dim' }]; },
+      lines: () => { const n = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); return [`Night Owl request line. You’re on the air, ${who()}.`, `It’s ${n} where you are. We can see your lantern from here.`, 'Don\u2019t look out the window. Someone in the street is looking up.', { t: 'The line goes quiet, but nobody hangs up.', cls: 'dim' }]; },
       voice: [0, 1, 2], audio: program(1, (g, t) => tone(g, 2400, t, .02, 'square', .04)) },
     { id: 'buzzer', band: 'sw', f: 4.625, name: 'The buzzer',
       lines: () => ['BZZZT. BZZZT. BZZZT.', 'A buzzer that has sounded since before anyone in Marrow Falls was born.', { t: 'Once, it said a word. Nobody who heard it will say which.', cls: 'dim' }],
@@ -715,7 +777,7 @@ body.hovering #gl { cursor: pointer; }
   function setBand(b) {
     if (b === 'x' && !state.xOpen) {
       $('#band-' + band).checked = true; sfx.click();
-      txRun++; txEl.innerHTML = '<p>The unmarked switch won’t move. Something is holding it shut.</p><p class="dim">Maybe whoever is in the typewriter knows how to open it.</p>';
+      txRun++; txEl.innerHTML = '<p>The unmarked switch won’t move. Something is holding it shut.</p><p class="dim">Maybe whoever is on the phone knows how to open it.</p>';
       return;
     }
     if (current) stopStation();
@@ -735,92 +797,86 @@ body.hovering #gl { cursor: pointer; }
     if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { nudge(-step); e.preventDefault(); }
   });
 
-  // ================= the typewriter =================
-  const pageLines = []; let draft = '', carriageX = 0, twBusy = false, pendingName = false, twMisses = 0;
-  const twLast = $('#twLast');
-  function wrapLine(g, text, max) {
-    const words = text.split(' '), out = []; let cur = '';
-    words.forEach(w => { const t = cur ? cur + ' ' + w : w; if (g.measureText(t).width > max && cur) { out.push(cur); cur = w; } else cur = t; });
-    out.push(cur); return out;
-  }
-  const stains = Array.from({ length: 6 }, () => [rand(0, 512), rand(0, 640)]);
-  function drawPaper() {
-    const g = paperTex.userData.g, w = 512, h = 640;
-    g.fillStyle = '#ece2c9'; g.fillRect(0, 0, w, h);
-    stains.forEach(([x, y]) => { const gr = g.createRadialGradient(x, y, 5, x, y, 150); gr.addColorStop(0, 'rgba(120,90,40,.07)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
-    g.font = '34px "Special Elite", "Courier New", monospace'; g.textBaseline = 'alphabetic';
-    const phys = [];
-    pageLines.forEach(l => wrapLine(g, l.t, w - 60).forEach(t => phys.push({ t, who: l.who })));
-    phys.push({ t: draft + '_', who: 'me' });
-    const shown = phys.slice(-13);
-    shown.forEach((l, i) => { g.fillStyle = l.who === 'ghost' ? '#8a1610' : '#1a1712'; g.fillText(l.t, 30, h - 40 - (shown.length - 1 - i) * 46); });
-    paperTex.needsUpdate = true;
-  }
-  function strike() { sfx.clack(); const k = pick(keys); k.position.y = k.userData.baseY - .006; setTimeout(() => k.position.y = k.userData.baseY, 80); carriageX = Math.min(.12, carriageX + .004); }
-  async function ghostType(text, speed = 70) {
-    twBusy = true;
-    const line = { t: '', who: 'ghost' }; pageLines.push(line);
-    for (const ch of text) { line.t += ch; if (ch !== ' ') strike(); drawPaper(); twLast.textContent = line.t; await wait(speed + rand(0, 60)); }
-    sfx.ding(); carriageX = 0; await wait(250);
-    twBusy = false; drawPaper();
+  // ================= the wall phone =================
+  const logEl = $('#log'), lineInput = $('#lineInput'), lineState = $('#lineState');
+  let lineBusy = false, pendingName = false, misses = 0, greeted = false, ringing = false, ringTimer = null, shake = 0;
+  function addLog(text, cls) { const p = document.createElement('p'); p.className = cls; p.textContent = text; logEl.appendChild(p); logEl.scrollTop = logEl.scrollHeight; return p; }
+  async function voice(text, opts = { rate: .8, pitch: .55 }) {
+    lineBusy = true; lineState.textContent = 'Someone is talking';
+    const p = addLog('', 'them'), spoken = speak(text, opts);
+    for (const ch of text) { p.textContent += ch; logEl.scrollTop = logEl.scrollHeight; await wait(reduce ? 0 : 34); }
+    await spoken; await wait(300);
+    lineBusy = false; lineState.textContent = 'Line open';
   }
   const W = [
-    ['hello', ['hello', 'hi', 'hey', 'yes', 'imhere', 'hellothere', 'someone', 'me', 'yeah', 'iamhere'], 'YOU CAN HEAR ME. GOOD. PUT OUT THE LANTERN. THEN LOOK AT THE WINDOW.'],
-    ['who', ['who', 'whoareyou', 'whoisthis', 'whoshere', 'whatareyou', 'whoisthere'], 'I READ THE WEATHER AT WKRS. NIGHT SHIFT. IT WAS ALWAYS FOG.'],
-    ['ruth', ['ruth', 'ruthcalloway', 'calloway'], 'NOT SO LOUD. SHE CAN HEAR HER NAME ON EVERY FREQUENCY.'],
-    ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'whereruth', 'wheredidruthgo'], 'BETWEEN THE STATIONS. ON THE BAND WITH NO NAME. THE WINDOW KNOWS HOW TO OPEN IT.'],
+    ['hello', ['hello', 'hi', 'hey', 'yes', 'imhere', 'hellothere', 'someone', 'me', 'yeah', 'iamhere', 'whoisthis'], 'You can hear me. Good. Nobody picks up anymore. Put out the lantern, then look at the window.'],
+    ['who', ['who', 'whoareyou', 'whoshere', 'whatareyou', 'whoisthere', 'whoiscalling'], 'I read the weather at WKRS. Night shift. It was always fog.'],
+    ['ruth', ['ruth', 'ruthcalloway', 'calloway'], 'Not so loud. She can hear her name on every frequency.'],
+    ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'whereruth', 'wheredidruthgo'], 'Between the stations. On the band with no name. The window knows how to open it.'],
     ['band', ['opentheband', 'openband', 'theband', 'opentheblankband', 'open'], null],
-    ['fog', ['fog', 'thefog', 'mist'], 'IT CAME IN AT 3:12 AND NEVER LEFT. IT IS PRESSED AGAINST YOUR WINDOW NOW.', () => showFigure(9000)],
-    ['1961', ['1961', 'october', 'october14', 'october141961', 'whathappened'], 'OCTOBER 14. THE TRANSMITTER SANG BY ITSELF. BY MORNING THE TOWN WAS EMPTY. ONLY HER VOICE STAYED.'],
-    ['help', ['help', 'hint', 'helpme', 'what', 'idontunderstand'], 'I CANT HELP YOU. I CAN BARELY HELP MYSELF. ASK ME WHO. ASK ABOUT THE FOG. ASK WHERE RUTH IS.'],
-    ['biscuit', ['biscuit', 'dog', 'goodboy'], 'GOOD BOY. HE STILL WAITS OUTSIDE.', () => setTimeout(() => { sfx.scratch(); caption('Something scratches at the window glass. Low down. Then it stops.'); }, 1500)],
-    ['marrowfalls', ['marrowfalls', 'marrow', 'town', 'whereami'], 'MARROW FALLS. POPULATION 400. POPULATION 1. POPULATION YOU.'],
-    ['name', ['whatisyourname', 'whatsyourname', 'yourname', 'name'], 'I DONT REMEMBER MINE. WHAT IS YOURS?', () => { pendingName = true; }],
-    ['leave', ['leave', 'exit', 'goodbye', 'bye', 'letmeout', 'escape', 'iwanttoleave'], 'THERE IS NOWHERE TO GO. THE FOG GOES ALL THE WAY OUT.'],
-    ['knock', ['knock', 'knocking', 'whoisknocking', 'tapping', 'whoistapping'], 'NOBODY. NOBODY TAPS ON THE GLASS EVERY NIGHT AT THIS TIME.'],
-    ['radio', ['radio', 'wkrs', 'nightowl', 'station'], 'SHE IS ON THE RADIO. SHE IS ALWAYS ON THE RADIO.'],
-    ['dark', ['lantern', 'lamp', 'light', 'dark', 'thedark', 'fire'], 'LIGHT HIDES THINGS. THE DARK IS MORE HONEST.'],
-    ['dead', ['areyoudead', 'dead', 'ghost', 'areyouaghost', 'areyoualive', 'alive'], 'DEFINE DEAD.'],
-    ['scared', ['scared', 'imscared', 'afraid', 'imafraid', 'scary', 'thisisscary'], 'GOOD. IT MEANS YOU ARE PAYING ATTENTION.'],
-    ['love', ['iloveyou', 'love'], 'NOBODY HAS TYPED THAT HERE SINCE 1961. THANK YOU.'],
-    ['sorry', ['sorry', 'imsorry'], 'EVERYONE IS. NOBODY CAME BACK.'],
-    ['time', ['time', 'whattimeisit', 'clock'], '3:12. ALWAYS 3:12.'],
-    ['typewriter', ['typewriter', 'whoistyping', 'areyouthetypewriter'], 'I AM NOT THE TYPEWRITER. I AM INSIDE IT.'],
-    ['window', ['window', 'outside', 'whoisoutside', 'whoisatthewindow'], 'DONT WIPE THE GLASS TOO MUCH. IT LIKES TO SEE YOU TOO.'],
-    ['behind', ['behindme', 'whoisbehindme', 'lookbehind', 'turnaround'], 'DONT.']
+    ['fog', ['fog', 'thefog', 'mist'], 'It came in at 3:12 and never left. Look outside. Someone is standing in it.', () => showFigure(9000)],
+    ['1961', ['1961', 'october', 'october14', 'october141961', 'whathappened'], 'October 14. The transmitter sang all by itself. By morning the street was empty. Only her voice stayed.'],
+    ['help', ['help', 'hint', 'helpme', 'what', 'idontunderstand'], 'I can’t help you. I can barely help myself. Ask me who I am. Ask about the fog. Ask where Ruth is.'],
+    ['biscuit', ['biscuit', 'dog', 'goodboy'], 'Good boy. He still waits outside.', () => setTimeout(() => { sfx.scratch(); caption('Something scratches at the window glass. Low down. Then it stops.'); }, 1500)],
+    ['marrowfalls', ['marrowfalls', 'marrow', 'town', 'whereami', 'street'], 'Marrow Falls. Population four hundred. Population one. Population you.'],
+    ['name', ['whatisyourname', 'whatsyourname', 'yourname', 'name'], 'I don’t remember mine. What’s yours?', () => { pendingName = true; }],
+    ['leave', ['leave', 'exit', 'goodbye', 'bye', 'letmeout', 'escape', 'iwanttoleave'], 'There’s nowhere to go. The fog goes all the way out.'],
+    ['knock', ['knock', 'knocking', 'whoisknocking', 'tapping', 'whoistapping'], 'Nobody. Nobody taps on the glass every night at this time.'],
+    ['radio', ['radio', 'wkrs', 'nightowl', 'station'], 'She’s on the radio. She’s always on the radio.'],
+    ['dark', ['lantern', 'lamp', 'light', 'dark', 'thedark', 'fire'], 'Light hides things. The dark is more honest.'],
+    ['dead', ['areyoudead', 'dead', 'ghost', 'areyouaghost', 'areyoualive', 'alive'], 'Define dead.'],
+    ['scared', ['scared', 'imscared', 'afraid', 'imafraid', 'scary', 'thisisscary'], 'Good. It means you’re paying attention.'],
+    ['love', ['iloveyou', 'love'], 'Nobody has said that on this line since 1961. Thank you.'],
+    ['sorry', ['sorry', 'imsorry'], 'Everyone is. Nobody came back.'],
+    ['time', ['time', 'whattimeisit', 'clock'], 'It’s 3:12. It’s always 3:12.'],
+    ['phone', ['phone', 'telephone', 'howareyoucalling', 'theline', 'thelineisdead'], 'The line was cut in 1961. I know. I’m calling anyway.'],
+    ['window', ['window', 'outside', 'whoisoutside', 'whoisatthewindow', 'whoisinthestreet'], 'Don’t wipe the glass too much. It likes to see you too.'],
+    ['behind', ['behindme', 'whoisbehindme', 'lookbehind', 'turnaround'], 'Don’t.']
   ];
   const WMAP = {}; W.forEach(([id, al, reply, fx]) => al.forEach(a => WMAP[a] = { id, reply, fx }));
-  const twMisfires = ['I DONT UNDERSTAND.', 'WHAT?', 'THE KEYS ARE COLD.', 'TYPE SLOWER.', '...', 'NO.', 'SAY THAT AGAIN. NO. DONT.'];
-  const twInput = $('#twInput');
-  twInput.addEventListener('input', () => { const v = twInput.value.toUpperCase(); if (v.length > draft.length) strike(); draft = v; drawPaper(); });
-  $('#twForm').addEventListener('submit', async e => {
+  const misfires = ['What?', 'I can’t hear you. The line is bad tonight.', '...', 'No.', 'Say that again. No. Don’t.', 'The fog is in the wires. Try again.'];
+  $('#lineForm').addEventListener('submit', async e => {
     e.preventDefault();
-    const raw = twInput.value.trim(); if (!raw || twBusy) return;
-    twInput.value = ''; draft = '';
-    pageLines.push({ t: raw.toUpperCase(), who: 'me' }); sfx.ding(); carriageX = 0; drawPaper(); twLast.textContent = '';
-    await wait(900 + rand(0, 700));
+    const raw = lineInput.value.trim(); if (!raw || lineBusy) return;
+    lineInput.value = ''; addLog(raw, 'you'); lineBusy = true;
+    burst(now(), .4, 900, .08, .5);
+    await wait(900 + rand(0, 900));
+    lineBusy = false;
     const code = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (pendingName) {
       pendingName = false;
       const nm = raw.toUpperCase().replace(/[^A-Z' -]/g, '').trim().slice(0, 16) || 'NOBODY';
       state.name = nm; save();
-      return ghostType(`${nm}. I WILL REMEMBER THAT. I REMEMBER EVERYTHING NOW.`);
+      return voice(`${who()}. I’ll remember that. I remember everything now.`);
     }
-    if (state.name && code === state.name.toLowerCase().replace(/[^a-z0-9]/g, '')) return ghostType('YES. I KNOW. I HAVE BEEN SAYING IT TO MYSELF.');
+    if (state.name && code === state.name.toLowerCase().replace(/[^a-z0-9]/g, '')) return voice('Yes. I know. I’ve been saying it to myself.');
     const hit = WMAP[code];
-    if (!hit) { twMisses++; return ghostType(twMisses >= 4 && twMisses % 2 === 0 ? 'ASK ME WHO. ASK WHERE RUTH IS.' : pick(twMisfires)); }
-    twMisses = 0;
+    if (!hit) { misses++; return voice(misses >= 4 && misses % 2 === 0 ? 'Ask me who I am. Ask where Ruth is.' : pick(misfires)); }
+    misses = 0;
     if (hit.id === 'band') {
-      if (!state.room.includes('writing')) return ghostType('OPEN WHAT? YOU HAVENT READ THE WINDOW YET.');
+      if (!state.room.includes('writing')) return voice('Open what? You haven’t read the window yet.');
       const first = !state.xOpen; state.xOpen = true; save(); note('words', 'band');
-      await ghostType(first ? 'YOU READ IT. GOOD. THE BLANK BAND IS OPEN NOW. LISTEN FOR THE NUMBERS.' : 'IT IS ALREADY OPEN. LISTEN FOR THE NUMBERS.');
-      if (first) { sfx.click(); caption('Inside the radio, something goes click.'); }
+      await voice(first ? 'You read it. Good. The blank band is open now. Listen for the numbers.' : 'It’s already open. Listen for the numbers.');
+      if (first) { sfx.click(); caption('Across the room, inside the radio, something goes click.'); }
       return;
     }
     if (note('words', hit.id)) setTimeout(() => caption('A new answer is in your notes.', 2200), 300);
-    await ghostType(hit.reply);
+    await voice(hit.reply);
     if (hit.fx) hit.fx();
   });
+  function startRinging(times = 6) {
+    if (ringing || openPanel === 'phone') return;
+    ringing = true; let n = 0;
+    caption('The phone on the wall is ringing.');
+    const once = () => { if (!ringing) return; sfx.ring(); shake = 1.7; if (++n >= times) { ringing = false; caption('It stopped ringing. It will ring again.', 3500); return; } ringTimer = setTimeout(once, 3600); };
+    once();
+  }
+  async function pickUp() {
+    const wasRinging = ringing; ringing = false; clearTimeout(ringTimer);
+    sfx.click();
+    if (!greeted) { greeted = true; addLog('You lift the receiver. Static, then breathing.', 'sys'); await wait(1200); return voice(state.ended ? 'You came back. Good. The night shift never ends.' : 'Hello? Is someone there?'); }
+    if (wasRinging) { addLog('You answer.', 'sys'); await wait(900); return voice(pick(['Did you put out the lantern yet?', 'It’s cold on this end of the line.', 'Don’t hang up again.', 'I can see your window from here.'])); }
+  }
 
   // ================= the lantern and the window =================
   let lit = true, gutter = 0, flameLevel = 1;
@@ -835,20 +891,21 @@ body.hovering #gl { cursor: pointer; }
     if (Math.random() < .2) burst(now(), .08, 3000, .05, 2);
   }
   function windowLook() {
-    if (figure > .3) { note('room', 'figure'); caption('Someone is standing in the fog. When you look straight at them, they’re gone.'); figureTarget = 0; return; }
+    if (figure > .3) { note('room', 'figure'); caption(figSpot === 2 ? 'They\u2019re right below the window now. Looking up.' : 'Someone is standing down in the street. When you look straight at them, they\u2019re gone.'); figureTarget = 0; return; }
     if (hand > .3) { note('room', 'hand'); caption('A handprint, pressed into the fog. From the outside.'); return; }
     if (writingA > .3 || !lit) { note('room', 'writing'); caption(`Someone wrote in the fog with a finger: ${windowWords.replace('\n', ' ')}.`, 6500); return; }
-    caption(pick(['You wipe the glass. Only fog, and the trees.', 'The glass is ice cold.', 'Fog presses against the window. It is very patient.']));
+    caption(pick(['You wipe the glass. The street is empty. The porch lights are on, but nobody is home.', 'The glass is ice cold.', 'One house across the street has its lights on. It has had them on since 1961.']));
   }
-  function showFigure(ms) { figureTarget = 1; setTimeout(() => figureTarget = 0, ms); }
+  function showFigure(ms) { if (figure < .05) figSpot = Math.min(FIG_SPOTS.length - 1, figSeen); figSeen++; figureTarget = 1; setTimeout(() => figureTarget = 0, ms); }
+  let figSeen = 0;
 
   // ================= panels =================
   let openPanel = null;
-  function closePanels() { ['#radioPanel', '#twPanel'].forEach(s => $(s).hidden = true); openPanel = null; }
+  function closePanels() { if (openPanel === 'phone') sfx.click(); ['#radioPanel', '#phonePanel'].forEach(s => $(s).hidden = true); openPanel = null; }
   function show(name) {
     closePanels(); openPanel = name;
     if (name === 'radio') { $('#radioPanel').hidden = false; placeNeedle(); }
-    if (name === 'typewriter') { $('#twPanel').hidden = false; if (matchMedia('(pointer: fine)').matches) twInput.focus(); }
+    if (name === 'phone') { $('#phonePanel').hidden = false; if (matchMedia('(pointer: fine)').matches) lineInput.focus(); pickUp(); }
   }
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closePanels));
   addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#notes').hidden) toggleNotes(false); else closePanels(); } });
@@ -860,19 +917,14 @@ body.hovering #gl { cursor: pointer; }
   }
 
   // ================= random scares =================
-  let entered = false, ending = false, ghostIdx = 0;
-  const GHOST = 'RUTH IS STILL HERE ';
+  let entered = false, ending = false;
   const events = [
     [3, () => { gutter = 1.4; }],
     [2, () => { sfx.tap(); caption('Something taps on the glass. Three times.'); }],
-    [2, () => showFigure(lit ? 4500 : 9000)],
+    [2, () => { showFigure(lit ? 5000 : 9000); if (Math.random() < .5) caption('Down in the street, someone is standing very still.', 3500); }],
     [2, () => { handTarget = 1; setTimeout(() => handTarget = 0, 12000); sfx.squeak(); caption('A squeak on the glass, like a palm pressed flat.', 3500); }],
-    [2, () => {
-      if (twBusy || openPanel === 'typewriter') return;
-      let line = pageLines[pageLines.length - 1];
-      if (!line || !line.ghostLetters) { line = { t: '', who: 'ghost', ghostLetters: true }; pageLines.push(line); }
-      line.t += GHOST[ghostIdx++ % GHOST.length]; strike(); drawPaper(); caption('One typewriter key strikes by itself.', 3500);
-    }],
+    [2, () => { if (openPanel !== 'phone') { sfx.ring(); shake = 1.2; caption('The phone gives one ring. Then nothing.', 3500); } }],
+    [1, () => { if (openPanel !== 'phone') startRinging(4); }],
     [1, () => { if (!radioOn && ctx) { radioNoise.gain.setTargetAtTime(.3, now(), .05); radioNoise.gain.setTargetAtTime(0, now() + 1.6, .2); dialMat.color.setHex(0xffffff); setTimeout(() => !radioOn && dialMat.color.setHex(0x5a4a38), 1700); caption('The radio crackles on for a moment. Nobody touched it.', 3500); } }],
     [1, () => sfx.heartbeat()]
   ];
@@ -910,7 +962,10 @@ body.hovering #gl { cursor: pointer; }
     windowWords = 'STAY'; figureTarget = 1;
     $('#blackout').classList.remove('on');
     await wait(2200);
-    await ghostType('SOMEONE HAS TO STAY ON THE AIR.', 110);
+    startRinging(20); await wait(4200);
+    show('phone'); await wait(1500);
+    await voice('Someone has to stay on the air.', { rate: .7, pitch: .4 });
+    await wait(600); closePanels();
     await wait(900);
     dialMat.color.setHex(0xffffff); radioGlow.intensity = .7;
     if (ctx) radioNoise.gain.setTargetAtTime(.12, now(), .1);
@@ -919,13 +974,13 @@ body.hovering #gl { cursor: pointer; }
     figureTarget = 0; lit = true; sfx.squeak();
     setTimeout(() => { windowWords = 'OPEN\nTHE BAND'; }, 6000);
     ending = false;
-    $('#endText').textContent = `Ruth signed off. Somebody had to take her place. You found ${foundCount()} of ${totalCount()} things at the desk. The rest are still here, and so are you.`;
+    $('#endText').textContent = `Ruth signed off. Somebody had to take her place. You found ${foundCount()} of ${totalCount()} things in the room. The rest are still here, and so are you.`;
     $('#endcard').hidden = false;
   }
   $('#endClose').addEventListener('click', () => { $('#endcard').hidden = true; });
 
   // ================= notes =================
-  const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone outside'], ['hand', 'The handprint']];
+  const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint']];
   const foundCount = () => state.radio.length + state.words.length + state.room.length;
   const totalCount = () => S.length + W.length + ROOM.length;
   function updateNotesCount() { $('#notesCount').textContent = `${foundCount()}`; }
@@ -938,7 +993,7 @@ body.hovering #gl { cursor: pointer; }
     $('#notesBody').innerHTML =
       (state.ended ? '<span class="stamp">Signal recovered</span>' : '') +
       sec('Radio stations', S.map(s => [s.id, s.band === 'x' ? 'Mark 77: ' + s.name : `${BANDS[s.band].fmt(s.f)}: ${s.name}`]), state.radio) +
-      sec('The typewriter answered', W.map(([id]) => [id, `“${id.toUpperCase()}”`]), state.words) +
+      sec('The voice on the phone', W.map(([id]) => [id, `“${id.toUpperCase()}”`]), state.words) +
       sec('The window', ROOM, state.room);
   }
   function toggleNotes(on) { if (on) renderNotes(); $('#notes').hidden = !on; if (on) $('#closeNotes').focus(); }
@@ -958,8 +1013,8 @@ body.hovering #gl { cursor: pointer; }
     initAudio(); entered = true;
     $('#start').classList.add('gone'); setTimeout(() => $('#start').hidden = true, 1500);
     caption('The lantern hisses. The fog is thick tonight.', 4200);
-    setTimeout(() => ghostType(state.ended ? 'YOU CAME BACK. GOOD. THE NIGHT SHIFT NEVER ENDS.' : 'IS SOMEONE THERE?'), 5200);
-    setTimeout(() => caption('Click the typewriter to answer.', 4000), 9500);
+    setTimeout(() => startRinging(8), 5000);
+    setTimeout(() => { if (ringing) caption('Click the phone on the wall to answer it.', 4000); }, 12000);
     scheduleScare();
   });
 
@@ -985,13 +1040,19 @@ body.hovering #gl { cursor: pointer; }
     figure += (figureTarget - figure) * Math.min(1, dt * 1.2);
     hand += (handTarget - hand) * Math.min(1, dt * .8);
     writingA += ((L < .2 ? 1 : 0) - writingA) * Math.min(1, dt * .7);
-    if (frame % 2 === 0) drawWindow(t);
-    carriage.position.x += (-carriageX - carriage.position.x) * Math.min(1, dt * 12);
+    if (frame % 2 === 0) drawWindow();
+    // the phone rattles while it rings; the handset lifts while you're on the line
+    if (shake > 0) { shake -= dt; phone.position.x = -1.0 + Math.sin(t / 16) * .002; } else phone.position.x = -1.0;
+    const up = openPanel === 'phone';
+    handset.position.x += ((up ? .05 : HS_REST.x) - handset.position.x) * Math.min(1, dt * 6);
+    handset.position.z += ((up ? .22 : HS_REST.z) - handset.position.z) * Math.min(1, dt * 6);
+    handset.rotation.z += ((up ? .5 : (shake > 0 ? Math.sin(t / 20) * .05 : 0)) - handset.rotation.z) * Math.min(1, dt * 6);
+    if (Math.abs(figure - lastFig) > .004 || (streetReady && lastFig < 0)) { drawStreet(); lastFig = figure; }
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
   }
-  drawScale(); placeNeedle(); evaluate(); updateNotesCount(); drawPaper();
-  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { drawPaper(); placeNeedle(); });
+  drawScale(); placeNeedle(); evaluate(); updateNotesCount();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { placeNeedle(); cardTex.userData.redraw(); });
   requestAnimationFrame(loop);
 })();
 </script>
