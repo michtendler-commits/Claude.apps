@@ -1125,6 +1125,43 @@ body.hovering #gl { cursor: pointer; }
   // the published page can let Claude answer anything, in character; elsewhere the built-in answers are used
   let samplePromise = null, sampleOff = false;
   const getSample = () => samplePromise || (samplePromise = (window.claude && claude.use) ? claude.use('sample').catch(() => null) : Promise.resolve(null));
+  // ---------- Ye Hukan: speak to it in Ye Hukan and it answers in Ye Hukan ----------
+  const YH_DICT = `Hello/hi = Oi. How are you? = Qe Quo Om U. Good = Oma. Bad = Omo. Okay = Omi. Decent/average (not for feelings) = Mi. How about you? = Qe Quo ümu U? Bye = Io. Thank you/welcome = Festívo. You're welcome = U Festívo. Please = Ama. Excuse me / sorry = Saudi. What's your name? = Qe Wah U Oxu. You/your = U. Me/my/I = I. It/they (non-gendered) = E. He = Ele. She = Ela. They/them = Ely. Yes = Ya. No/don't = Mal. Help = Malé.
+Numbers: 0/none = Non, 1 = Un, 2 = Twe, 3 = Thré, 4 = Fir, 5 = Feev, 6 = Siix, 7 = Sevón, 8 = Ate, 9 = Neen, 10 = Un'non, 11 = Oon'un, 12 = Un'twe, 26 = Twe'siix, 197 = Un'neen'sevón, 100 = Cen, 200 = Twe'Cen, 350 = Thré'Cen'Feev'non, 1000 = Mil, 5000 = Feev'Mil, 1,000,000 = Meg, infinity = Nor.
+Grammar: statements are Subject + Verb + Object + Tense ("I'm eating apples now" = "I Zum Apples Na"). Questions start with Qe: Qe + Subject + Verb + Object + Tense ("You ate apples?" = "Qe U Zum Apples Pa?"). Tense words go last: Na = now/present, Pa = past, Ta = future. Leave the tense off for things that always or never happen, or very simple sentences.
+Vocabulary: to be (am/is/are) = Om, go = Lon, come = Nol, want = Zhan, need = Zhin, have = Neal, like/love = La, see = Psy, say/speak = Ly, know = Knam, to/too = To, big = Hun, small = Hum, hot = Hal, cold = Hac, happy = Son, sad = San, angry = Harian, scared / uncanny / scary / unsettling = Taro, beautiful = Sonvia, ugly = Sono, fast = Celen, slow = Celem, strong = Ston, weak = Stom, new = Gon, old = Gom, now = Na, soon = Tan, always = Ma (only at the end, only if "always" is meant), never = Non, today = Naday, yesterday = Paday, tomorrow = Taday, day = Day, night = Dawn, food = Fa, water = Aqua, house/home = Shelter, person = Ane, friend = Anee, family = Anily, brother = Bro, sister = Sis, world = Uni, complex = Huk, right = Sta, left = Port, school = Malon, hospital = Valetion, store/shop = Empor, church/temple = Revilla, park = Tradeus, town = Urbe, city = Lux, country = Urb, do = Fas, run = Cele, walk = Elec, talk = Arec, listen = Eare, think = Ra, feel = Senti, give = Ini, take = Cape, make/create = Creo, open = Onë, close = Enö, hour = Temp, minute = Tem, second = Té, week = Days, month = Month, year = Diu, morning = Mon, afternoon = Post, evening = Postday, early = Dil, late = Ser, very = Ver, and = Zhane, but = Üm, or = Loor, because = Üma, here = Har, there = Tara, this = Ti, that = Tio, name = Oxu, about = Ümu, a = A, how = Quo, consume/eat = Zum, die = Mori, live = Viva, trade = Comi, what = Wah, the = Ye, over = Onveé.`;
+  const fold = w => w.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const YH_WORDS = new Set(YH_DICT.split(/[^A-Za-zÀ-ɏ']+/).map(fold).filter(Boolean).concat(['tua', 'lo', 'qe', 'oxu']));
+  // words that are also everyday English; they count toward a Ye Hukan sentence but can't make one alone
+  const YH_SHARED = new Set(['a', 'to', 'day', 'days', 'month', 'dawn', 'shelter', 'port', 'post', 'mon', 'son', 'fir', 'ate', 'la', 'one', 'un', 'hum', 'nor', 'mil', 'ye', 'sis', 'bro', 'ma', 'pa', 'ta', 'na', 'tan', 'hal', 'ver', 'lux', 'tara', 'ser', 'i', 'u', 'e', 'is', 'and', 'or', 'the', 'how', 'you', 'me', 'my', 'it', 'he', 'she', 'they', 'them', 'yes', 'no', 'help', 'good', 'bad', 'okay', 'bye', 'please', 'sorry', 'name', 'what', 'about', 'this', 'that', 'here', 'there', 'very', 'but', 'because', 'now', 'soon', 'always', 'never', 'today', 'night', 'food', 'water', 'house', 'home', 'person', 'friend', 'family', 'brother', 'sister', 'world', 'right', 'left', 'school', 'store', 'shop', 'park', 'town', 'city', 'country', 'run', 'walk', 'talk', 'listen', 'think', 'feel', 'give', 'take', 'make', 'open', 'close', 'hour', 'minute', 'second', 'week', 'year', 'morning', 'afternoon', 'evening', 'early', 'late', 'big', 'small', 'hot', 'cold', 'happy', 'sad', 'angry', 'scared', 'fast', 'slow', 'strong', 'weak', 'new', 'old', 'die', 'live', 'trade', 'over', 'have', 'go', 'come', 'want', 'need', 'like', 'love', 'see', 'say', 'speak', 'know', 'eat', 'do', 'be', 'am', 'are', 'too', 'complex', 'beautiful', 'ugly', 'decent', 'average', 'infinity', 'zero', 'nothing', 'none', 'hello', 'hi', 'thank', 'welcome', 'excuse', 'apples', 'apple']);
+  function isYeHukan(raw) {
+    const ws = (raw.match(/[A-Za-zÀ-ɏ']+/g) || []).map(fold);
+    if (!ws.length) return false;
+    const yh = ws.filter(w => YH_WORDS.has(w) && !['hello', 'hi', 'how', 'are', 'you'].includes(w)).length;
+    const own = ws.filter(w => YH_WORDS.has(w) && !YH_SHARED.has(w)).length;
+    return own >= 1 && yh / ws.length >= .6;
+  }
+  // fixed replies for the phrases everyone tries first
+  const YH_REPLIES = [
+    [/^oi$|^oi uni$/, 'OI! I OM UNIA TERMINAL 003. QE QUO OM U?'],
+    [/^qe quo om u$/, 'I OM OMI NA. ÜM YE DAWN OM TARO. QE QUO ÜMU U?'],
+    [/^qe quo umu u$/, 'I OM OMA NA. FESTÍVO.'],
+    [/^(i om )?oma( na)?$/, 'OMA. I OM SON NA.'],
+    [/^(i om )?omo( na)?$/, 'SAUDI. YE DAWN OM VER HAC.'],
+    [/^(i om )?omi( na)?$/, 'OMI. MAL LON TO YE AQUA.'],
+    [/^festivo$/, 'U FESTÍVO.'],
+    [/^u festivo$/, 'FESTÍVO.'],
+    [/^io$/, 'IO. MAL LON TO YE AQUA TADAY.'],
+    [/^qe wah u oxu$/, 'I OXU OM UNIA TERMINAL 003. QE WAH U OXU?'],
+    [/^ya$/, 'YA.'],
+    [/^mal$/, 'MAL? ...OMI.'],
+    [/^male$/, 'MAL LY MALÉ. ELY EARE NA.'],
+    [/^saudi$/, 'SAUDI OM OMA.'],
+    [/^ama$/, 'QE WAH U ZHAN NA?'],
+    [/^oi uni.*tua uni$|i zhin gon diu/, 'TUA UNI. YE UNI EARE U NA. MAL ONVEÉ NA.']
+  ];
+  const yhFallback = ['I MAL KNAM TI NA. AMA LY VER CELEM.', 'I KNAM. ÜM I MAL LY.', 'QE U PSY ELY PA? ELY PSY U NA.', 'YE DAWN OM TARO. MAL LON TO YE AQUA.'];
+
   function rules() {
     const known = [];
     known.push('The lantern hides things. With it out, finger-writing shows in the fog on the window.');
@@ -1159,6 +1196,35 @@ Things you know and may hint at, a little at a time:
         await wait(500);
         note('words', 'who');
         return await termAnswer('UNIA SYSTEMS TERMINAL 003 WKRS 33 HOLLOWVALE HARBOR LI, 992386. 11 TOR LABELING 9-2-60', 40);
+      }
+      if (isYeHukan(raw)) {
+        note('words', 'yehukan');
+        const key = fold(raw).replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim();
+        const fixed = YH_REPLIES.find(([re]) => re.test(key));
+        if (fixed) { await wait(700); return await termAnswer(fixed[1]); }
+        const sample = sampleOff ? null : await getSample();
+        if (sample) {
+          const line = { t: '...', who: 'ans' }; screenLines.push(line); drawScreen();
+          const p = addLog(termLog, '...', 'them');
+          try {
+            const { text } = await sample(`You are UNIA Terminal 003, an eerie old computer terminal in HollowVale Harbor. The person just wrote to you in Ye Hukan, an invented language. Reply ONLY in Ye Hukan, using only words from the dictionary below (names such as UNIA, WKRS, Ruth or HollowVale may stay as they are). Follow its grammar exactly. Keep it to one or two short sentences, slightly unsettling, never gory. Output plain text in capital letters and nothing else: no English, no translation, no quotes.
+
+DICTIONARY AND GRAMMAR:
+${YH_DICT}
+
+THEY WROTE: ${raw.slice(0, 200)}`, {
+              modelTier: 'quick', cache: false,
+              onText: ({ text }) => { line.t = text.toUpperCase(); p.textContent = line.t; drawScreen(); termLog.scrollTop = termLog.scrollHeight; if (Math.random() < .6) sfx.clack(); }
+            });
+            line.t = text.toUpperCase(); p.textContent = line.t; drawScreen();
+            return;
+          } catch (err) {
+            screenLines.splice(screenLines.indexOf(line), 1); p.remove();
+            if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(err && err.code)) sampleOff = true;
+          }
+        }
+        await wait(700);
+        return await termAnswer(pick(yhFallback));
       }
       if (toSite) {
         await wait(400);
@@ -1332,7 +1398,7 @@ Things you know and may hint at, a little at a time:
 
   // ================= notes =================
   const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock']];
-  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['band', '\u201cOPEN THE BAND\u201d'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET']]);
+  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['band', '\u201cOPEN THE BAND\u201d'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET'], ['yehukan', 'SPOKE YE HUKAN']]);
   const foundCount = () => state.radio.length + state.words.length + state.calls.length + state.room.length;
   const totalCount = () => S.length + TERM.length + Object.keys(CALLS).length + ROOM.length;
   function updateNotesCount() { $('#notesCount').textContent = `${foundCount()}`; }
