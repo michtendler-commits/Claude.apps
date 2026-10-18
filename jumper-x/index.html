@@ -19,6 +19,7 @@
     --gold: #ffcc29;
     --ember: #ff6a1a;
     --heart: #ff4d6d;
+    --sky: #7fd8ff;
     --pixel: 'Press Start 2P', ui-monospace, 'Courier New', monospace;
     --body: 'Nunito', system-ui, -apple-system, sans-serif;
   }
@@ -42,8 +43,9 @@
     pointer-events: none;
   }
   .hud[hidden] { display: none; }
-  .hud .floor { color: var(--gold); }
+  .hud .height { color: var(--gold); font-variant-numeric: tabular-nums; }
   .hud .hearts { color: var(--heart); letter-spacing: 2px; }
+  .hud .fx { color: var(--sky); font-family: var(--body); font-weight: 800; font-size: clamp(12px, 3vw, 16px); }
   .hud .lava { color: var(--ember); }
   .hud .grow { flex: 1; }
   .hud .coins { color: var(--gold); font-variant-numeric: tabular-nums; }
@@ -73,10 +75,11 @@
   .overlay {
     position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center;
     padding: calc(20px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
-    background: radial-gradient(ellipse at center, rgba(7, 3, 15, .55), rgba(7, 3, 15, .92));
+    background: radial-gradient(ellipse at center, rgba(7, 3, 15, .5), rgba(7, 3, 15, .9));
+    overflow-y: auto;
   }
   .overlay[hidden] { display: none; }
-  .card { width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+  .card { width: 100%; max-width: 460px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; margin: auto; }
   .logo {
     font-family: var(--pixel); font-size: clamp(34px, 11vw, 64px); line-height: 1.1; margin: 0;
     color: var(--text); text-shadow: 0 5px 0 #000, 0 0 30px rgba(255, 106, 26, .35);
@@ -91,6 +94,9 @@
   .chip.on { border-color: var(--gold); color: var(--gold); }
   .keys { font-size: 14px; color: var(--muted); line-height: 1.7; }
   .keys kbd { font-family: var(--pixel); font-size: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; color: var(--text); }
+  .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px 14px; width: 100%;
+            font-size: 13px; color: var(--muted); text-align: left; }
+  .legend b { color: var(--text); }
   .big {
     width: 100%; max-width: 300px; padding: 18px; border-radius: 14px;
     font-family: var(--pixel); font-size: 18px; color: #2a1600; background: var(--gold); box-shadow: 0 6px 0 #9c7000;
@@ -105,8 +111,9 @@
 <canvas id="game"></canvas>
 
 <div class="hud" id="hud" hidden>
-  <span class="floor" id="hFloor">FLOOR 1</span>
+  <span class="height" id="hHeight">▲ 0m</span>
   <span class="hearts" id="hHearts">♥♥♥</span>
+  <span class="fx" id="hFx"></span>
   <span class="lava" id="hLava"></span>
   <span class="grow"></span>
   <span class="coins" id="hCoins">● 0</span>
@@ -124,11 +131,12 @@
 
 <script>
 // =====================================================
-// JUMPER X — climb a dark tower with a close-up camera
+// JUMPER X — an endless climb up a dark tower
 // =====================================================
 
 const $ = id => document.getElementById(id);
 const now = () => performance.now();
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const store = {
   get(k, d) { try { const v = localStorage.getItem('jx_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('jx_' + k, JSON.stringify(v)); } catch (e) {} }
@@ -147,18 +155,40 @@ function beep(f, d, type = 'square', vol = .05, slide = 0) {
   } catch (e) {}
 }
 const sfx = {
-  jump:  () => beep(300, .12, 'square', .035, 300),
-  jump2: () => beep(500, .14, 'triangle', .05, 500),
-  coin:  () => { beep(880, .06, 'square', .035); setTimeout(() => beep(1320, .09, 'square', .035), 55); },
-  stomp: () => beep(180, .12, 'square', .06, -80),
-  die:   () => beep(400, .45, 'sawtooth', .06, -330),
-  door:  () => { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, .12, 'triangle', .07), i * 70)); },
+  jump:   () => beep(300, .12, 'square', .03, 260),
+  jump2:  () => beep(480, .14, 'triangle', .05, 480),
+  boing:  () => beep(160, .35, 'triangle', .08, 700),
+  coin:   () => { beep(880, .06, 'square', .03); setTimeout(() => beep(1320, .09, 'square', .03), 55); },
+  power:  () => { [440, 660, 880, 1320].forEach((f, i) => setTimeout(() => beep(f, .1, 'triangle', .06), i * 55)); },
+  chest:  () => { [523, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, .12, 'square', .04), i * 80)); },
+  stomp:  () => beep(180, .12, 'square', .06, -80),
+  crack:  () => beep(120, .18, 'sawtooth', .04, -40),
+  hurt:   () => beep(330, .3, 'sawtooth', .06, -220),
+  shield: () => beep(900, .25, 'sine', .07, -500),
+  over:   () => beep(400, .7, 'sawtooth', .06, -340),
 };
 
 // ---------- world constants ----------
-const T = 32, COLS = 24, ROWS = 40, WW = COLS * T, WH = ROWS * T;
-const GRAV = 1900, JUMP = 690, RUN = 190;
-const EMPTY = 0, SOLID = 1, PLAT = 2, SPIKE = 3;
+// Movement is tuned to feel steady and floaty (not twitchy), and the physics
+// always step at a fixed 120 Hz so it plays the same on every device.
+const T = 32, COLS = 22, WW = COLS * T;
+const GRAV = 1350, JUMP = 570, RUN = 125, MAXFALL = 620, STEP = 1 / 120;
+const EMPTY = 0, SOLID = 1, PLAT = 2, SPIKE = 3, CRATE = 4, BOOKS = 5, BARREL = 6,
+      SPRING = 7, ICE = 8, CRUMBLE = 9, CHEST = 10;
+const ONEWAY = new Set([PLAT, CRATE, BOOKS, BARREL, SPRING, ICE, CRUMBLE, CHEST]);
+
+// The tower changes every 45 m. Each zone favours different things to jump on.
+const ZONES = [
+  { name: 'THE CELLAR',       hue: 24,  kinds: { plank: 3, barrel: 3, crate: 2 } },
+  { name: 'THE LIBRARY',      hue: 270, kinds: { books: 4, plank: 2, crate: 1, spring: .5 } },
+  { name: 'THE ARMORY',       hue: 210, kinds: { crate: 3, barrel: 2, plank: 1, crumble: 1.5 } },
+  { name: 'THE FROZEN SPIRE', hue: 192, kinds: { ice: 4, plank: 1, crumble: 1.5 } },
+  { name: 'THE CLOCKWORKS',   hue: 42,  kinds: { mover: 3, plank: 2, crate: 1, spring: 1 } },
+  { name: 'THE SKY KEEP',     hue: 232, kinds: { spring: 2, crumble: 2, mover: 1.5, plank: 1 } },
+];
+const ZONE_ROWS = 45;
+const zoneOf = r => Math.max(0, Math.floor(-r / ZONE_ROWS));
+const zoneInfo = z => ZONES[z % ZONES.length];
 
 const cv = $('game'), cx = cv.getContext('2d');
 const lc = document.createElement('canvas'), lx = lc.getContext('2d');
@@ -166,27 +196,28 @@ let DPR = 1, SW = 0, SH = 0;
 
 const keys = {};
 const C = {
-  state: 'title', mode: 1, seed: 7, floor: 1, hearts: 3, coins: 0, L: null, ents: [],
-  players: [], parts: [], lavaY: WH, lavaT: 5, banner: 0, shake: 0, t: 0, bg: null,
-  touch: { L: false, R: false, J: false }, cam: { x: 0, y: 0, z: 2 }, last: 0,
+  state: 'title', mode: 1, seed: 7, hearts: 3, coins: 0, height: 0, zone: -1,
+  players: [], parts: [], lavaY: 6 * T, lavaT: 4, banner: 0, bannerText: '', shake: 0, t: 0,
+  touch: { L: false, R: false, J: false }, cam: { x: 0, y: 0, z: 2 }, last: 0, acc: 0, pruneT: 0,
 };
+const W = { rows: new Map(), ents: [], movers: [], coins: [], items: [], decor: [], crumble: new Map(), opened: new Set(), springT: new Map(), gen: null };
 
 // ---------- screen fitting ----------
-// The camera zoom comes from the screen's area, so every device sees roughly
-// the same small patch of the tower (about 11 tiles across on average).
+// Zoom comes from the screen's area, so every device sees about the same
+// small patch of the tower around you.
 function baseZoom() { return Math.max(1, Math.sqrt(SW * SH) / (11 * T)); }
 function resize() {
   DPR = Math.min(2, window.devicePixelRatio || 1);
   SW = innerWidth; SH = innerHeight;
   cv.width = lc.width = Math.round(SW * DPR);
   cv.height = lc.height = Math.round(SH * DPR);
-  if (C.L) updateCamera(0, true);
+  if (C.players.length) updateCamera(0, true);
 }
 addEventListener('resize', resize);
 addEventListener('orientationchange', () => setTimeout(resize, 200));
 document.body.classList.toggle('coarse', matchMedia('(pointer: coarse)').matches);
 
-// ---------- seeded random ----------
+// ---------- random ----------
 function mulberry(a) {
   return function () {
     a |= 0; a = a + 0x6D2B79F5 | 0;
@@ -197,182 +228,163 @@ function mulberry(a) {
 }
 let R = Math.random;
 const ri = (a, b) => a + Math.floor(R() * (b - a + 1));
+const hash = (x, y) => { let h = Math.imul(x, 73856093) ^ Math.imul(y, 19349663); h = Math.imul(h ^ h >>> 13, 1274126177); return ((h ^ h >>> 16) >>> 0) / 4294967296; };
+function pick(weights) {
+  let sum = 0; for (const k in weights) sum += weights[k];
+  let x = R() * sum;
+  for (const k in weights) { x -= weights[k]; if (x <= 0) return k; }
+  return Object.keys(weights)[0];
+}
 
-// ---------- level generation ----------
-// One hidden route of platforms winds up the tower to the door; decoy ledges
-// branch off it so you can't tell the real path from the dark.
-function genFloor(f) {
-  R = mulberry(C.seed * 977 + f * 7919);
-  const g = [];
-  for (let r = 0; r < ROWS; r++) g.push(new Array(COLS).fill(EMPTY));
-  for (let r = 0; r < ROWS; r++) g[r][0] = g[r][COLS - 1] = SOLID;
-  for (let c = 0; c < COLS; c++) g[0][c] = g[ROWS - 1][c] = SOLID;
+// ---------- tiles ----------
+// Rows are numbered upward as negative numbers; row 0 is the ground.
+function tile(c, r) {
+  if (c <= 0 || c >= COLS - 1 || r >= 0) return SOLID;
+  const row = W.rows.get(r);
+  return row ? row[c] : EMPTY;
+}
+function setTile(c, r, v) {
+  let row = W.rows.get(r);
+  if (!row) { row = new Uint8Array(COLS); W.rows.set(r, row); }
+  row[c] = v;
+}
 
-  const ents = [], coins = [];
-  const startC = ri(2, COLS - 3);
-
-  // rows of the true path: 3 apart, sometimes 4 (needs a double jump) from floor 3
-  const rows = [];
-  for (let r = ROWS - 1; ;) {
-    const nr = r - (f >= 3 && R() < .35 ? 4 : 3);
-    if (nr < 2) { if (r > 2) { if (r - 2 >= 2) rows.push(2); else rows[rows.length - 1] = 2; } break; }
-    rows.push(nr); r = nr;
-  }
-
-  let prev = { a: 1, b: COLS - 2, r: ROWS - 1 }, dir = R() < .5 ? -1 : 1;
-  const mains = [];
-  for (const r of rows) {
-    const len = ri(3, f < 5 ? 5 : 4);
-    let a = -1;
-    for (let pass = 0; pass < 2 && a < 0; pass++) {
-      for (let t = 0; t < 120; t++) {
-        const c = ri(1, COLS - 1 - len), b = c + len - 1;
-        const gap = Math.max(c - prev.b - 1, prev.a - b - 1);
-        const shift = (c + b) / 2 - (prev.a + prev.b) / 2;
-        if (gap <= 2 && (prev.r === ROWS - 1 || (Math.abs(shift) >= 3 && Math.sign(shift) === dir))) { a = c; break; }
-      }
-      if (a < 0) dir = -dir;
-    }
-    if (a < 0) a = Math.max(1, Math.min(COLS - 1 - len, prev.a));
-    const p = { a, b: a + len - 1, r };
-    for (let c = p.a; c <= p.b; c++) g[r][c] = PLAT;
-    mains.push(p); prev = p;
-    if (R() < .3) dir = -dir;
-    if (p.a <= 3) dir = 1;
-    if (p.b >= COLS - 4) dir = -1;
-  }
-
-  // decoy ledges along every row
-  const decoys = [];
-  for (const r of rows.slice(0, -1)) {
-    const n = ri(1, 3);
-    for (let k = 0; k < n; k++) {
-      const len = ri(2, 4);
-      for (let t = 0; t < 30; t++) {
-        const c = ri(1, COLS - 1 - len);
-        let free = true;
-        for (let x = c - 2; x <= c + len + 1; x++) if (x > 0 && x < COLS - 1 && g[r][x] !== EMPTY) free = false;
-        if (!free) continue;
-        for (let x = c; x < c + len; x++) g[r][x] = PLAT;
-        decoys.push({ a: c, b: c + len - 1, r });
-        break;
-      }
-    }
-  }
-  for (const d of decoys) {
-    if (f >= 2 && R() < .35) g[d.r - 1][ri(d.a, d.b)] = SPIKE;
-    else if (R() < .6) coins.push({ x: (d.a + d.b + 1) / 2 * T, y: (d.r - 1) * T + 16 });
-  }
-
-  // ground spikes, never more than two in a row, never next to the start
-  const nSp = Math.min(2 + f, 10), floorRow = g[ROWS - 2];
-  for (let t = 0, placed = 0; t < 120 && placed < nSp; t++) {
-    const c = ri(1, COLS - 2);
-    if (Math.abs(c - startC) <= 2 || floorRow[c]) continue;
-    if ((floorRow[c - 1] === SPIKE && (floorRow[c - 2] === SPIKE || floorRow[c + 1] === SPIKE)) ||
-        (floorRow[c + 1] === SPIKE && floorRow[c + 2] === SPIKE)) continue;
-    floorRow[c] = SPIKE; placed++;
-  }
-  if (f >= 6) for (const m of mains.slice(0, -1)) {
-    if (m.b - m.a >= 3 && R() < .4) g[m.r - 1][R() < .5 ? m.a : m.b] = SPIKE;
-  }
-
-  for (const m of mains.slice(0, -1)) {
-    const c = Math.floor((m.a + m.b) / 2);
-    if (g[m.r - 1][c] === EMPTY) coins.push({ x: c * T + 16, y: (m.r - 1) * T + 16 });
-  }
-  for (let t = 0, n = 0; t < 60 && n < 6; t++) {
-    const c = ri(2, COLS - 3), r = ri(3, ROWS - 4);
-    if (g[r][c] === EMPTY && g[r + 1][c] === EMPTY) { coins.push({ x: c * T + 16, y: r * T + 16 }); n++; }
-  }
-
-  const slime = (minX, maxX, topY, x) => ({ k: 'slime', x: x ?? (minX + maxX) / 2 - 11, y: topY - 16, w: 22, h: 16,
-    vx: (R() < .5 ? -1 : 1) * (35 + f * 4), minX, maxX, t: R() * 6 });
-  if (f >= 2) {
-    for (const m of mains.slice(0, -1)) if (m.b - m.a >= 3 && R() < Math.min(.7, .25 + f * .06)) ents.push(slime(m.a * T, (m.b + 1) * T, m.r * T));
-    for (const d of decoys) if (d.b - d.a >= 2 && R() < .3) ents.push(slime(d.a * T, (d.b + 1) * T, d.r * T));
-  }
-  if (f >= 3) {
-    const farX = startC < COLS / 2 ? (COLS - 4) * T : 3 * T;
-    ents.push(slime(T, (COLS - 1) * T, (ROWS - 1) * T, farX));
-  }
-  if (f >= 3) {
-    const n = Math.min(6, 1 + Math.floor((f - 1) / 2));
-    for (let i = 0; i < n; i++) {
-      const y0 = ri(4, ROWS - 8) * T + 8;
-      ents.push({ k: 'bat', x: ri(3, COLS - 4) * T, y: y0, y0, w: 20, h: 12, vx: (R() < .5 ? -1 : 1) * (55 + f * 4),
-                  t: R() * 6, amp: ri(10, 26) });
-    }
-  }
-
-  const top = mains[mains.length - 1], dc = ri(top.a, top.b);
-  const door = { x: dc * T + 4, y: T, w: 24, h: 32 };
-  const torches = [];
-  for (let t = 0; t < 120 && torches.length < 12; t++) {
-    const c = ri(2, COLS - 3), r = ri(2, ROWS - 4);
-    if (g[r][c] === EMPTY && g[r + 1][c] === EMPTY && !torches.some(o => Math.abs(o.c - c) + Math.abs(o.r - r) < 7)) torches.push({ c, r });
-  }
-  const windows = [];
-  for (let t = 0; t < 40 && windows.length < 6; t++) {
-    const c = ri(2, COLS - 3), r = ri(3, ROWS - 6);
-    if (!windows.some(o => Math.abs(o.c - c) < 4 && Math.abs(o.r - r) < 5)) windows.push({ c, r });
-  }
+// ---------- endless generation ----------
+// One guaranteed route winds upward forever. Every step is placed within
+// reach of the last one; decoy ledges and items branch off it in the dark.
+function genInit(seed) {
+  W.rows = new Map(); W.ents = []; W.movers = []; W.coins = []; W.items = []; W.decor = [];
+  W.crumble = new Map(); W.opened = new Set(); W.springT = new Map();
+  W.gen = { rng: mulberry(seed), prev: { a: 1, b: COLS - 2, r: 0 }, dir: 1, count: 0 };
+  genUpTo(-60);
+}
+function genUpTo(target) {
+  R = W.gen.rng;
+  while (W.gen.prev.r > target) genStep();
   R = Math.random;
-  return { g, ents, coins, door, startC, torches, windows, hue: (230 + f * 37) % 360 };
 }
 
-function renderBg(L) {
-  const b = document.createElement('canvas'); b.width = WW; b.height = WH;
-  const g = b.getContext('2d');
-  const light = Math.max(14, 28 - C.floor);
-  g.fillStyle = `hsl(${L.hue},18%,${light}%)`; g.fillRect(0, 0, WW, WH);
-  const rr = mulberry(C.floor * 31 + C.seed);
-  for (let y = 0; y < WH; y += 16) {
-    const off = (y / 16) % 2 ? 0 : 16;
-    for (let x = -off; x < WW; x += 32) {
-      g.fillStyle = `hsl(${L.hue},18%,${light + (rr() * 6 - 3)}%)`;
-      g.fillRect(x + 1, y + 1, 30, 14);
+const LEN = { plank: [3, 5], crate: [2, 4], books: [2, 3], barrel: [2, 3], ice: [3, 5], crumble: [2, 4], spring: [1, 1], mover: [5, 8] };
+const TILE_OF = { plank: PLAT, crate: CRATE, books: BOOKS, barrel: BARREL, ice: ICE, crumble: CRUMBLE, spring: SPRING };
+
+function freeSpan(r, a, b, pad) {
+  for (let x = a - pad; x <= b + pad; x++) if (x > 0 && x < COLS - 1 && tile(x, r) !== EMPTY) return false;
+  return !W.movers.some(m => m.r === r && a - pad <= m.maxX / T && b + pad >= m.minX / T);
+}
+
+function genStep() {
+  const G = W.gen, prev = G.prev;
+  const height = -prev.r, d = Math.min(1, height / 500);
+  const z = zoneOf(prev.r), zi = zoneInfo(z);
+  const step = prev.spring ? ri(5, 7) : (R() < .15 + d * .3 && height > 20 ? 4 : 3);
+  const r = prev.r - step;
+
+  let kind;
+  if (G.count < 6) kind = R() < .5 ? 'plank' : 'crate';
+  else {
+    const w = Object.assign({}, zi.kinds);
+    if (z >= ZONES.length) for (const k in LEN) w[k] = (w[k] || 0) + .6;  // later laps mix everything
+    if (height > 40) { w.crumble = (w.crumble || 0) + d; w.spring = (w.spring || 0) + .3; }
+    kind = pick(w);
+  }
+  const [l0, l1] = LEN[kind], len = ri(l0, l1);
+
+  // find a spot within reach of the previous step, drifting in one direction
+  let a = -1;
+  for (let pass = 0; pass < 2 && a < 0; pass++) {
+    for (let t = 0; t < 120; t++) {
+      const c = ri(1, COLS - 1 - len), b = c + len - 1;
+      const gap = Math.max(c - prev.b - 1, prev.a - b - 1);
+      const shift = (c + b) / 2 - (prev.a + prev.b) / 2;
+      if (gap <= 2 && (prev.r === 0 || (Math.abs(shift) >= 2 && Math.sign(shift) === G.dir))) { a = c; break; }
+    }
+    if (a < 0) G.dir = -G.dir;
+  }
+  if (a < 0) a = clamp(prev.a, 1, COLS - 1 - len);
+  const b = a + len - 1;
+
+  if (kind === 'mover') {
+    const w = ri(2, 3) * T;
+    W.movers.push({ k: 'mover', r, x: a * T, y: r * T, w, minX: a * T, maxX: (b + 1) * T,
+                    vx: (R() < .5 ? -1 : 1) * (30 + d * 30), dx: 0 });
+  } else {
+    for (let c = a; c <= b; c++) setTile(c, r, TILE_OF[kind]);
+    // mixed piles: a crate row might hide a barrel, books or a treasure chest
+    if ((kind === 'crate' || kind === 'barrel' || kind === 'books') && len >= 2) {
+      const c = ri(a, b), roll = R();
+      if (roll < .12) setTile(c, r, CHEST);
+      else if (roll < .4) setTile(c, r, [CRATE, BARREL, BOOKS][ri(0, 2)]);
     }
   }
-  for (const w of L.windows) {
-    const x = w.c * T + 4, y = w.r * T;
-    g.fillStyle = `hsl(${L.hue},30%,7%)`;
-    g.beginPath(); g.moveTo(x, y + 80); g.lineTo(x, y + 14); g.arc(x + 12, y + 14, 12, Math.PI, 0); g.lineTo(x + 24, y + 80); g.fill();
-    g.fillStyle = 'rgba(255,255,255,.6)';
-    for (let i = 0; i < 4; i++) g.fillRect(x + 4 + rr() * 16, y + 8 + rr() * 60, 1.5, 1.5);
+  G.prev = { a, b, r, spring: kind === 'spring' };
+  G.count++;
+  if (R() < .3) G.dir = -G.dir;
+  if (a <= 3) G.dir = 1;
+  if (b >= COLS - 4) G.dir = -1;
+
+  // coin or power-up over the main route
+  if (kind !== 'spring' && kind !== 'mover' && R() < .6) W.coins.push({ x: ((a + b + 1) / 2) * T, y: (r - 1) * T + 14 });
+  if (G.count > 4 && R() < .09) W.items.push(makeItem((a + b + 1) / 2 * T, (r - 2) * T + 16));
+
+  // slimes patrol wider platforms once you're past the start
+  if (height > 25 && kind !== 'spring' && kind !== 'mover' && len >= 3 && R() < .15 + d * .3) W.ents.push(slime(a * T, (b + 1) * T, r * T, d));
+
+  // decoy ledges and loose items in the same row
+  const n = ri(1, 2);
+  for (let k = 0; k < n; k++) {
+    const dk = pick({ plank: 2, crate: 2, books: 1, barrel: 1.5, ice: zi.kinds.ice ? 2 : .3, spring: .25, crumble: .5 });
+    const dl = dk === 'spring' ? 1 : ri(1, 3);
+    for (let t = 0; t < 30; t++) {
+      const c = ri(1, COLS - 1 - dl), e = c + dl - 1;
+      if (!freeSpan(r, c, e, 2)) continue;
+      for (let x = c; x <= e; x++) setTile(x, r, TILE_OF[dk]);
+      if (dk !== 'spring' && dl >= 2 && R() < .12) setTile(ri(c, e), r, CHEST);
+      if (dk !== 'spring' && height > 15 && R() < .18 + d * .3) setTile(ri(c, e), r - 1, SPIKE);
+      else if (R() < .45) W.coins.push({ x: (c + e + 1) / 2 * T, y: (r - 1) * T + 14 });
+      else if (G.count > 4 && R() < .12) W.items.push(makeItem((c + e + 1) / 2 * T, (r - 1) * T + 12));
+      break;
+    }
   }
-  g.fillStyle = `hsl(${(L.hue + 160) % 360},55%,36%)`;
-  for (let bx = 2; bx < COLS - 2; bx += 5) {
-    const x = bx * T + 6; g.beginPath(); g.moveTo(x, 40); g.lineTo(x + 20, 40); g.lineTo(x + 20, 100); g.lineTo(x + 10, 90); g.lineTo(x, 100); g.fill();
+
+  // bats sweep the open air higher up
+  if (height > 35 && R() < .1 + d * .3) {
+    const y0 = (r + 1) * T + 8;
+    W.ents.push({ k: 'bat', x: ri(2, COLS - 3) * T, y: y0, y0, w: 20, h: 12, vx: (R() < .5 ? -1 : 1) * (45 + d * 45), t: R() * 6, amp: ri(10, 24) });
   }
-  return b;
+  if (R() < .35) W.coins.push({ x: ri(2, COLS - 3) * T + 16, y: (r + 1) * T + 16 });
+
+  // wall decorations (torches light up the dark)
+  for (let rr = prev.r - 1; rr > r; rr--) {
+    if (R() < .16) W.decor.push({ k: 'torch', c: ri(2, COLS - 3), r: rr });
+    else if (R() < .05) W.decor.push({ k: 'window', c: ri(2, COLS - 3), r: rr });
+  }
 }
 
-// ---------- players & floors ----------
+function slime(minX, maxX, topY, d) {
+  return { k: 'slime', x: (minX + maxX) / 2 - 11, y: topY - 16, w: 22, h: 16, vx: (R() < .5 ? -1 : 1) * (28 + d * 25), minX, maxX, t: R() * 6 };
+}
+function makeItem(x, y) {
+  const k = pick({ feather: 3, shield: 3, magnet: 2.5, rocket: 2, heart: 1.2 });
+  return { k, x, y, t: R() * 6 };
+}
+
+// ---------- players ----------
 function makePlayer(i) {
-  return { i, x: 0, y: 0, w: 20, h: 26, vx: 0, vy: 0, onGround: false, coyote: 0, jumpBuf: 0, jPrev: false,
-           jumpCut: false, dropT: 0, airJumps: 1, flip: 0, face: 1, dead: false, respawnT: 0, inv: 0, walk: 0,
+  return { i, x: 0, y: 0, w: 20, h: 26, vx: 0, vy: 0, onGround: false, groundTile: 0, ride: null,
+           coyote: 0, jumpBuf: 0, jPrev: false, jumpCut: false, dropT: 0, airJumps: 1, flip: 0, face: 1,
+           inv: 0, walk: 0, feather: 0, magnet: 0, shield: false, crumbleKey: null,
            col: i === 0 ? '#ffb02e' : '#3ee0c0', dark: i === 0 ? '#c97b0c' : '#1d9f86' };
 }
 
-function loadFloor() {
-  const L = genFloor(C.floor);
-  C.L = L; C.ents = L.ents; C.lavaY = WH + 12; C.lavaT = 5; C.banner = 1.8;
-  C.bg = renderBg(L);
-  const side = L.startC < COLS / 2 ? 1 : -1;
-  C.players.forEach((p, i) => {
-    p.x = (L.startC + (i ? side : 0)) * T + 6;
-    p.y = (ROWS - 1) * T - p.h;
-    p.vx = p.vy = 0; p.airJumps = 1; p.dead = false; p.respawnT = 0; p.inv = 1.2; p.dropT = 0; p.face = side;
-  });
-  updateCamera(0, true);
-}
-
 function startGame() {
-  C.seed = 1 + Math.floor(Math.random() * 1e9); C.floor = 1; C.hearts = 3; C.coins = 0; C.parts = [];
+  C.seed = 1 + Math.floor(Math.random() * 1e9);
+  genInit(C.seed);
+  C.hearts = 3; C.coins = 0; C.height = 0; C.zone = -1; C.parts = [];
+  C.lavaY = 6 * T; C.lavaT = 4; C.acc = 0;
   C.players = [makePlayer(0)];
   if (C.mode === 2) C.players.push(makePlayer(1));
-  loadFloor();
+  C.players.forEach((p, i) => { p.x = (COLS / 2 + (i ? 1 : -1)) * T; p.y = -p.h; p.face = i ? -1 : 1; p.inv = 1; });
+  updateCamera(0, true);
   setState('play');
 }
 
@@ -384,10 +396,10 @@ function setState(s) {
   $('overlay').hidden = false;
   const card = $('card');
   if (s === 'title') {
-    const best = store.get('best', 0);
+    const best = store.get('bestH', 0);
     card.innerHTML = `
       <h1 class="logo">JUMPER <span>X</span></h1>
-      <p>Climb a dark tower one floor at a time. Somewhere above you is the door. Find it before the lava does.</p>
+      <p>A dark tower that never ends. Jump from crate to barrel to bookshelf and keep climbing. The lava keeps coming.</p>
       <div class="chips">
         <button class="chip ${C.mode === 1 ? 'on' : ''}" data-p="1">1 Player</button>
         <button class="chip ${C.mode === 2 ? 'on' : ''}" data-p="2">2 Players</button>
@@ -395,21 +407,31 @@ function setState(s) {
       <div class="keys">${C.mode === 1
         ? '<kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> move · <kbd>↑</kbd> <kbd>W</kbd> <kbd>Space</kbd> jump<br>Jump again in the air to double jump · <kbd>↓</kbd> drop down'
         : 'Gold: <kbd>A</kbd> <kbd>D</kbd> move, <kbd>W</kbd> jump, <kbd>S</kbd> drop<br>Mint: <kbd>←</kbd> <kbd>→</kbd> move, <kbd>↑</kbd> jump, <kbd>↓</kbd> drop<br>Jump again in the air to double jump'}</div>
+      <div class="legend">
+        <span>🔴 <b>Spring</b> bounces you high</span>
+        <span>🧊 <b>Ice</b> is slippery</span>
+        <span>🪨 <b>Cracked slabs</b> fall</span>
+        <span>🧰 <b>Chests</b> pay coins</span>
+        <span>🪶 <b>Feather</b> triple jump</span>
+        <span>🛡️ <b>Shield</b> blocks a hit</span>
+        <span>🧲 <b>Magnet</b> pulls coins</span>
+        <span>🚀 <b>Rocket</b> blasts you up</span>
+      </div>
       <button class="big" id="playBtn">PLAY</button>
-      <div class="best">${best ? 'BEST: FLOOR ' + best : '&nbsp;'}</div>`;
+      <div class="best">${best ? 'BEST: ' + best + ' m' : '&nbsp;'}</div>`;
     card.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { C.mode = +b.dataset.p; setState('title'); });
     $('playBtn').onclick = () => { goFullscreen(); startGame(); };
   } else if (s === 'pause') {
-    card.innerHTML = `<h2>PAUSED</h2><p>Floor <b>${C.floor}</b> · ${C.coins} coins</p>
+    card.innerHTML = `<h2>PAUSED</h2><p>Height <b>${C.height} m</b> · ${C.coins} coins</p>
       <button class="big" id="resumeBtn">RESUME</button>
       <button class="big alt" id="quitBtn">QUIT TO TITLE</button>`;
-    $('resumeBtn').onclick = () => setState('play');
+    $('resumeBtn').onclick = () => { C.last = now(); setState('play'); };
     $('quitBtn').onclick = () => { showAttract(); setState('title'); };
   } else if (s === 'over') {
-    const best = store.get('best', 0), isBest = C.floor > best;
-    if (isBest) store.set('best', C.floor);
+    const best = store.get('bestH', 0), isBest = C.height > best;
+    if (isBest) store.set('bestH', C.height);
     card.innerHTML = `<h2>GAME OVER</h2>
-      <p>You reached floor <b>${C.floor}</b>${isBest ? ', a new best!' : '.'}<br>${C.coins} coins collected.</p>
+      <p>You climbed <b>${C.height} m</b>${isBest ? ', a new best!' : '.'}<br>${C.coins} coins collected.</p>
       <button class="big" id="againBtn">PLAY AGAIN</button>
       <button class="big alt" id="titleBtn">TITLE SCREEN</button>`;
     $('againBtn').onclick = () => { goFullscreen(); startGame(); };
@@ -418,11 +440,11 @@ function setState(s) {
   const first = card.querySelector('.big'); if (first && !document.body.classList.contains('coarse')) first.focus();
 }
 
-// The title screen shows a dark tower with the camera drifting up it
+// Title screen: the camera drifts up an empty tower
 function showAttract() {
-  C.players = []; C.floor = 1; C.seed = 7; C.parts = [];
-  const L = genFloor(1); C.L = L; C.ents = L.ents; C.bg = renderBg(L); C.lavaY = WH + 12;
-  C.cam.z = baseZoom(); C.cam.x = (WW - SW / C.cam.z) / 2; C.cam.y = WH - SH / C.cam.z;
+  C.players = []; C.parts = []; C.lavaY = 6 * T;
+  genInit(7);
+  C.cam.z = baseZoom(); C.cam.x = Math.max(0, (WW - SW / C.cam.z) / 2); C.cam.y = T * 2 - SH / C.cam.z;
 }
 
 // ---------- full screen ----------
@@ -443,7 +465,7 @@ $('pauseBtn').onclick = () => { if (C.state === 'play') setState('pause'); };
 addEventListener('keydown', e => {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
   if (e.code === 'Escape' || e.code === 'KeyP') {
-    if (C.state === 'play') setState('pause'); else if (C.state === 'pause') setState('play');
+    if (C.state === 'play') setState('pause'); else if (C.state === 'pause') { C.last = now(); setState('play'); }
   }
   keys[e.code] = true;
 });
@@ -468,11 +490,6 @@ function inputFor(i) {
 }
 
 // ---------- physics ----------
-function tile(c, r) {
-  if (c < 0 || c >= COLS || r < 0) return SOLID;
-  if (r >= ROWS) return EMPTY;
-  return C.L.g[r][c];
-}
 const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 function moveX(p, dx) {
@@ -488,14 +505,19 @@ function moveX(p, dx) {
 }
 function moveY(p, dy) {
   const prevBottom = p.y + p.h;
-  p.y += dy; p.onGround = false;
+  p.y += dy; p.onGround = false; p.ride = null;
   const c0 = Math.floor(p.x / T), c1 = Math.floor((p.x + p.w - .01) / T);
   if (dy > 0) {
     const r = Math.floor((p.y + p.h - .01) / T);
     for (let c = c0; c <= c1; c++) {
       const t = tile(c, r);
-      if (t === SOLID || (t === PLAT && p.dropT <= 0 && prevBottom <= r * T + .5)) {
-        p.y = r * T - p.h; p.vy = 0; p.onGround = true; return;
+      if (t === SOLID || (ONEWAY.has(t) && p.dropT <= 0 && prevBottom <= r * T + .5)) {
+        p.y = r * T - p.h; p.vy = 0; p.onGround = true; land(p, t, c, r); return;
+      }
+    }
+    if (p.dropT <= 0) for (const m of W.movers) {
+      if (prevBottom <= m.y + .5 && p.y + p.h >= m.y && p.x + p.w > m.x && p.x < m.x + m.w) {
+        p.y = m.y - p.h; p.vy = 0; p.onGround = true; p.ride = m; p.groundTile = PLAT; return;
       }
     }
   } else if (dy < 0) {
@@ -504,6 +526,22 @@ function moveY(p, dy) {
   }
 }
 
+function land(p, t, c, r) {
+  p.groundTile = t;
+  const key = c + ',' + r;
+  if (t === SPRING) {
+    p.vy = -JUMP * 1.65; p.onGround = false; p.jumpCut = true; p.airJumps = maxAir(p);
+    W.springT.set(key, .25); sfx.boing();
+  } else if (t === CRUMBLE && !W.crumble.has(key)) {
+    W.crumble.set(key, { c, r, t: .55, back: 0 }); sfx.crack();
+  } else if (t === CHEST && !W.opened.has(key)) {
+    W.opened.add(key); C.coins += 5; sfx.chest();
+    for (let i = 0; i < 6; i++) burst(c * T + 16, r * T - 4, '#ffd93b', 3, 120);
+  }
+}
+
+const maxAir = p => p.feather > 0 ? 2 : 1;
+
 function burst(x, y, col, n = 14, spd = 160) {
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2, s = spd * (.3 + Math.random());
@@ -511,85 +549,124 @@ function burst(x, y, col, n = 14, spd = 160) {
   }
 }
 
-function killPlayer(p) {
-  if (p.dead) return;
-  p.dead = true;
-  burst(p.x + p.w / 2, p.y + p.h / 2, p.col, 22, 220);
-  sfx.die(); C.shake = .35;
-  if (C.hearts > 0) { C.hearts--; p.respawnT = 1.4; } else p.respawnT = -1;
+function hurt(p, lava) {
+  if (p.inv > 0) { if (lava) { p.vy = -JUMP * 1.3; p.jumpCut = true; } return; }
+  if (p.shield) {
+    p.shield = false; p.inv = 1.2; sfx.shield(); burst(p.x + p.w / 2, p.y + p.h / 2, '#7fd8ff', 16, 180);
+    if (lava) { p.vy = -JUMP * 1.4; p.jumpCut = true; C.lavaY += 3 * T; }
+    return;
+  }
+  C.hearts--; p.inv = 1.6; C.shake = .3; sfx.hurt();
+  burst(p.x + p.w / 2, p.y + p.h / 2, p.col, 16, 180);
+  p.vy = lava ? -JUMP * 1.4 : -JUMP * .6; p.jumpCut = true;
+  if (lava) C.lavaY += 4 * T;
+  if (C.hearts <= 0) { sfx.over(); setState('over'); }
 }
 
 function updatePlayer(p, dt) {
   const inp = inputFor(p.i);
-  const target = ((inp.r ? 1 : 0) - (inp.l ? 1 : 0)) * RUN;
-  const acc = (p.onGround ? 2400 : 1500) * dt;
-  p.vx += Math.max(-acc, Math.min(acc, target - p.vx));
-  if (target) p.face = Math.sign(target);
+  const dirX = (inp.r ? 1 : 0) - (inp.l ? 1 : 0);
+  const ice = p.onGround && p.groundTile === ICE;
+  const acc = p.onGround ? (ice ? 260 : (dirX ? 1000 : 1400)) : (dirX ? 750 : 300);
+  p.vx += clamp(dirX * RUN - p.vx, -acc * dt, acc * dt);
+  if (dirX) p.face = dirX;
 
   const jNew = inp.j && !p.jPrev; p.jPrev = !!inp.j;
   p.jumpBuf = jNew ? .12 : p.jumpBuf - dt;
   p.coyote = p.onGround ? .1 : p.coyote - dt;
   p.dropT -= dt;
   if (inp.d && p.onGround) p.dropT = .2;
-  if (p.onGround) p.airJumps = 1;
+  if (p.onGround) p.airJumps = maxAir(p);
   if (p.jumpBuf > 0 && p.coyote > 0) {
     p.vy = -JUMP; p.jumpBuf = 0; p.coyote = 0; p.jumpCut = false; sfx.jump();
-    burst(p.x + p.w / 2, p.y + p.h, '#ffffff88', 5, 60);
-  } else if (jNew && p.airJumps > 0) {
-    // double jump: one extra hop in mid-air
+    burst(p.x + p.w / 2, p.y + p.h, '#ffffff88', 5, 50);
+  } else if (jNew && p.airJumps > 0 && !p.onGround) {
     p.vy = -JUMP * .88; p.airJumps--; p.jumpBuf = 0; p.jumpCut = false; p.flip = .35; sfx.jump2();
     for (let i = 0; i < 10; i++) {
       const a = i / 10 * Math.PI * 2;
-      C.parts.push({ x: p.x + p.w / 2, y: p.y + p.h, vx: Math.cos(a) * 90, vy: Math.sin(a) * 30 + 40, life: .35, col: '#ffffffcc', size: 3 });
+      C.parts.push({ x: p.x + p.w / 2, y: p.y + p.h, vx: Math.cos(a) * 80, vy: Math.sin(a) * 25 + 30, life: .35, col: p.feather > 0 ? '#7fd8ffcc' : '#ffffffcc', size: 3 });
     }
   }
   if (p.flip > 0) p.flip -= dt;
-  if (!inp.j && p.vy < 0 && !p.jumpCut) { p.vy *= .5; p.jumpCut = true; }
-  p.vy = Math.min(p.vy + GRAV * dt, 900);
+  if (!inp.j && p.vy < 0 && !p.jumpCut) { p.vy *= .55; p.jumpCut = true; }
+  p.vy = Math.min(p.vy + GRAV * dt, MAXFALL);
 
+  if (p.onGround && p.ride) moveX(p, p.ride.dx);
   moveX(p, p.vx * dt);
   moveY(p, p.vy * dt);
-  p.walk = p.onGround && Math.abs(p.vx) > 20 ? p.walk + dt * 12 : 0;
+  p.walk = p.onGround && Math.abs(p.vx) > 15 ? p.walk + dt * 10 : 0;
   if (p.inv > 0) p.inv -= dt;
+  if (p.feather > 0) p.feather -= dt;
+  if (p.magnet > 0) p.magnet -= dt;
 
+  // spikes
   const c0 = Math.floor(p.x / T), c1 = Math.floor((p.x + p.w - .01) / T);
   const r0 = Math.floor(p.y / T), r1 = Math.floor((p.y + p.h - .01) / T);
   for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
-    if (tile(c, r) === SPIKE && overlap(p, { x: c * T + 5, y: r * T + 18, w: 22, h: 14 })) killPlayer(p);
+    if (tile(c, r) === SPIKE && overlap(p, { x: c * T + 5, y: r * T + 18, w: 22, h: 14 })) hurt(p);
   }
-  if (p.dead) return;
-  if (p.y + p.h > C.lavaY + 4) { killPlayer(p); return; }
+  if (C.state !== 'play') return;
+  if (p.y + p.h > C.lavaY + 4) { hurt(p, true); if (C.state !== 'play') return; }
 
-  for (const co of C.L.coins) {
-    if (!co.got && Math.abs(co.x - (p.x + p.w / 2)) < 18 && Math.abs(co.y - (p.y + p.h / 2)) < 20) {
-      co.got = true; C.coins++; sfx.coin(); burst(co.x, co.y, '#ffd93b', 8, 90);
+  const pcx = p.x + p.w / 2, pcy = p.y + p.h / 2;
+  for (const co of W.coins) {
+    if (co.got) continue;
+    if (p.magnet > 0) {
+      const dx = pcx - co.x, dy = pcy - co.y, dist = Math.hypot(dx, dy);
+      if (dist < 6 * T) { co.x += dx / dist * 260 * dt; co.y += dy / dist * 260 * dt; }
+    }
+    if (Math.abs(co.x - pcx) < 18 && Math.abs(co.y - pcy) < 20) {
+      co.got = true; C.coins++; sfx.coin(); burst(co.x, co.y, '#ffd93b', 8, 80);
     }
   }
-  for (const e of C.ents) {
-    if (e.dead || !overlap(p, e)) continue;
-    if (p.vy > 50 && p.y + p.h - e.y < 14) {
-      e.dead = true; p.vy = -JUMP * .65; p.jumpCut = true; p.airJumps = 1; C.coins++;
-      sfx.stomp(); burst(e.x + e.w / 2, e.y + e.h / 2, e.k === 'bat' ? '#a46bff' : '#6be04f', 14);
-    } else if (p.inv <= 0) { killPlayer(p); return; }
+  for (const it of W.items) {
+    if (it.got || Math.abs(it.x - pcx) > 22 || Math.abs(it.y - pcy) > 24) continue;
+    it.got = true; sfx.power(); burst(it.x, it.y, '#ffffff', 16, 140);
+    if (it.k === 'feather') { p.feather = 15; p.airJumps = 2; }
+    else if (it.k === 'shield') p.shield = true;
+    else if (it.k === 'magnet') p.magnet = 12;
+    else if (it.k === 'heart') C.hearts = Math.min(5, C.hearts + 1);
+    else if (it.k === 'rocket') { p.vy = -JUMP * 2; p.jumpCut = true; p.inv = Math.max(p.inv, 1); p.airJumps = maxAir(p); }
   }
-  if (overlap(p, C.L.door)) nextFloor();
-}
-
-function nextFloor() {
-  sfx.door();
-  C.floor++; C.coins += 3;
-  if (C.floor % 3 === 1 && C.hearts < 5) C.hearts++;
-  loadFloor();
+  for (const e of W.ents) {
+    if (e.dead || !overlap(p, e)) continue;
+    if (p.vy > 40 && p.y + p.h - e.y < 14) {
+      e.dead = true; p.vy = -JUMP * .7; p.jumpCut = true; p.airJumps = maxAir(p); C.coins++;
+      sfx.stomp(); burst(e.x + e.w / 2, e.y + e.h / 2, e.k === 'bat' ? '#a46bff' : '#6be04f', 14);
+    } else hurt(p);
+    if (C.state !== 'play') return;
+  }
 }
 
 function update(dt) {
   C.t += dt;
   if (C.banner > 0) C.banner -= dt;
   if (C.shake > 0) C.shake -= dt;
-  if (C.lavaT > 0) C.lavaT -= dt;
-  else C.lavaY = Math.max(-40, C.lavaY - Math.min(12 + C.floor * 2.2, 40) * dt);
 
-  for (const e of C.ents) {
+  // climb tracking, zone banners and more tower above
+  let top = Infinity, low = -Infinity;
+  for (const p of C.players) { top = Math.min(top, p.y + p.h); low = Math.max(low, p.y + p.h); }
+  C.height = Math.max(C.height, Math.floor(-top / T));
+  const z = zoneOf(Math.floor(top / T));
+  if (z !== C.zone) { C.zone = z; C.bannerText = zoneInfo(z).name; C.banner = 2.4; }
+  genUpTo(Math.floor(top / T) - 45);
+
+  // lava: speeds up with height, and catches up if you get far ahead of it
+  if (C.lavaT > 0) C.lavaT -= dt;
+  else {
+    const d = Math.min(1, C.height / 500);
+    let speed = 16 + d * 30;
+    const gap = C.lavaY - low;
+    if (gap > 14 * T) speed += (gap - 14 * T) * .8;
+    C.lavaY -= speed * dt;
+  }
+
+  for (const m of W.movers) {
+    m.dx = m.vx * dt; m.x += m.dx;
+    if (m.x < m.minX) { m.x = m.minX; m.vx = Math.abs(m.vx); }
+    if (m.x + m.w > m.maxX) { m.x = m.maxX - m.w; m.vx = -Math.abs(m.vx); }
+  }
+  for (const e of W.ents) {
     if (e.dead) continue;
     e.t += dt;
     if (e.k === 'slime') {
@@ -598,102 +675,219 @@ function update(dt) {
       if (e.x + e.w > e.maxX) { e.x = e.maxX - e.w; e.vx = -Math.abs(e.vx); }
     } else {
       e.x += e.vx * dt;
-      if (e.x < T || e.x + e.w > WW - T) { e.vx *= -1; e.x = Math.max(T, Math.min(WW - T - e.w, e.x)); }
-      e.y = e.y0 + Math.sin(e.t * 3) * e.amp;
+      if (e.x < T || e.x + e.w > WW - T) { e.vx *= -1; e.x = clamp(e.x, T, WW - T - e.w); }
+      e.y = e.y0 + Math.sin(e.t * 2.5) * e.amp;
     }
     if (e.y > C.lavaY) e.dead = true;
   }
+  for (const [key, cr] of W.crumble) {
+    if (cr.t > 0) { cr.t -= dt; if (cr.t <= 0) { setTile(cr.c, cr.r, EMPTY); cr.back = 5; burst(cr.c * T + 16, cr.r * T + 8, '#8a8299', 10, 90); } }
+    else if ((cr.back -= dt) <= 0) { setTile(cr.c, cr.r, CRUMBLE); W.crumble.delete(key); }
+  }
+  for (const [key, v] of W.springT) { if (v - dt <= 0) W.springT.delete(key); else W.springT.set(key, v - dt); }
+  for (const it of W.items) it.t += dt;
 
-  const floorBefore = C.floor;
-  for (const p of C.players) {
-    if (!p.dead) { updatePlayer(p, dt); if (C.floor !== floorBefore) break; continue; }
-    if (p.respawnT > 0) {
-      p.respawnT -= dt;
-      if (p.respawnT <= 0) {
-        const mate = C.players.find(q => q !== p && !q.dead);
-        if (mate) {
-          Object.assign(p, { x: mate.x, y: mate.y - 4, vx: 0, vy: -200, dead: false, inv: 1.5, respawnT: 0, airJumps: 1 });
-          burst(p.x + p.w / 2, p.y + p.h / 2, p.col, 12);
-        } else { loadFloor(); C.banner = 1.2; break; }
-      }
+  for (const p of C.players) { updatePlayer(p, dt); if (C.state !== 'play') return; }
+
+  // co-op: a player who falls far behind is pulled up to their partner
+  if (C.players.length === 2) {
+    const [a, b] = C.players;
+    const lag = a.y > b.y ? a : b, lead = lag === a ? b : a;
+    if (lag.y - lead.y > 16 * T) {
+      Object.assign(lag, { x: lead.x, y: lead.y - 6, vx: 0, vy: -200, inv: 1.5 });
+      burst(lag.x + lag.w / 2, lag.y + lag.h / 2, lag.col, 14);
     }
   }
-  if (C.players.every(p => p.dead && p.respawnT < 0)) { setState('over'); return; }
 
   for (const q of C.parts) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 500 * dt; }
-  C.parts = C.parts.filter(q => q.life > 0);
+  if (C.parts.length) C.parts = C.parts.filter(q => q.life > 0);
+
+  // forget everything the lava has swallowed
+  if ((C.pruneT -= dt) <= 0) {
+    C.pruneT = 1;
+    const cut = C.lavaY + 8 * T;
+    for (const r of W.rows.keys()) if (r * T > cut) W.rows.delete(r);
+    W.ents = W.ents.filter(e => !e.dead && e.y < cut);
+    W.movers = W.movers.filter(m => m.y < cut);
+    W.coins = W.coins.filter(c => !c.got && c.y < cut);
+    W.items = W.items.filter(i => !i.got && i.y < cut);
+    W.decor = W.decor.filter(d => d.r * T < cut);
+  }
 }
 
 // ---------- camera ----------
 function updateCamera(dt, snap) {
-  const cam = C.cam;
-  let focus = C.players.filter(p => !p.dead);
-  if (!focus.length) focus = C.players;
-  if (!focus.length) return;
+  const cam = C.cam, ps = C.players;
+  if (!ps.length) return;
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-  for (const p of focus) {
+  for (const p of ps) {
     x0 = Math.min(x0, p.x + p.w / 2); x1 = Math.max(x1, p.x + p.w / 2);
     y0 = Math.min(y0, p.y + p.h / 2); y1 = Math.max(y1, p.y + p.h / 2);
   }
   const base = baseZoom();
-  // two players: pull back just enough to keep both on screen
   const z = Math.max(base * .5, Math.min(base, SW / (x1 - x0 + 8 * T), SH / (y1 - y0 + 8 * T)));
   cam.z = snap ? z : cam.z + (z - cam.z) * Math.min(1, dt * 3);
   const vw = SW / cam.z, vh = SH / cam.z;
   let tx = (x0 + x1) / 2 - vw / 2, ty = (y0 + y1) / 2 - vh * .58;
-  tx = vw >= WW ? (WW - vw) / 2 : Math.max(0, Math.min(WW - vw, tx));
+  tx = vw >= WW ? (WW - vw) / 2 : clamp(tx, 0, WW - vw);
   // on touch screens let the camera sink below the floor so the buttons don't cover you
   const padB = document.body.classList.contains('coarse') ? 130 / cam.z : 0;
-  ty = vh >= WH ? (WH - vh) / 2 : Math.max(0, Math.min(WH - vh + padB, ty));
+  ty = Math.min(ty, 2 * T - vh + padB);
   if (snap) { cam.x = tx; cam.y = ty; }
-  else { const k = Math.min(1, dt * 7); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; }
+  else { const k = Math.min(1, dt * 6); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; }
 }
 
 // ---------- drawing (world space) ----------
-function drawTiles(c0, c1, r0, r1) {
-  const g = C.L.g, hue = C.L.hue;
-  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
-    const t = g[r][c], x = c * T, y = r * T;
-    if (t === SOLID) {
+const shadeCache = new Map();
+function shades(hue) {
+  let s = shadeCache.get(hue);
+  if (!s) { s = [0, 1, 2, 3, 4].map(i => `hsl(${hue},20%,${16 + i * 1.6}%)`); shadeCache.set(hue, s); }
+  return s;
+}
+function drawBricks(ox, oy, vw, vh) {
+  const by0 = Math.floor(oy / 16), by1 = Math.ceil((oy + vh) / 16);
+  for (let by = by0; by <= by1; by++) {
+    const off = (by & 1) * 16, hue = zoneInfo(zoneOf(Math.floor(by / 2))).hue, sh = shades(hue);
+    cx.fillStyle = `hsl(${hue},20%,11%)`; cx.fillRect(Math.max(0, ox), by * 16, Math.min(WW, vw + 32), 16);
+    const bx0 = Math.floor((ox - off) / 32), bx1 = Math.ceil((ox + vw - off) / 32);
+    for (let bx = bx0; bx <= bx1; bx++) {
+      cx.fillStyle = sh[Math.floor(hash(bx, by) * 5)];
+      cx.fillRect(bx * 32 + off + 1, by * 16 + 1, 30, 14);
+    }
+  }
+}
+
+function drawDecor(d) {
+  const x = d.c * T, y = d.r * T;
+  if (d.k === 'window') {
+    cx.fillStyle = '#05020c';
+    cx.beginPath(); cx.moveTo(x + 4, y + 70); cx.lineTo(x + 4, y + 14); cx.arc(x + 16, y + 14, 12, Math.PI, 0); cx.lineTo(x + 28, y + 70); cx.fill();
+    cx.fillStyle = 'rgba(255,255,255,.7)';
+    for (let i = 0; i < 4; i++) cx.fillRect(x + 8 + hash(d.c, d.r + i) * 16, y + 10 + hash(d.r, d.c + i) * 50, 1.5, 1.5);
+  } else {
+    const tx = x + 14, ty = y + 10, fl = Math.sin(C.t * 15 + d.c + d.r) * 2;
+    cx.fillStyle = '#4a2c12'; cx.fillRect(tx, ty + 8, 4, 12);
+    cx.fillStyle = 'rgba(255,170,60,.14)'; cx.beginPath(); cx.arc(tx + 2, ty + 4, 30 + fl, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = '#ff7a1a'; cx.fillRect(tx - 2, ty - 2 + fl / 2, 8, 10);
+    cx.fillStyle = '#ffd93b'; cx.fillRect(tx, ty + 2, 4, 6);
+  }
+}
+
+function drawTile(t, c, r) {
+  const x = c * T, y = r * T;
+  switch (t) {
+    case SOLID: {
+      const hue = r >= 0 ? 260 : zoneInfo(zoneOf(r)).hue;
       cx.fillStyle = `hsl(${hue},14%,20%)`; cx.fillRect(x, y, T, T);
       cx.fillStyle = `hsl(${hue},14%,30%)`; cx.fillRect(x + 2, y + 2, T - 4, T - 4);
       cx.fillStyle = `hsl(${hue},14%,38%)`; cx.fillRect(x + 2, y + 2, T - 4, 4);
       cx.fillStyle = `hsl(${hue},14%,22%)`; cx.fillRect(x + 2, y + T - 6, T - 4, 4);
-    } else if (t === PLAT) {
+      break;
+    }
+    case PLAT: {
       cx.fillStyle = '#5a3415'; cx.fillRect(x, y, T, 12);
       cx.fillStyle = '#9b5d2a'; cx.fillRect(x, y, T, 9);
       cx.fillStyle = '#c47e3e'; cx.fillRect(x, y, T, 3);
       cx.fillStyle = '#5a3415'; cx.fillRect(x + 15, y + 1, 2, 8);
       if (tile(c - 1, r) !== PLAT || tile(c + 1, r) !== PLAT) {
-        const bx = tile(c - 1, r) !== PLAT ? x + 4 : x + T - 8;
-        cx.fillStyle = '#3d2410'; cx.fillRect(bx, y + 12, 4, 10);
+        cx.fillStyle = '#3d2410'; cx.fillRect(tile(c - 1, r) !== PLAT ? x + 4 : x + T - 8, y + 12, 4, 10);
       }
-    } else if (t === SPIKE) {
+      break;
+    }
+    case CRATE: {
+      cx.fillStyle = '#5e3a17'; cx.fillRect(x + 1, y, T - 2, T);
+      cx.fillStyle = '#b07a3c'; cx.fillRect(x + 3, y + 2, T - 6, T - 4);
+      cx.fillStyle = '#7d5226';
+      cx.fillRect(x + 3, y + 2, T - 6, 4); cx.fillRect(x + 3, y + T - 6, T - 6, 4);
+      cx.save(); cx.beginPath(); cx.rect(x + 3, y + 6, T - 6, T - 12); cx.clip();
+      cx.strokeStyle = '#7d5226'; cx.lineWidth = 4;
+      cx.beginPath(); cx.moveTo(x + 3, y + 6); cx.lineTo(x + T - 3, y + T - 6); cx.stroke();
+      cx.restore();
+      cx.fillStyle = '#d9a35f'; cx.fillRect(x + 3, y + 2, T - 6, 1);
+      break;
+    }
+    case BOOKS: {
+      const cols = ['#c0392b', '#2e86de', '#27ae60', '#8e44ad', '#e67e22', '#16a085'];
+      for (let i = 0; i < 4; i++) {
+        const hgt = 8, inset = Math.floor(hash(c, r * 4 + i) * 6);
+        cx.fillStyle = cols[Math.floor(hash(r, c * 4 + i) * cols.length)];
+        cx.fillRect(x + inset, y + i * hgt, T - inset - Math.floor(hash(c + i, r) * 5), hgt - 1);
+        cx.fillStyle = 'rgba(255,240,200,.75)'; cx.fillRect(x + inset + 2, y + i * hgt + 3, T - inset - 10, 1);
+      }
+      break;
+    }
+    case BARREL: {
+      cx.fillStyle = '#4a2a10'; cx.fillRect(x + 4, y, T - 8, T);
+      cx.fillStyle = '#8b5a2b'; cx.fillRect(x + 2, y + 4, T - 4, T - 8);
+      cx.fillStyle = '#a86f38'; cx.fillRect(x + 6, y + 2, T - 12, T - 4);
+      cx.fillStyle = '#5f6670'; cx.fillRect(x + 2, y + 7, T - 4, 3); cx.fillRect(x + 2, y + T - 10, T - 4, 3);
+      cx.fillStyle = '#c48a4f'; cx.fillRect(x + 8, y + 2, 3, T - 4);
+      break;
+    }
+    case CHEST: {
+      const open = W.opened.has(c + ',' + r);
+      cx.fillStyle = '#4a2a10'; cx.fillRect(x + 2, y + 10, T - 4, T - 10);
+      cx.fillStyle = '#9a5b22'; cx.fillRect(x + 4, y + 12, T - 8, T - 14);
+      if (open) {
+        cx.fillStyle = '#ffd93b'; cx.fillRect(x + 6, y + 10, T - 12, 4);
+        cx.fillStyle = '#6b3d16'; cx.fillRect(x + 2, y + 2, T - 4, 6);
+      } else {
+        cx.fillStyle = '#6b3d16'; cx.fillRect(x + 2, y + 4, T - 4, 8);
+        cx.fillStyle = '#9a5b22'; cx.fillRect(x + 4, y + 5, T - 8, 5);
+      }
+      cx.fillStyle = '#e8b830'; cx.fillRect(x + 2, y + 10, T - 4, 2); cx.fillRect(x + 14, y + 12, 4, 6);
+      break;
+    }
+    case SPRING: {
+      const sq = W.springT.get(c + ',' + r) || 0, top = y + 8 + sq * 24;
+      cx.fillStyle = '#2b2b33'; cx.fillRect(x + 3, y + T - 6, T - 6, 6);
+      cx.strokeStyle = '#c9d1de'; cx.lineWidth = 2; cx.beginPath();
+      for (let i = 0; i <= 4; i++) { const yy = top + 6 + (y + T - 6 - top - 6) * i / 4; cx.lineTo(x + (i % 2 ? 24 : 8), yy); }
+      cx.stroke();
+      cx.fillStyle = '#e8475f'; cx.fillRect(x + 2, top, T - 4, 7);
+      cx.fillStyle = '#ff8fa0'; cx.fillRect(x + 4, top + 1, T - 8, 2);
+      break;
+    }
+    case ICE: {
+      cx.fillStyle = 'rgba(150,220,255,.9)'; cx.fillRect(x, y, T, 14);
+      cx.fillStyle = '#e8fbff'; cx.fillRect(x, y, T, 3);
+      cx.fillStyle = 'rgba(255,255,255,.7)'; cx.fillRect(x + 6, y + 5, 8, 2); cx.fillRect(x + 20, y + 8, 5, 2);
+      cx.fillStyle = 'rgba(150,220,255,.8)';
+      for (let i = 0; i < 3; i++) { const ix = x + 4 + i * 10; cx.beginPath(); cx.moveTo(ix, y + 14); cx.lineTo(ix + 3, y + 22 + hash(c, r + i) * 6); cx.lineTo(ix + 6, y + 14); cx.fill(); }
+      break;
+    }
+    case CRUMBLE: {
+      const cr = W.crumble.get(c + ',' + r), shake = cr && cr.t > 0 ? (Math.random() - .5) * 3 : 0;
+      cx.fillStyle = '#5c5468'; cx.fillRect(x + shake, y, T, 14);
+      cx.fillStyle = '#8a8299'; cx.fillRect(x + 1 + shake, y + 1, T - 2, 10);
+      cx.strokeStyle = '#3e384a'; cx.lineWidth = 1.5; cx.beginPath();
+      cx.moveTo(x + 8 + shake, y + 1); cx.lineTo(x + 12 + shake, y + 6); cx.lineTo(x + 9 + shake, y + 11);
+      cx.moveTo(x + 22 + shake, y + 1); cx.lineTo(x + 19 + shake, y + 7); cx.stroke();
+      break;
+    }
+    case SPIKE: {
       cx.fillStyle = '#c9d1de';
-      for (let i = 0; i < 3; i++) {
-        const sx = x + 2 + i * 10;
-        cx.beginPath(); cx.moveTo(sx, y + T); cx.lineTo(sx + 5, y + 16); cx.lineTo(sx + 10, y + T); cx.fill();
-      }
-      cx.fillStyle = '#ffffff'; for (let i = 0; i < 3; i++) cx.fillRect(x + 6 + i * 10, y + 18, 1, 4);
+      for (let i = 0; i < 3; i++) { const sx = x + 2 + i * 10; cx.beginPath(); cx.moveTo(sx, y + T); cx.lineTo(sx + 5, y + 16); cx.lineTo(sx + 10, y + T); cx.fill(); }
+      cx.fillStyle = '#fff'; for (let i = 0; i < 3; i++) cx.fillRect(x + 6 + i * 10, y + 18, 1, 4);
+      break;
     }
   }
 }
 
-function drawDoor() {
-  const d = C.L.door, glow = .5 + Math.sin(C.t * 4) * .2;
-  cx.fillStyle = `rgba(255,220,120,${glow * .4})`; cx.fillRect(d.x - 6, d.y - 4, d.w + 12, d.h + 4);
-  cx.fillStyle = '#2b1a0c'; cx.fillRect(d.x - 2, d.y, d.w + 4, d.h);
-  cx.fillStyle = '#7a4a22'; cx.fillRect(d.x, d.y + 2, d.w, d.h - 2);
-  cx.fillStyle = '#5c3618'; cx.fillRect(d.x + 7, d.y + 2, 2, d.h - 2); cx.fillRect(d.x + 15, d.y + 2, 2, d.h - 2);
-  cx.fillStyle = '#ffd93b'; cx.fillRect(d.x + d.w - 6, d.y + 16, 3, 3);
-}
-
-function drawTorch(t) {
-  const x = t.c * T + 14, y = t.r * T + 10, fl = Math.sin(C.t * 15 + t.c) * 2;
-  cx.fillStyle = '#4a2c12'; cx.fillRect(x, y + 8, 4, 12);
-  cx.fillStyle = 'rgba(255,170,60,.14)'; cx.beginPath(); cx.arc(x + 2, y + 4, 30 + fl, 0, Math.PI * 2); cx.fill();
-  cx.fillStyle = '#ff7a1a'; cx.fillRect(x - 2, y - 2 + fl / 2, 8, 10);
-  cx.fillStyle = '#ffd93b'; cx.fillRect(x, y + 2, 4, 6);
+function drawMover(m) {
+  const x = Math.round(m.x), y = m.y;
+  cx.fillStyle = '#3a3f4a'; cx.fillRect(x, y, m.w, 12);
+  cx.fillStyle = '#8c96a8'; cx.fillRect(x, y, m.w, 9);
+  cx.fillStyle = '#c3cbd8'; cx.fillRect(x, y, m.w, 2);
+  cx.fillStyle = '#e8b830';
+  for (let i = 8; i < m.w - 4; i += 16) { cx.beginPath(); cx.arc(x + i, y + 5, 2.5, 0, Math.PI * 2); cx.fill(); }
+  // gear underneath
+  cx.save(); cx.translate(x + m.w / 2, y + 16); cx.rotate(m.x / 10);
+  cx.fillStyle = '#5f6670'; for (let i = 0; i < 6; i++) { cx.rotate(Math.PI / 3); cx.fillRect(-2, -8, 4, 16); }
+  cx.beginPath(); cx.arc(0, 0, 5, 0, Math.PI * 2); cx.fill();
+  cx.restore();
+  // rail showing where it travels
+  cx.fillStyle = 'rgba(200,210,230,.15)'; cx.fillRect(m.minX, y + 15, m.maxX - m.minX, 2);
 }
 
 function drawCoin(co) {
@@ -703,9 +897,37 @@ function drawCoin(co) {
   cx.fillStyle = '#fff6b0'; cx.fillRect(co.x - 3 * s, co.y - 5 + bob, 2 * s, 8);
 }
 
+function drawItem(it) {
+  const x = it.x, y = it.y + Math.sin(it.t * 3) * 3;
+  cx.fillStyle = 'rgba(255,255,255,.12)'; cx.beginPath(); cx.arc(x, y, 15 + Math.sin(it.t * 5) * 2, 0, Math.PI * 2); cx.fill();
+  if (it.k === 'feather') {
+    cx.save(); cx.translate(x, y); cx.rotate(-.6);
+    cx.fillStyle = '#e8fbff'; cx.beginPath(); cx.ellipse(0, 0, 5, 12, 0, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = '#7fd8ff'; cx.fillRect(-1, -12, 2, 24);
+    cx.restore();
+  } else if (it.k === 'shield') {
+    cx.fillStyle = '#2e86de'; cx.beginPath(); cx.moveTo(x - 10, y - 10); cx.lineTo(x + 10, y - 10); cx.lineTo(x + 10, y); cx.lineTo(x, y + 12); cx.lineTo(x - 10, y); cx.fill();
+    cx.fillStyle = '#7fd8ff'; cx.beginPath(); cx.moveTo(x - 6, y - 7); cx.lineTo(x, y - 7); cx.lineTo(x, y + 7); cx.lineTo(x - 6, y - 1); cx.fill();
+  } else if (it.k === 'magnet') {
+    cx.strokeStyle = '#e8475f'; cx.lineWidth = 6; cx.beginPath(); cx.arc(x, y - 2, 8, Math.PI, 0, true); cx.stroke();
+    cx.fillStyle = '#e8475f'; cx.fillRect(x - 11, y - 2, 6, 8); cx.fillRect(x + 5, y - 2, 6, 8);
+    cx.fillStyle = '#e8eef5'; cx.fillRect(x - 11, y + 6, 6, 4); cx.fillRect(x + 5, y + 6, 6, 4);
+  } else if (it.k === 'heart') {
+    cx.fillStyle = '#ff4d6d'; cx.beginPath(); cx.arc(x - 5, y - 3, 6, 0, Math.PI * 2); cx.arc(x + 5, y - 3, 6, 0, Math.PI * 2); cx.fill();
+    cx.beginPath(); cx.moveTo(x - 11, y - 1); cx.lineTo(x, y + 11); cx.lineTo(x + 11, y - 1); cx.fill();
+    cx.fillStyle = '#ffb3c1'; cx.fillRect(x - 7, y - 6, 3, 3);
+  } else if (it.k === 'rocket') {
+    cx.fillStyle = '#ff7a1a'; cx.fillRect(x - 3, y + 8, 6, 4 + Math.random() * 4);
+    cx.fillStyle = '#d6dbe3'; cx.fillRect(x - 5, y - 6, 10, 14);
+    cx.fillStyle = '#e8475f'; cx.beginPath(); cx.moveTo(x - 5, y - 6); cx.lineTo(x, y - 14); cx.lineTo(x + 5, y - 6); cx.fill();
+    cx.fillRect(x - 9, y + 2, 4, 6); cx.fillRect(x + 5, y + 2, 4, 6);
+    cx.fillStyle = '#2e86de'; cx.fillRect(x - 2, y - 3, 4, 4);
+  }
+}
+
 function drawEnemy(e) {
   if (e.k === 'slime') {
-    const sq = Math.sin(e.t * 8) * 2;
+    const sq = Math.sin(e.t * 7) * 2;
     cx.fillStyle = '#2f8a22'; cx.fillRect(e.x - sq / 2, e.y + 2 + sq, e.w + sq, e.h - 2 - sq);
     cx.fillStyle = '#6be04f'; cx.fillRect(e.x + 2 - sq / 2, e.y + 4 + sq, e.w - 4 + sq, e.h - 8 - sq);
     cx.fillStyle = '#fff'; const ex = e.vx > 0 ? 10 : 4;
@@ -713,7 +935,7 @@ function drawEnemy(e) {
     cx.fillStyle = '#000'; const px = e.vx > 0 ? 2 : 0;
     cx.fillRect(e.x + ex + px, e.y + 8 + sq, 2, 2); cx.fillRect(e.x + ex + 6 + px, e.y + 8 + sq, 2, 2);
   } else {
-    const f = Math.sin(e.t * 20) > 0 ? -6 : 2;
+    const f = Math.sin(e.t * 18) > 0 ? -6 : 2;
     cx.fillStyle = '#5b2e9e';
     cx.beginPath(); cx.moveTo(e.x + 6, e.y + 4); cx.lineTo(e.x - 8, e.y + f); cx.lineTo(e.x + 2, e.y + 10); cx.fill();
     cx.beginPath(); cx.moveTo(e.x + 14, e.y + 4); cx.lineTo(e.x + 28, e.y + f); cx.lineTo(e.x + 18, e.y + 10); cx.fill();
@@ -723,9 +945,12 @@ function drawEnemy(e) {
 }
 
 function drawPlayer(p) {
-  if (p.dead) return;
-  if (p.inv > 0 && Math.floor(p.inv * 12) % 2) return;
+  if (p.inv > 0 && Math.floor(p.inv * 10) % 2) return;
   const x = Math.round(p.x), y = Math.round(p.y), f = p.face;
+  if (p.shield) {
+    cx.strokeStyle = `rgba(127,216,255,${.5 + Math.sin(C.t * 6) * .2})`; cx.lineWidth = 2;
+    cx.beginPath(); cx.arc(x + p.w / 2, y + p.h / 2, 20, 0, Math.PI * 2); cx.stroke();
+  }
   if (p.flip > 0) {
     cx.save(); cx.translate(x + p.w / 2, 0);
     cx.scale(Math.max(.15, Math.abs(Math.cos(p.flip / .35 * Math.PI))), 1);
@@ -745,38 +970,41 @@ function drawPlayer(p) {
     cx.fillStyle = p.dark; cx.fillRect(x + 2, y - 4 - stretch, 4, 9); cx.fillRect(x + 13, y - 4 - stretch, 4, 9);
     cx.fillStyle = '#ffb3d1'; cx.fillRect(x + 3, y - 2 - stretch, 2, 5); cx.fillRect(x + 14, y - 2 - stretch, 2, 5);
   }
+  if (p.feather > 0) {
+    cx.fillStyle = '#e8fbff'; cx.fillRect(x - 5, y + 8, 5, 8); cx.fillRect(x + 20, y + 8, 5, 8);
+  }
   const ex = f > 0 ? x + 9 : x + 2;
   cx.fillStyle = '#fff'; cx.fillRect(ex, y + 9 - stretch, 4, 5); cx.fillRect(ex + 6, y + 9 - stretch, 4, 5);
   cx.fillStyle = '#111'; cx.fillRect(ex + (f > 0 ? 2 : 0), y + 10 - stretch, 2, 3); cx.fillRect(ex + 6 + (f > 0 ? 2 : 0), y + 10 - stretch, 2, 3);
   if (p.flip > 0) cx.restore();
 }
 
-function drawLava() {
+function drawLava(ox, vw, oy, vh) {
   const y = C.lavaY;
-  if (y > WH) return;
-  cx.fillStyle = 'rgba(255,90,20,.18)'; cx.fillRect(0, y - 30, WW, 30);
+  if (y > oy + vh + 20) return;
+  const x0 = Math.max(0, ox - 16), x1 = Math.min(WW, ox + vw + 16), bottom = oy + vh + 20;
+  cx.fillStyle = 'rgba(255,90,20,.18)'; cx.fillRect(x0, y - 30, x1 - x0, 30);
   cx.fillStyle = '#d9361a';
-  cx.beginPath(); cx.moveTo(0, WH);
-  for (let x = 0; x <= WW; x += 16) cx.lineTo(x, y + Math.sin(x * .05 + C.t * 3) * 4);
-  cx.lineTo(WW, WH); cx.fill();
-  cx.fillStyle = '#ff8a1f'; cx.fillRect(0, y + 8, WW, Math.max(0, WH - y));
+  cx.beginPath(); cx.moveTo(x0, bottom);
+  for (let x = Math.floor(x0 / 16) * 16; x <= x1 + 16; x += 16) cx.lineTo(x, y + Math.sin(x * .05 + C.t * 3) * 4);
+  cx.lineTo(x1, bottom); cx.fill();
+  cx.fillStyle = '#ff8a1f'; cx.fillRect(x0, y + 8, x1 - x0, Math.max(0, bottom - y));
   cx.fillStyle = '#ffd23b';
   for (let i = 0; i < 24; i++) {
     const bx = (i * 71 + C.t * 20) % WW, by = y + 14 + ((i * 37 + C.t * 30) % 60);
-    if (by < WH) cx.fillRect(bx, by, 4, 4);
+    cx.fillRect(bx, by, 4, 4);
   }
 }
 
 // ---------- darkness ----------
-// Paint the screen dark, then cut soft holes for the players, torches, the
-// door and the lava. Beyond your own light the tower stays unknown.
-function drawDarkness() {
+// Paint the screen dark, then cut soft holes for you, torches, treasure and lava.
+function drawDarkness(ox, oy) {
   const cam = C.cam, k = cam.z * DPR;
-  const sx = wx => (wx - cam.x) * k, sy = wy => (wy - cam.y) * k;
+  const sx = wx => (wx - ox) * k, sy = wy => (wy - oy) * k;
   lx.setTransform(1, 0, 0, 1, 0, 0);
   lx.globalCompositeOperation = 'source-over';
   lx.clearRect(0, 0, lc.width, lc.height);
-  lx.fillStyle = `rgba(4,1,10,${Math.min(.97, .9 + C.floor * .006)})`;
+  lx.fillStyle = `rgba(4,1,10,${Math.min(.96, .88 + C.height * .0002)})`;
   lx.fillRect(0, 0, lc.width, lc.height);
   lx.globalCompositeOperation = 'destination-out';
   const hole = (wx, wy, r, a = 1) => {
@@ -786,17 +1014,17 @@ function drawDarkness() {
     g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(.55, `rgba(0,0,0,${a * .75})`); g.addColorStop(1, 'rgba(0,0,0,0)');
     lx.fillStyle = g; lx.beginPath(); lx.arc(X, Y, Rr, 0, Math.PI * 2); lx.fill();
   };
-  for (const p of C.players) if (!p.dead) hole(p.x + p.w / 2, p.y + p.h / 2, 5.2 * T);
-  for (const t of C.L.torches) hole(t.c * T + 16, t.r * T + 14, (2.6 + Math.sin(C.t * 9 + t.c) * .12) * T, .85);
-  hole(C.L.door.x + 12, C.L.door.y + 16, 1.8 * T, .9);
-  for (const co of C.L.coins) if (!co.got) hole(co.x, co.y, .7 * T, .5);
-  if (C.lavaY < WH) {
+  for (const p of C.players) hole(p.x + p.w / 2, p.y + p.h / 2, 5.4 * T);
+  for (const d of W.decor) if (d.k === 'torch') hole(d.c * T + 16, d.r * T + 14, (2.6 + Math.sin(C.t * 9 + d.c) * .12) * T, .85);
+  for (const co of W.coins) if (!co.got) hole(co.x, co.y, .7 * T, .45);
+  for (const it of W.items) if (!it.got) hole(it.x, it.y, 1.3 * T, .7);
+  if (C.lavaY < oy + lc.height / k + 5 * T) {
     const top = sy(C.lavaY - 5 * T), bot = sy(C.lavaY);
     const g = lx.createLinearGradient(0, top, 0, bot);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
     lx.fillStyle = g; lx.fillRect(0, top, lc.width, lc.height - top);
   }
-  if (C.state === 'title') hole(cam.x + SW / cam.z / 2, cam.y + SH / cam.z * .55, 7 * T, .6);
+  if (C.state === 'title') hole(ox + SW / cam.z / 2, oy + SH / cam.z * .55, 7 * T, .6);
   cx.setTransform(1, 0, 0, 1, 0, 0);
   cx.drawImage(lc, 0, 0);
 }
@@ -805,7 +1033,7 @@ function draw() {
   const cam = C.cam, k = cam.z * DPR;
   cx.setTransform(1, 0, 0, 1, 0, 0);
   cx.fillStyle = '#07030f'; cx.fillRect(0, 0, cv.width, cv.height);
-  if (!C.L) return;
+  if (!W.gen) return;
   let ox = cam.x, oy = cam.y;
   if (C.shake > 0) { ox += (Math.random() - .5) * 6; oy += (Math.random() - .5) * 6; }
   ox = Math.round(ox * k) / k; oy = Math.round(oy * k) / k;
@@ -814,23 +1042,25 @@ function draw() {
 
   const vw = SW / cam.z, vh = SH / cam.z;
   const c0 = Math.max(0, Math.floor(ox / T)), c1 = Math.min(COLS - 1, Math.floor((ox + vw) / T));
-  const r0 = Math.max(0, Math.floor(oy / T)), r1 = Math.min(ROWS - 1, Math.floor((oy + vh) / T));
-  cx.drawImage(C.bg, 0, 0);
-  C.L.torches.forEach(drawTorch);
-  drawTiles(c0, c1, r0, r1);
-  drawDoor();
-  C.L.coins.forEach(co => { if (!co.got) drawCoin(co); });
-  C.ents.forEach(e => { if (!e.dead) drawEnemy(e); });
+  const r0 = Math.floor(oy / T), r1 = Math.floor((oy + vh) / T);
+  const inView = (x, y, m = 40) => x > ox - m && x < ox + vw + m && y > oy - m && y < oy + vh + m;
+
+  drawBricks(ox, oy, vw, vh);
+  for (const d of W.decor) if (inView(d.c * T, d.r * T, 90)) drawDecor(d);
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const t = tile(c, r); if (t) drawTile(t, c, r); }
+  for (const m of W.movers) if (inView(m.x, m.y, 120)) drawMover(m);
+  for (const co of W.coins) if (!co.got && inView(co.x, co.y)) drawCoin(co);
+  for (const it of W.items) if (!it.got && inView(it.x, it.y)) drawItem(it);
+  for (const e of W.ents) if (!e.dead && inView(e.x, e.y)) drawEnemy(e);
   C.players.forEach(drawPlayer);
   for (const q of C.parts) { cx.globalAlpha = Math.min(1, q.life * 2); cx.fillStyle = q.col; cx.fillRect(q.x, q.y, q.size, q.size); }
   cx.globalAlpha = 1;
-  drawLava();
+  drawLava(ox, vw, oy, vh);
 
-  drawDarkness();
+  drawDarkness(ox, oy);
 
   // screen-space effects
   cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  // lava below the view: a red glow creeps up from the bottom edge
   const below = C.lavaY - (cam.y + vh);
   if (C.state === 'play' && C.lavaT <= 0 && below > 0 && below < 8 * T) {
     const a = (1 - below / (8 * T)) * .55 * (.8 + Math.sin(C.t * 6) * .2);
@@ -839,11 +1069,11 @@ function draw() {
     cx.fillStyle = g; cx.fillRect(0, SH * .7, SW, SH * .3);
   }
   if (C.banner > 0 && C.state === 'play') {
-    const fs = Math.min(48, SW / 9);
+    const fs = Math.min(30, SW / (C.bannerText.length + 2));
     cx.globalAlpha = Math.min(1, C.banner);
     cx.font = `${fs}px 'Press Start 2P', monospace`; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-    cx.fillStyle = '#000'; cx.fillText('FLOOR ' + C.floor, SW / 2 + 4, SH * .38 + 4);
-    cx.fillStyle = '#ffcc29'; cx.fillText('FLOOR ' + C.floor, SW / 2, SH * .38);
+    cx.fillStyle = '#000'; cx.fillText(C.bannerText, SW / 2 + 3, SH * .3 + 3);
+    cx.fillStyle = '#ffcc29'; cx.fillText(C.bannerText, SW / 2, SH * .3);
     cx.globalAlpha = 1;
   }
 }
@@ -852,26 +1082,38 @@ function draw() {
 const hudCache = {};
 function setHud(id, text) { if (hudCache[id] !== text) { hudCache[id] = text; $(id).textContent = text; } }
 function updateHud() {
-  setHud('hFloor', 'FLOOR ' + C.floor);
-  setHud('hHearts', '♥'.repeat(C.hearts) || '—');
+  setHud('hHeight', '▲ ' + C.height + 'm');
+  setHud('hHearts', '♥'.repeat(Math.max(0, C.hearts)));
   setHud('hCoins', '● ' + C.coins);
   setHud('hLava', C.lavaT > 0 ? 'LAVA IN ' + Math.ceil(C.lavaT) : '');
+  const fx = [];
+  for (const p of C.players) {
+    if (p.shield) fx.push('🛡️');
+    if (p.feather > 0) fx.push('🪶' + Math.ceil(p.feather));
+    if (p.magnet > 0) fx.push('🧲' + Math.ceil(p.magnet));
+  }
+  setHud('hFx', fx.join(' '));
 }
 
 // ---------- main loop ----------
+// Physics run in fixed 1/120 s steps no matter the screen's refresh rate.
 function loop() {
-  const t = now(), dt = Math.min(.033, (t - C.last) / 1000);
+  const t = now(), fdt = Math.min(.1, (t - C.last) / 1000);
   C.last = t;
-  if (C.state === 'play') { update(dt); if (C.state === 'play') updateCamera(dt); updateHud(); }
-  else {
-    C.t += dt;
-    if (C.state === 'title' && C.L) {
-      // drift slowly up the tower, then start again at the bottom
-      const vh = SH / C.cam.z;
+  if (C.state === 'play') {
+    C.acc += fdt;
+    let n = 0;
+    while (C.acc >= STEP && n < 15) { update(STEP); C.acc -= STEP; n++; if (C.state !== 'play') break; }
+    if (n >= 15) C.acc = 0;
+    updateCamera(fdt);
+    updateHud();
+  } else {
+    C.t += fdt;
+    if (C.state === 'title' && W.gen) {
       C.cam.z = baseZoom();
       C.cam.x = Math.max(0, (WW - SW / C.cam.z) / 2);
-      C.cam.y -= dt * 22;
-      if (C.cam.y < 0) C.cam.y = Math.max(0, WH - vh);
+      C.cam.y -= fdt * 22;
+      genUpTo(Math.floor(C.cam.y / T) - 30);
     }
   }
   draw();
