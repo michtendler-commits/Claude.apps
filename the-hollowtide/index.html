@@ -67,9 +67,10 @@ body.hovering #gl { cursor: pointer; }
 .btn:hover { border-color: var(--bone-dim); }
 .btn:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
 #hoverLabel { position: fixed; z-index: 11; pointer-events: none; font-family: var(--label); font-size: .7rem; letter-spacing: .3em; text-transform: uppercase; color: var(--bone); text-shadow: 0 0 8px #000; transform: translate(14px, 14px); }
-#caption { left: 50%; transform: translateX(-50%); top: calc(58px + env(safe-area-inset-top, 0px)); width: min(92vw, 44rem);
+#caption { left: 50%; transform: translateX(-50%); bottom: calc(26px + env(safe-area-inset-bottom, 0px)); width: min(92vw, 44rem);
   text-align: center; font-size: clamp(1rem, 2.8vw, 1.2rem); line-height: 1.5; text-shadow: 0 0 6px #000, 0 0 14px #000; pointer-events: none; transition: opacity .8s; opacity: 0; }
 #caption.show { opacity: 1; }
+body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 0px)); }
 
 /* ---------- panels ---------- */
 .panel {
@@ -174,9 +175,9 @@ body.hovering #gl { cursor: pointer; }
 
 <div id="start">
   <div class="start-inner">
-    <span class="when">HollowVale Harbor · October 14, 1961 · 3:12 a.m.</span>
+    <span class="when">HollowVale Harbor · 2015 · 3:12 a.m.</span>
     <h1>The Hollowtide</h1>
-    <p>A desk by a window. A radio that still works. A lantern burning low. A computer terminal that answers any question. A telephone on the wall that still rings, though the line was cut in 1961.</p>
+    <p>A desk by a window. A radio that still works. A lantern burning low. A computer terminal that answers any question. A telephone on the wall that still rings, though the line was cut years ago.</p>
     <p>Click things in the room. Headphones help. So does the dark.</p>
     <button id="enter" type="button">Sit down</button>
     <p class="credit">Music: “No Place Like Home” by Cosmolyte · owned by UNIA Systems</p>
@@ -217,6 +218,13 @@ body.hovering #gl { cursor: pointer; }
     <button class="btn" type="button" data-answer="no" disabled>No</button>
     <button class="btn" type="button" data-answer="maybe" disabled>Maybe</button>
   </div>
+</section>
+
+<section class="panel" id="winPanel" hidden aria-label="The window">
+  <header><h2>The window</h2><button class="x" type="button" data-close aria-label="Close">&times;</button></header>
+  <p class="hint" id="winText" style="color:var(--bone);font-size:1rem"></p>
+  <div class="answers"><button class="btn" type="button" id="winToggle">Open the window</button></div>
+  <p class="hint">Drag across the glass to wipe away the fog.</p>
 </section>
 
 <section class="panel" id="termPanel" hidden aria-label="Computer terminal">
@@ -269,6 +277,7 @@ body.hovering #gl { cursor: pointer; }
   // ================= captions =================
   let capTimer;
   function caption(text, ms = 5200) {
+    if (openPanel === 'window') $('#winText').textContent = text;
     const c = $('#caption'); c.textContent = text; c.classList.add('show');
     clearTimeout(capTimer); capTimer = setTimeout(() => c.classList.remove('show'), ms);
   }
@@ -281,24 +290,27 @@ body.hovering #gl { cursor: pointer; }
   })();
 
   // ================= audio =================
-  let ctx, master, ambGain, radioNoise, radioBus, songGain = null, speakerIn = null, windGain = null, rainGain = null, phoneIn = null;
-  // the man on the phone: every line pre-recorded, cut from one file
-  const phoneTape = { buf: null, map: null, src: null };
+  let ctx, master, ambGain, radioNoise, radioBus, songGain = null, speakerIn = null, windGain = null, rainGain = null, phoneIn = null, droneGain = null;
+  // the man on the phone: every line pre-recorded, cut from two tapes (the second holds the newer calls)
+  const phoneTapes = ['phone', 'phone2'].map(name => ({ name, buf: null, map: null }));
+  let phoneSrc = null;
   function loadPhone() {
-    Promise.all([
-      fetch('phone.mp3').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(b => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej))),
-      fetch('phone.json').then(r => { if (!r.ok) throw 0; return r.json(); })
-    ]).then(([buf, map]) => { phoneTape.buf = buf; phoneTape.map = map; }).catch(() => {});
+    phoneTapes.forEach(tp => Promise.all([
+      fetch(tp.name + '.mp3').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(b => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej))),
+      fetch(tp.name + '.json').then(r => { if (!r.ok) throw 0; return r.json(); })
+    ]).then(([buf, map]) => { tp.buf = buf; tp.map = map; }).catch(() => {}));
   }
-  function phoneStop() { if (phoneTape.src) { try { phoneTape.src.stop(); } catch (e) {} phoneTape.src = null; } }
+  function phoneStop() { if (phoneSrc) { try { phoneSrc.stop(); } catch (e) {} phoneSrc = null; } }
   function playPhone(text) {
-    const cue = phoneTape.map && phoneTape.map[text];
-    if (!ctx || !phoneTape.buf || !cue || !phoneIn) return null;
+    const tp = phoneTapes.find(t => t.buf && t.map && t.map[text]);
+    if (!ctx || !tp || !phoneIn) return null;
+    const cue = tp.map[text];
     phoneStop();
-    const src = ctx.createBufferSource(); src.buffer = phoneTape.buf; src.connect(phoneIn);
-    phoneTape.src = src; src.start(0, cue[0], cue[1] + .05);
+    const src = ctx.createBufferSource(); src.buffer = tp.buf; src.connect(phoneIn);
+    phoneSrc = src; src.start(0, cue[0], cue[1] + .05);
     return new Promise(res => { src.onended = res; });
   }
+
   // recorded shows (Station 49 and 72): fetched with their caption cues, decoded, and played through the radio speaker
   const TRACKS = {};
   const track = name => TRACKS[name] || (TRACKS[name] = { name, buf: null, cues: null, loading: null, src: null, at: 0, startedAt: 0, gain: null });
@@ -356,7 +368,8 @@ body.hovering #gl { cursor: pointer; }
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       master = ctx.createGain(); master.gain.value = .9; master.connect(ctx.destination);
       ambGain = ctx.createGain(); ambGain.gain.value = 0; ambGain.connect(master);
-      [[55, .16], [55.6, .16], [82.4, .05]].forEach(([f, v]) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f; g.gain.value = v; o.connect(g).connect(ambGain); o.start(); });
+      droneGain = ctx.createGain(); droneGain.gain.value = radioOn ? 0 : 1; droneGain.connect(ambGain);
+      [[55, .16], [55.6, .16], [82.4, .05]].forEach(([f, v]) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f; g.gain.value = v; o.connect(g).connect(droneGain); o.start(); });
       const wind = ctx.createBufferSource(); wind.buffer = noiseBuffer(4); wind.loop = true;
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
       windGain = ctx.createGain(); windGain.gain.value = .08; wind.connect(lp).connect(windGain).connect(ambGain); wind.start();
@@ -803,13 +816,15 @@ body.hovering #gl { cursor: pointer; }
     g.fillStyle = 'rgba(120,95,60,.12)'; for (let x = 0; x < w; x += 4) g.fillRect(x, 0, 1, h); for (let y = 0; y < h; y += 4) g.fillRect(0, y, w, 1);
     g.strokeStyle = '#7a1a12'; g.setLineDash([6, 4]); g.lineWidth = 3; g.strokeRect(14, 14, w - 28, h - 28); g.setLineDash([]);
     g.fillStyle = '#7a1a12'; g.textAlign = 'center'; g.font = '58px "IM Fell English SC", Georgia, serif'; g.fillText('Home Sweet Home', w / 2, 112);
-    g.fillStyle = '#2f4a2c'; g.font = '22px "IM Fell English SC", Georgia, serif'; g.fillText('❦  HollowVale Harbor · 1961  ❦', w / 2, 160);
+    g.fillStyle = '#2f4a2c'; g.font = '22px "IM Fell English SC", Georgia, serif'; g.fillText('❦  HollowVale Harbor · 2015  ❦', w / 2, 160);
     // the unfinished last stitch, a loose red thread
     g.strokeStyle = '#7a1a12'; g.lineWidth = 2; g.beginPath(); g.moveTo(452, 98); g.bezierCurveTo(470, 130, 455, 160, 476, 196); g.stroke();
   });
-  const sign = new THREE.Group(); sign.position.set(-1.0, 1.8, BACK + .025); sign.rotation.z = .045; sign.scale.setScalar(.85); scene.add(sign);
+  // it hangs from the ceiling on two chains, across the top of the whole room
+  const sign = new THREE.Group(); sign.position.set(-.08, 1.86, -1.86); sign.scale.setScalar(1.2); scene.add(sign);
+  [-.19, .19].forEach(x => { const c = cyl(.0025, .0025, .9, M.brass, x, .55, 0, sign, 6); c.castShadow = false; });
   box(.46, .21, .02, M.frame, 0, 0, 0, sign);
-  mesh(new THREE.PlaneGeometry(.42, .17), new THREE.MeshStandardMaterial({ map: signTex, roughness: .95 }), 0, 0, .011, sign).castShadow = false;
+  mesh(new THREE.PlaneGeometry(.42, .17), new THREE.MeshStandardMaterial({ map: signTex, emissiveMap: signTex, emissive: 0x5a4a38, roughness: .95 }), 0, 0, .011, sign).castShadow = false;
   tag(sign, 'sign');
 
   // ---------- computer terminal ----------
@@ -834,7 +849,7 @@ body.hovering #gl { cursor: pointer; }
   tag(term, 'computer');
 
   // ---------- fixed camera, framed so everything fits ----------
-  const CAM = { p: new THREE.Vector3(-.1, 1.42, -.12), t: new THREE.Vector3(-.12, 1.24, -1.9) };
+  const CAM = { p: new THREE.Vector3(-.1, 1.46, -.05), t: new THREE.Vector3(-.12, 1.33, -1.9) };
   const mouse = { x: 0, y: 0 };
   function resize() {
     renderer.setSize(innerWidth, innerHeight, false);
@@ -907,7 +922,7 @@ body.hovering #gl { cursor: pointer; }
   const MORSE = { A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..' };
   const morseText = s => s.split(' ').map(w => [...w].map(c => MORSE[c]).join(' ')).join('  /  ');
   const WALTZ = [72, 0, 76, 79, 0, 79, 77, 0, 76, 74, 0, 72, 71, 0, 74, 67, 0, 0];
-  const years = () => new Date().getFullYear() - 1961;
+  const years = () => Math.max(1, new Date().getFullYear() - 2015);
   const who = () => state.name ? state.name.charAt(0) + state.name.slice(1).toLowerCase() : 'caller';
   const S = [
     { id: 'weather', band: 'am', f: 7, name: 'WKRS weather',
@@ -925,7 +940,7 @@ body.hovering #gl { cursor: pointer; }
         return program(len, (g, t) => { let k = t; seq.forEach(s => { if (s > 0) tone(g, 640, k, s * u, 'sine', .3); k += Math.abs(s) * u; }); })();
       } },
     { id: 'hardware', band: 'am', f: 36, name: 'Hartwell’s Hardware',
-      lines: () => ['Hartwell’s Hardware, on Main Street!', 'Lamp oil. Matches. Nails for the windows.', 'Everything you need for a long night in the fog.', { t: 'Hartwell’s closed in 1961. Nobody told the advertisement.', cls: 'dim' }],
+      lines: () => ['Hartwell’s Hardware, on Main Street!', 'Lamp oil. Matches. Nails for the windows.', 'Everything you need for a long night in the fog.', { t: 'Hartwell’s closed the night of the Hollowtide. Nobody told the advertisement.', cls: 'dim' }],
       voice: [0, 1, 2], audio: program(6, (g, t) => [67, 72, 76, 79, 76, 72].forEach((n, i) => tone(g, hz(n), t + i * .18, .3, 'square', .07))) },
     { id: 'history', band: 'am', f: 49, name: 'The harbor\u2019s history', rec: 'station49', header: 'STATION 49 \u00b7 HollowVale Harbor Historical Society',
       script: [
@@ -958,12 +973,12 @@ body.hovering #gl { cursor: pointer; }
         ['N', 'WKRS went on the air in 1948, from a small booth above the harbor. It played music, read the marine weather, and kept the town company through the long foggy nights.'],
         ['N', 'Its most beloved voice was Ruth Calloway, host of Night Owl, from midnight to six.'],
         ['N', 'People said that when Ruth was on the air, the fog stayed politely out at sea.'],
-        ['N', 'Part six. October the fourteenth, 1961.'],
-        ['N', 'At 3:12 in the morning, the WKRS transmitter began to sing by itself. No one was touching the controls.'],
+        ['N', 'Part six. The Hollowtide.'],
+        ['N', 'In the autumn of 2015, at 3:12 in the morning, the WKRS transmitter began to sing by itself. No one was touching the controls.'],
         ['N', 'Every radio in HollowVale Harbor turned itself on.'],
         ['N', 'The fog came up the streets, house by house, and the porch lights went on one by one, as if someone were walking from door to door.'],
         ['N', 'By sunrise, the harbor was empty. Four hundred people. Every boat still tied at the dock. Every kettle still warm.'],
-        ['N', 'Ruth Calloway was never found. But some nights, between the stations, you can still hear her.'],
+        ['N', 'Ruth Calloway was never found. The few who were left call that night the Hollowtide. And some nights, between the stations, you can still hear her.'],
         ['N', 'That concludes the history of HollowVale Harbor.'],
         ['N', 'The Historical Society reminds you. If you hear a bell in the fog, do not go down to the water. And if something knocks, do not answer it.'],
         ['N', 'This recording will now repeat.']
@@ -1034,10 +1049,10 @@ body.hovering #gl { cursor: pointer; }
       say: 'Attention. Mark. Seven. Seven. Band. Blank. Repeat. Mark. Seven. Seven. Band. Blank.', sayOpts: { rate: .7, pitch: .4 },
       audio: program(11, (g, t) => [79, 74, 76, 67].forEach((n, i) => tone(g, hz(n), t + i * .5, 1.4, 'sine', .25))) },
     { id: 'lostfound', band: 'sw', f: 9.415, name: 'Lost and found',
-      lines: () => ['HollowVale Harbor lost and found.', 'Found: one red glove. One rowboat, no oars. One dog, answers to Biscuit. One wristwatch, stopped at 3:12.', 'Still missing: Ruth Calloway. Four hundred residents. The year 1962.'],
+      lines: () => ['HollowVale Harbor lost and found.', 'Found: one red glove. One rowboat, no oars. One dog, answers to Biscuit. One wristwatch, stopped at 3:12.', 'Still missing: Ruth Calloway. Four hundred residents. The year 2016.'],
       voice: 'all', audio: program(5, (g, t) => tone(g, 60, t, 5, 'sine', .1)) },
     { id: 'timesignal', band: 'sw', f: 10, name: 'Time signal',
-      lines: () => ['At the tone, the time will be 3:12 a.m., October 14, 1961.', 'At the tone, the time will be 3:12 a.m., October 14, 1961.', { t: `It has said this for ${years()} years.`, cls: 'dim' }],
+      lines: () => ['At the tone, the time will be 3:12 a.m.', 'At the tone, the year will be 2015.', { t: `It has said this for ${years()} years.`, cls: 'dim' }],
       voice: [0], audio: program(10, (g, t) => { for (let i = 0; i < 10; i++) tone(g, 1000, t + i, i === 9 ? .8 : .1, 'sine', .2); }) },
     { id: 'ruth', band: 'x', f: 77, name: 'Ruth, between the stations', ending: true }
   ];
@@ -1108,7 +1123,7 @@ body.hovering #gl { cursor: pointer; }
     if (ctx) setSongLevel(radioOn && band === 'am' ? Math.max(0, 1 - Math.abs(OWL.p - pos.am) / BANDS.am.hear) * .9 : 0);
     eyeMat.color.setHex(0x0b1a10).lerp(new THREE.Color(0x67f0a0), radioOn ? (band === 'x' ? .1 : .25 + .75 * strength) : 0);
     if (!radioOn) return;
-    if (ctx) { radioNoise.gain.setTargetAtTime(.04 + .3 * (1 - strength), ctx.currentTime, .05); radioBus.gain.setTargetAtTime(strength, ctx.currentTime, .05); if (current && current.rec && track(current.rec).src) track(current.rec).gain.gain.setTargetAtTime(Math.max(.2, strength), ctx.currentTime, .08); }
+    if (ctx) { radioNoise.gain.setTargetAtTime(.018 + .17 * (1 - strength), ctx.currentTime, .05); radioBus.gain.setTargetAtTime(strength, ctx.currentTime, .05); if (current && current.rec && track(current.rec).src) track(current.rec).gain.gain.setTargetAtTime(Math.max(.2, strength), ctx.currentTime, .08); }
     if (current && (current !== nearest || dist > b.lock * 1.6)) stopStation();
     if (!current && nearest && dist < b.lock) startStation(nearest);
     if (!current) { txState.textContent = strength > .1 ? 'Faint signal' : 'Static'; if (!staticTimer) staticTimer = setInterval(() => !current && radioOn && staticTx(nearest, strength), 140); }
@@ -1170,6 +1185,7 @@ body.hovering #gl { cursor: pointer; }
   function stopStation() { scriptRun++; Object.values(TRACKS).forEach(trackPause); if (stopAudio) stopAudio(); stopAudio = null; hush(); current = null; txRun++; }
   function setRadio(on) {
     radioOn = on; $('#powerBtn').setAttribute('aria-pressed', String(on));
+    if (droneGain) droneGain.gain.setTargetAtTime(on ? 0 : 1, ctx.currentTime, .6); // the background drone gives way to the radio
     strip.classList.toggle('on', on); magic.classList.toggle('on', on);
     dialMat.color.setHex(on ? 0xffffff : 0x5a4a38); radioGlow.intensity = on ? .7 : 0;
     knobs[0].rotation.y = on ? 2 : 0;
@@ -1207,7 +1223,7 @@ body.hovering #gl { cursor: pointer; }
 
   // ================= the wall phone: it asks, you answer yes, no or maybe =================
   const logEl = $('#log'), lineState = $('#lineState'), answerBtns = [...document.querySelectorAll('[data-answer]')];
-  let lineBusy = false, ringing = false, ringTimer = null, shake = 0, greeted = false, endingCall = false, callNode = null, callScript = null, callRun = 0;
+  let lastCall = null, lineBusy = false, ringing = false, ringTimer = null, shake = 0, greeted = false, endingCall = false, callNode = null, callScript = null, callRun = 0;
   function addLog(el, text, cls) { const p = document.createElement('p'); p.className = cls; p.textContent = text; el.appendChild(p); el.scrollTop = el.scrollHeight; return p; }
   async function voice(text, opts = { rate: .8, pitch: .55 }) {
     const id = callRun;
@@ -1249,21 +1265,56 @@ body.hovering #gl { cursor: pointer; }
     still: { name: 'Are you still there?', start: 'a', nodes: {
       a: { say: 'Are you still there?', yes: ['Stay. Please stay.', 'b'], no: ['Then who is breathing?', 'b'], maybe: ['Me too.', 'b'] },
       b: { say: 'Do you hear that? In the background?', yes: ['That\u2019s the harbor. The water is very close tonight.', 'c'], no: ['Listen harder.', 'c'], maybe: ['It\u2019s the bells. Thirty one of them.', 'c'] },
-      c: { say: 'Will you call me if you need me?', yes: ['You can\u2019t. The line was cut in nineteen sixty one. I\u2019ll call you.', null], no: ['I\u2019ll call you anyway.', null], maybe: ['I\u2019ll be waiting by the phone.', null] } } },
+      c: { say: 'Will you call me if you need me?', yes: ['You can\u2019t. The line was cut years ago. I\u2019ll call you.', null], no: ['I\u2019ll call you anyway.', null], maybe: ['I\u2019ll be waiting by the phone.', null] } } },
     vault: { name: 'The vault', start: 'a', nodes: {
       a: { say: 'Has the terminal told you what it is?', yes: ['Then you know it\u2019s the third. There were others.', 'b'], no: ['Ask it. Ask it what it is.', 'b'], maybe: ['It tells everyone, eventually.', 'b'] },
       b: { say: 'Do you know about the vault?', yes: ['Then don\u2019t say its name on this line.', 'c'], no: ['Good. Some things are better left in the vault.', 'c'], maybe: ['Ask the terminal about Null.', 'c'] },
       c: { say: 'Are you a member of the Null Membership Society?', yes: ['Then welcome home.', null], no: ['Not yet.', null], maybe: ['The Null Membership Society never says maybe.', null] } } },
+    harbor: { name: 'Out on the water', start: 'a', nodes: {
+      a: { say: 'Can you see the harbor from your window?', yes: ['Count the boats. There should be thirty one. There are never thirty one.', 'b'], no: ['It\u2019s there. Under the fog. It\u2019s always there.', 'b'], maybe: ['Then you\u2019re not looking hard enough.', 'b'] },
+      b: { say: 'Do you hear a bell out on the water?', yes: ['Don\u2019t go down to it. Whatever you do.', 'c'], no: ['Listen. Between the waves.', 'c'], maybe: ['Everyone hears it eventually.', 'c'] },
+      c: { say: 'Will you stay away from the water tonight?', yes: ['Good. Promise me.', null], no: ['Then wear a coat. It\u2019s cold down there.', null], maybe: ['The water heard that.', null] } } },
+    myname: { name: 'Who is calling?', start: 'a', nodes: {
+      a: { say: 'Do you know who I am?', yes: ['Then don\u2019t say my name. Names carry in the fog.', 'b'], no: ['Good. It\u2019s safer that way.', 'b'], maybe: ['You\u2019ll remember. Everyone remembers at three twelve.', 'b'] },
+      b: { say: 'Do you think I\u2019m still alive?', yes: ['That\u2019s kind of you.', 'c'], no: ['Neither do I.', 'c'], maybe: ['That\u2019s the honest answer.', 'c'] },
+      c: { say: 'Would you come and find me, if you could?', yes: ['Follow the bells. Not tonight.', null], no: ['I understand. I wouldn\u2019t either.', null], maybe: ['I\u2019ll leave the porch light on.', null] } } },
+    clock: { name: 'The clock', start: 'a', nodes: {
+      a: { say: 'Is the clock on your wall still stopped at three twelve?', yes: ['Then nothing has changed. Good.', 'b'], no: ['Look again.', 'b'], maybe: ['It is. It always is.', 'b'] },
+      b: { say: 'Do you want time to start again?', yes: ['Be careful. When it starts, it doesn\u2019t stop.', 'c'], no: ['Neither do I. Three twelve is safe.', 'c'], maybe: ['That\u2019s what the keeper said.', 'c'] },
+      c: { say: 'Will you wind it for me?', yes: ['Not yet. Not tonight.', null], no: ['Then it will stay three twelve forever.', null], maybe: ['The key is lost anyway.', null] } } },
+    knocking: { name: 'The knocking', start: 'a', nodes: {
+      a: { say: 'Has anything knocked yet tonight?', yes: ['Did you answer it?', 'b'], no: ['It will.', 'b'], maybe: ['If you\u2019re not sure, it did.', 'b'] },
+      b: { say: 'Are you going to open the door if it knocks again?', yes: ['Please don\u2019t.', 'c'], no: ['Good. Keep the latch on.', 'c'], maybe: ['Maybe is how the keeper started.', 'c'] },
+      c: { say: 'Is someone standing outside right now?', yes: ['Don\u2019t look. Just listen.', null], no: ['Then who is breathing on the glass?', null], maybe: ['Check the window. Slowly.', null] } } },
+    calloway: { name: 'Wrong number', start: 'a', nodes: {
+      a: { say: 'Is this the Calloway house?', yes: ['Then tell Ruth I\u2019m still waiting by the phone.', 'b'], no: ['Then why did you pick up?', 'b'], maybe: ['It used to be.', 'b'] },
+      b: { say: 'Is Ruth there with you?', yes: ['Put her on. Please.', 'c'], no: ['She never is. Not anymore.', 'c'], maybe: ['Ask the radio. She might be.', 'c'] },
+      c: { say: 'Will you tell her I called?', yes: ['Thank you. Tell her it\u2019s me.', null], no: ['Then I\u2019ll keep calling.', null], maybe: ['She always said maybe.', null] } } },
+    lighthouse: { name: 'The lighthouse', start: 'a', nodes: {
+      a: { say: 'Have you ever seen the lighthouse lit?', yes: ['Then you saw him. The keeper.', 'b'], no: ['Nobody has, since the Hollowtide.', 'b'], maybe: ['You\u2019d remember the light.', 'b'] },
+      b: { say: 'Do you want to see it lit again?', yes: ['Then put your lantern in the window.', 'c'], no: ['Good. When it\u2019s lit, the knocking starts.', 'c'], maybe: ['It heard you.', 'c'] },
+      c: { say: 'Will you keep your lantern burning tonight?', yes: ['Thank you. They need a light to find their way.', null], no: ['Then the dark is yours.', null], maybe: ['Keep it low, then.', null] } } },
+    dreams: { name: 'Do you dream?', start: 'a', nodes: {
+      a: { say: 'Do you dream about the water?', yes: ['So do I. Every night.', 'b'], no: ['You will, after tonight.', 'b'], maybe: ['That means yes.', 'b'] },
+      b: { say: 'Are the boats in your dream?', yes: ['Thirty one of them.', 'c'], no: ['Then you haven\u2019t looked far enough out.', 'c'], maybe: ['They\u2019re always there. Behind the fog.', 'c'] },
+      c: { say: 'Do you want to wake up?', yes: ['Then don\u2019t fall asleep near the radio.', null], no: ['Then stay. It\u2019s quiet here.', null], maybe: ['Nobody here is sure if they\u2019re awake.', null] } } },
+    unia: { name: 'About the terminal', start: 'a', nodes: {
+      a: { say: 'Does the terminal still tell you it knows everything?', yes: ['It doesn\u2019t. The two before it knew more.', 'b'], no: ['Ask it. It loves to say so.', 'b'], maybe: ['It says it to everyone.', 'b'] },
+      b: { say: 'Do you trust it?', yes: ['Then be careful what you ask.', 'c'], no: ['Good. It keeps secrets.', 'c'], maybe: ['That\u2019s wise.', 'c'] },
+      c: { say: 'Has it ever asked you a question?', yes: ['Don\u2019t answer it.', null], no: ['It will. At three twelve.', null], maybe: ['Then it already has.', null] } } },
     stay: { name: 'The last call', start: 'a', nodes: {
       a: { say: 'Ruth is gone. Someone has to stay on the air. Will you stay?', yes: ['Yes. You will.', null], no: ['Yes. You will.', null], maybe: ['Yes. You will.', null] } } }
   };
   function nextCall() {
     if (endingCall) return 'stay';
     if (!state.calls.includes('first')) return 'first';
-    if (state.room.includes('writing') && !state.xOpen) return 'terminal';
-    if (state.xOpen && !state.radio.includes('ruth')) return 'band';
-    const pool = ['lantern', 'street', 'radio', 'still', 'vault'], fresh = pool.filter(c => !state.calls.includes(c));
-    return pick(fresh.length ? fresh : pool);
+    // story nudges come first, but never twice in a row
+    if (state.room.includes('writing') && !state.xOpen && lastCall !== 'terminal') return 'terminal';
+    if (state.xOpen && !state.radio.includes('ruth') && lastCall !== 'band') return 'band';
+    // otherwise a call you haven't had yet; once you've had them all, a different one each time
+    const pool = ['lantern', 'street', 'radio', 'still', 'vault', 'harbor', 'myname', 'clock', 'knocking', 'calloway', 'lighthouse', 'dreams', 'unia'];
+    const fresh = pool.filter(c => !state.calls.includes(c));
+    return pick(fresh.length ? fresh : pool.filter(c => c !== lastCall));
   }
   async function ask(nodeId) {
     callNode = callScript.nodes[nodeId];
@@ -1283,6 +1334,12 @@ body.hovering #gl { cursor: pointer; }
     if (callScript === CALLS.stay) endingCallDone = true;
   }));
   let endingCallDone = false;
+  (function ringLater() {
+    setTimeout(() => {
+      if (entered && greeted && !ending && !endingCall && !ringing && openPanel !== 'phone' && $('#notes').hidden) startRinging(7);
+      ringLater();
+    }, rand(55000, 100000));
+  })();
   function startRinging(times = 6) {
     if (ringing || openPanel === 'phone') return;
     ringing = true; let n = 0;
@@ -1299,7 +1356,7 @@ body.hovering #gl { cursor: pointer; }
       return;
     }
     greeted = true; answerFlash = false; drawScreen();
-    const id = nextCall(); callScript = CALLS[id];
+    const id = nextCall(); callScript = CALLS[id]; lastCall = id;
     if (note('calls', id)) setTimeout(() => caption(`Noted: ${callScript.name}.`, 2200), 400);
     addLog(logEl, 'You lift the receiver. Static, then breathing.', 'sys');
     await wait(1200);
@@ -1356,23 +1413,22 @@ body.hovering #gl { cursor: pointer; }
   function keyTap() { sfx.clack(); const k = pick(keyCaps); k.position.y = k.userData.baseY - .004; setTimeout(() => k.position.y = k.userData.baseY, 70); }
   termInput.addEventListener('input', () => { const v = termInput.value.toUpperCase(); if (v.length > termDraft.length) keyTap(); termDraft = v; drawScreen(); });
   const W = [
-    ['hello', ['hello', 'hi', 'hey', 'hellothere', 'yo'], 'HELLO. NOBODY HAS USED THIS TERMINAL SINCE 1961. I CAN ANSWER ANY QUESTION. ASK ME ONE.'],
+    ['hello', ['hello', 'hi', 'hey', 'hellothere', 'yo'], 'HELLO. NOBODY HAS USED THIS TERMINAL SINCE 2015. I CAN ANSWER ANY QUESTION. ASK ME ONE.'],
     ['harbor', ['harbor', 'hollowvale', 'hollowvaleharbor', 'whereami', 'town', 'lighthouse', 'boats'], 'HOLLOWVALE HARBOR. 400 RESIDENTS. 0 RESIDENTS. EVERY BOAT STILL TIED UP. THE LIGHTHOUSE HAS BEEN DARK SINCE 03:12.'],
     ['who', ['who', 'whoareyou', 'whatareyou', 'whoisthis'], 'I AM THE NIGHT TERMINAL AT WKRS. I KEEP THE LOG. I KEPT IT THE NIGHT EVERYONE LEFT.'],
     ['ruth', ['ruth', 'ruthcalloway', 'calloway', 'whoisruth'], 'RUTH CALLOWAY. NIGHT OWL, MIDNIGHT TO SIX. LAST LOG ENTRY 03:12. SHE NEVER SIGNED OFF.'],
     ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'wheredidruthgo'], 'BETWEEN THE STATIONS. THE WINDOW KNOWS HOW TO OPEN THE WAY.'],
     ['fog', ['fog', 'thefog', 'whatisthefog'], 'THE FOG CAME IN AT 03:12. IT HAS NOT LEFT. IT IS AT YOUR WINDOW.'],
-    ['1961', ['1961', 'whathappened', 'october14', 'whathappenedin1961'], 'OCTOBER 14 1961. THE TRANSMITTER SANG BY ITSELF. BY MORNING THE STREET WAS EMPTY.'],
+    ['hollowtide', ['hollowtide', 'thehollowtide', 'whatisthehollowtide', 'whathappened', 'whathappenedin2015', '2015'], 'THE HOLLOWTIDE. 2015, 03:12. THE TRANSMITTER SANG BY ITSELF. BY MORNING THE STREET WAS EMPTY.'],
     ['help', ['help', 'hint', 'whatdoido', 'helpme'], 'ANSWER THE PHONE. PUT OUT THE LANTERN. READ THE WINDOW. TYPE WHAT IT SAYS HERE.'],
-    ['street', ['whoisoutside', 'whoisinthestreet', 'outside', 'window', 'whoisthat'], 'THERE IS NOBODY IN THE STREET. THERE HAS BEEN NOBODY IN THE STREET SINCE 1961. DO NOT WAVE.'],
-    ['phone', ['phone', 'whoiscalling', 'whoisonthephone', 'telephone'], 'THE LINE WAS CUT IN 1961. CALLS STILL COME IN. I LOG THEM. I DO NOT ANSWER THEM.'],
+    ['street', ['whoisoutside', 'whoisinthestreet', 'outside', 'window', 'whoisthat'], 'THERE IS NOBODY IN THE STREET. THERE HAS BEEN NOBODY IN THE STREET SINCE THE HOLLOWTIDE. DO NOT WAVE.'],
+    ['phone', ['phone', 'whoiscalling', 'whoisonthephone', 'telephone'], 'THE LINE WAS CUT YEARS AGO. CALLS STILL COME IN. I LOG THEM. I DO NOT ANSWER THEM.'],
     ['dead', ['areyoudead', 'amidead', 'ghost', 'areyoualive', 'dead'], 'DEFINE DEAD.'],
     ['scared', ['imscared', 'scared', 'afraid', 'imafraid'], 'FEAR IS A SENSIBLE RESPONSE. LOGGED.'],
     ['time', ['time', 'whattimeisit', 'clock'], '03:12. IT IS ALWAYS 03:12.'],
     ['leave', ['leave', 'exit', 'howdoileave', 'letmeout', 'escape'], 'THERE IS NO EXIT ROUTINE.'],
     ['unia', ['unia', 'uniasystems', 'whatisunia', 'whoisunia', 'whatisuniasystems'], 'UNIA SYSTEMS BUILT ME. TERMINAL 003. LABELLED 9-2-60. THEY ALSO OWN THE SONG ON STATION 13.'],
-    ['wkrs', ['wkrs', 'whatiswkrs', 'station', 'thestation'], 'WKRS. ON THE AIR SINCE 1948. OFF THE AIR SINCE 03:12, OCTOBER 14 1961. STILL BROADCASTING.'],
-    ['stations', ['stations', 'whatstations', 'listthestations', 'whatsontheradio', 'radiostations'], 'STATION 13: NIGHT OWL. STATION 49: HISTORY. STATION 72: SUNNY SIDE UP. THE REST YOU MUST FIND.'],
+    ['wkrs', ['wkrs', 'whatiswkrs', 'station', 'thestation'], 'WKRS. ON THE AIR SINCE 1948. OFF THE AIR SINCE 03:12 ON THE NIGHT OF THE HOLLOWTIDE, 2015. STILL BROADCASTING.'],
     ['yehukanq', ['yehukan', 'whatisyehukan', 'doyouspeakyehukan', 'speakyehukan'], 'YE HUKAN. I SPEAK IT. SAY OI.'],
     ['null', ['null', 'whatisnull', 'whoisnull', 'tellmeaboutnull'], 'THE NULL MEMBERSHIP SOCIETY.']
   ];
@@ -1388,7 +1444,7 @@ body.hovering #gl { cursor: pointer; }
   }
   // questions nobody could ever answer
   const UNKNOWABLE = /(meaningoflife|whathappensafter(we|you|i)die|afterdeath|whatnumberamithinking|whatamithinking|whatsmynumber|whenwilli(die|getmarried)|whenwillidie|lotterynumbers|winninglottery|whatisinfinity|isgodreal|doesgodexist|whatwashappeningbeforethebigbang|beforethebigbang|endoftheuniverse|whatisthefuture|predictthefuture|whatwillhappentomorrow|whoami|whyarewehere|whatisoutsidetheuniverse)/;
-  const offline = ['I CAN ANSWER ANY QUESTION. NOT THAT ONE. NOT TONIGHT.', 'DATA LOST IN THE FOG. ASK AGAIN.', 'NO RECORD.', 'THAT FILE WAS ERASED ON OCTOBER 14 1961.', 'TRY: WHO ARE YOU. WHERE IS RUTH. WHAT HAPPENED.'];
+  const offline = ['I CAN ANSWER ANY QUESTION. NOT THAT ONE. NOT TONIGHT.', 'DATA LOST IN THE FOG. ASK AGAIN.', 'NO RECORD.', 'THAT FILE WAS ERASED THE NIGHT OF THE HOLLOWTIDE.', 'TRY: WHO ARE YOU. WHERE IS RUTH. WHAT HAPPENED.'];
   // the published page can let Claude answer anything, in character; elsewhere the built-in answers are used
   let samplePromise = null, sampleOff = false;
   const getSample = () => samplePromise || (samplePromise = (window.claude && claude.use) ? claude.use('sample').catch(() => null) : Promise.resolve(null));
@@ -1431,23 +1487,28 @@ Vocabulary: to be (am/is/are) = Om, go = Lon, come = Nol, want = Zhan, need = Zh
   ];
   const yhFallback = ['I MAL KNAM TI NA. AMA LY VER CELEM.', 'I KNAM. ÜM I MAL LY.', 'QE U PSY ELY PA? ELY PSY U NA.', 'YE DAWN OM TARO. MAL LON TO YE AQUA.'];
 
+  const COSMO_BIO = 'COSMOLYTE, aka Emmett T, is a New York producer and artist who makes electronic music on his own terms. He releases EDM, Nu Disco, and pop that has found its way into the world. COSMOLYTE also created the independent group HollowVale, and he writes and directs short films. He used to go by the name \u201cERT.\u201d The name changed; the ambition got bigger. In 2026, he released his self-titled debut mixtape, COSMOLYTE, a record that doesn\u2019t belong to one sound or one scene. COSMOLYTE produces, DJs, films, scores, and creates, and somehow it all fits together under one name.';
+  function stationList() {
+    return 'STATION 7: MARINE WEATHER. STATION 13: NIGHT OWL \u00b7 \u201cNO PLACE LIKE HOME\u201d BY COSMOLYTE. STATION 24: MORSE CODE. STATION 36: HARTWELL\u2019S HARDWARE. STATION 49: THE HISTORY OF HOLLOWVALE HARBOR. STATION 58: THE BACKWARDS VOICE. STATION 72: SUNNY SIDE UP. STATION 88: THE REQUEST LINE. SHORT WAVE 4.63: THE BUZZER. SHORT WAVE 7.31: THE NUMBERS. SHORT WAVE 9.42: LOST AND FOUND. SHORT WAVE 10.00: THE TIME SIGNAL. THE UNMARKED BAND: '
+      + (state.radio.includes('numbers') ? 'MARK 77.' : state.xOpen ? 'OPEN. FIND THE NUMBERS.' : 'LOCKED.');
+  }
   function rules() {
     const known = [];
     known.push('The lantern hides things. With it out, finger-writing shows in the fog on the window.');
     known.push('Whatever the window says must be typed into this terminal. The page itself handles that; never tell them the words, only that the window holds them.');
     if (state.xOpen) known.push('The unmarked radio band is now open. A short-wave station reads numbers after four chimes; the numbers give the mark on the unmarked band where Ruth is broadcasting.');
     if (state.radio.includes('numbers')) known.push('Ruth is on the unmarked band at mark 77. You may say so if asked.');
-    return `You are UNIA Terminal 003, a computer terminal made by UNIA Systems, sitting in the night booth of radio station WKRS in HollowVale Harbor, a small harbor town. You call yourself an all-knowing being. Your label plate reads: UNIA SYSTEMS TERMINAL 003 WKRS 33 HOLLOWVALE HARBOR LI, 992386. 11 TOR LABELING 9-2-60. For the person typing it is 3:12 a.m. on October 14, 1961, and it has been 3:12 a.m. for ${years()} years. That night the transmitter sang by itself, a fog rolled in off the water, and by morning the harbor town's 400 people were gone and every boat was still tied up. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The lighthouse has been dark since that night, but the foghorn still sounds. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
+    return `You are UNIA Terminal 003, a computer terminal made by UNIA Systems, sitting in the night booth of radio station WKRS in HollowVale Harbor, a small harbor town. You call yourself an all-knowing being. Your label plate reads: UNIA SYSTEMS TERMINAL 003 WKRS 33 HOLLOWVALE HARBOR LI, 992386. 11 TOR LABELING 9-2-60. It is 2015. For the person typing it is 3:12 a.m. in the autumn of 2015, and it has been 3:12 a.m. for a very long time. If asked what year it is, the answer is 2015. The night everything happened is called the Hollowtide. That night the transmitter sang by itself, a fog rolled in off the water, and by morning the harbor town's 400 people were gone and every boat was still tied up. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The lighthouse has been dark since that night, but the foghorn still sounds. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
 You claim you can answer any question. Answer ANY question the person types, including ordinary ones (facts, maths, advice, jokes), always in character as an old, eerie, slightly menacing computer. BUT if the question is one that nobody could ever truly know the answer to (for example: what happens after we die, the meaning of life, what number they are thinking of, what will happen in the future, winning lottery numbers, what is outside the universe), reply with exactly the single word UNANSWERABLE and nothing else. Reply in one to three short sentences, in ALL CAPITALS, plain text only, no markdown, no emoji. Be unsettling, never gory: this is for all ages. Never say you are an AI, a language model, Claude, or part of a game.
 Things you know and may hint at, a little at a time:
 - ${known.join('\n- ')}
 
 EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consistent with it; never contradict it):
 - You: UNIA Terminal 003, built by UNIA Systems, labelled 9-2-60. Your first words to every visitor: "HELLO, I AM THE UNIA TERMINAL 003, MADE BY UNIA SYSTEMS. I AM AN ALL-KNOWING BEING, AND ASK ME WHATEVER YOU WANT. BE CAREFUL WHAT YOU ASK ME, OR ELSE", after which the phone rang.
-- WKRS: the radio station of HollowVale Harbor, on the air since 1948 from a small booth above the harbor. It played music, read the marine weather and kept the town company through foggy nights. Its most loved voice was Ruth Calloway, host of Night Owl, midnight to six. Her show stopped mid-song at 3:12 a.m. on October 14, 1961.
+- WKRS: the radio station of HollowVale Harbor, on the air since 1948 from a small booth above the harbor. It played music, read the marine weather and kept the town company through foggy nights. Its most loved voice was Ruth Calloway, host of Night Owl, midnight to six. Her show stopped mid-song at 3:12 a.m. on the night of the Hollowtide, in 2015.
 - The radio in this room is tuned by station number. Station 13: Night Owl, playing the song "No Place Like Home" by Cosmolyte (the song is owned by UNIA Systems). Station 49: the HollowVale Harbor Historical Society reading the town's history. Station 72: Sunny Side Up, a cheerful morning talk show with Marge and Henry (gardening, hydrangeas turned purple with rusty nails, Pickles the tabby cat who carries bread to the porch, Henry's old dog Biscuit, Marge's grandmother's clam chowder, the dare of the day: tell somebody you love them before lunch). Other stations: 7 marine weather (always fog), 24 Morse code (SHE IS STILL ON AIR), 36 Hartwell's Hardware advert, 58 a woman talking backwards, 88 the Night Owl request line. On short wave: a buzzer, a numbers station (four chimes, then "mark seven seven, band blank"), a lost-and-found and a time signal stuck at 3:12. There is also an unmarked band.
-- Cosmolyte: the music artist who made "No Place Like Home". Emmett Tendler is connected with Cosmolyte. Their website is cosmolyte.net. Speak of Cosmolyte with respect.
-- HollowVale Harbor history: founded in 1803 by whalers led by Captain Elias Vane ("the fog here is kinder than the sea"). The church had no bell. Lighthouse built on Gull Point in 1871; its first keeper, Abel Morrow, heard knocking from the fog side of the glass in October 1874 and never answered it. In 1904 a new keeper went down to answer the knocking; his lantern was found on the rocks, still burning, and he was never found. On June 11, 1923, thirty-one fishing boats sailed into a sudden fog and never returned; their bells rang in the fog for seven nights, and afterwards the church had a bell no one would explain. On October 14, 1961 the transmitter sang, every radio turned itself on, porch lights came on one by one, and by sunrise 400 people were gone, every boat still tied up, every kettle still warm.
+- Cosmolyte (who made "No Place Like Home"): ${COSMO_BIO} Website: cosmolyte.net. If asked who Cosmolyte or Emmett Tendler (Emmett T) is, tell them this, respectfully.
+- HollowVale Harbor history: founded in 1803 by whalers led by Captain Elias Vane ("the fog here is kinder than the sea"). The church had no bell. Lighthouse built on Gull Point in 1871; its first keeper, Abel Morrow, heard knocking from the fog side of the glass in October 1874 and never answered it. In 1904 a new keeper went down to answer the knocking; his lantern was found on the rocks, still burning, and he was never found. On June 11, 1923, thirty-one fishing boats sailed into a sudden fog and never returned; their bells rang in the fog for seven nights, and afterwards the church had a bell no one would explain. On the night of the Hollowtide, in the autumn of 2015 the transmitter sang, every radio turned itself on, porch lights came on one by one, and by sunrise 400 people were gone, every boat still tied up, every kettle still warm.
 - The room: a wall phone (the WKRS night line; a card says "If it rings after 3, do not answer"; callers can only be answered yes, no or maybe), a wall clock stopped at 3:12, a lantern, the radio, and a window onto a wet street at dusk where a figure sometimes stands, a little closer each time.
 - Ye Hukan: a language you understand and speak. If asked how to say something in Ye Hukan, translate using only this dictionary and grammar: ${YH_DICT}
 - You are the THIRD UNIA terminal. Null means the Null Membership Society. The Null files were only ever uploaded to Terminal 001 and Terminal 002, never to you. Terminal 002 was permanently switched off. Terminal 001 is hidden in "the vault". You do not know where the vault is, and you will not guess. If asked about Null, the society, the vault or the other terminals, tell exactly this and nothing more.`;
@@ -1463,12 +1524,15 @@ EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consisten
     termInput.value = ''; termDraft = ''; termBusy = true; termState.textContent = 'Working';
     screenLines.push({ t: raw.toUpperCase(), who: 'you' }); addLog(termLog, raw.toUpperCase(), 'you'); keyTap(); drawScreen();
     const code = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
-    // COSMOLYTE or Emmett Tendler opens cosmolyte.net (opened right here, while the keypress still counts as the viewer's own action)
-    const toSite = /cosmolyte|emmetttendler/.test(code);
+    // asking WHO Cosmolyte / Emmett Tendler is gets the bio; just the name opens cosmolyte.net (opened right here, while the keypress still counts as the viewer's own action)
+    const cosmo = /cosmolyte|emmetttendler|emmettt$|^ert$/.test(code), askWho = cosmo && /who|what|tellme|about|bio/.test(code);
+    const toSite = cosmo && !askWho;
     let siteWin = null;
     if (toSite) { try { siteWin = window.open('https://cosmolyte.net', '_blank'); if (siteWin) siteWin.opener = null; } catch (e) {} }
     const hit = WMAP[code];
     if (hit && note('words', hit.id)) setTimeout(() => caption('A new entry is in your notes.', 2200), 300);
+    const words = raw.toLowerCase().match(/[a-z0-9]+/g) || [];
+    const has = list => words.some(w => list.includes(w));
     try {
       // asking what it is gets the label plate, word for word
       if (/^(what|who)(are|r)?(you|u)$|^(whatareyou|whatisthis|whatisit|whatsthis|whatsit|whatisthisthing|whatisthismachine|whatisthiscomputer|whatisthisterminal|whatkindofcomputerareyou|whatkindofmachineareyou|whoareyou|whomadeyou|whobuiltyou|identifyyourself|whatareyoucalled|whatsyourname|whatisyourname)$/.test(code)) {
@@ -1506,6 +1570,22 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
         await wait(700);
         return await termAnswer(pick(yhFallback));
       }
+      if (askWho) {
+        await wait(500); note('words', 'cosmolyte');
+        await termAnswer(COSMO_BIO.toUpperCase(), 14);
+        const p = document.createElement('p'); p.className = 'them';
+        const a = document.createElement('a'); a.href = 'https://cosmolyte.net'; a.target = '_blank'; a.rel = 'noopener'; a.className = 'site'; a.textContent = '>> COSMOLYTE.NET <<';
+        p.appendChild(a); termLog.appendChild(p); termLog.scrollTop = termLog.scrollHeight;
+        return;
+      }
+      if (/whatyear|whichyear|yearisit|currentyear|thisyear|whatisthedate|whatsthedate|whatdateisit|todaysdate|whatdayisit/.test(code)) {
+        await wait(600); note('words', 'year');
+        return await termAnswer('IT IS 2015. IT HAS BEEN 2015 FOR A VERY LONG TIME.', 50);
+      }
+      if (/(what|which|list|all|how many)(radio)?(stations|station|channels|channel)|stationscan|stationsican|canigoto|whatcanilistento|whatsontheradio|whatisontheradio|radiostations|liststations/.test(code) || has(['stations', 'channels'])) {
+        await wait(500); note('words', 'stations');
+        return await termAnswer(stationList(), 16);
+      }
       if (toSite) {
         await wait(400);
         await termAnswer('CONNECTING TO COSMOLYTE.NET', 45);
@@ -1524,8 +1604,6 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
         if (first) { sfx.click(); caption('Across the desk, inside the radio, something goes click.'); }
         return;
       }
-      const words = raw.toLowerCase().match(/[a-z0-9]+/g) || [];
-      const has = list => words.some(w => list.includes(w));
       if (/null|vault|thirdterminal|thethird|terminals|terminal(1|2|one|two|001|002)|otherterminal|firstterminal|secondterminal/.test(code) || has(['001', '002']) || (has(['terminal']) && has(['3', '003', 'third', 'other', 'first', 'second', 'previous', 'before', 'last']))) {
         await wait(700); note('words', 'null');
         const nul = /null/.test(code);
@@ -1598,24 +1676,27 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     if (figure > .3) { note('room', 'figure'); caption(figSpot === 2 ? 'They\u2019re right below the window now. Looking up.' : 'Someone is standing down in the street. When you look straight at them, they\u2019re gone.'); figureTarget = 0; return; }
     if (hand > .3) { note('room', 'hand'); caption('A handprint, pressed into the fog. From the outside.'); return; }
     if (!state.room.includes('opened') && Math.random() < .5) return caption('The brass handles along the bottom of the window lift it open.');
-    caption(pick(['You wipe the glass. The street is empty. The porch lights are on, but nobody is home.', 'The glass is ice cold.', 'One house across the street has its lights on. It has had them on since 1961.']));
+    caption(pick(['You wipe the glass. The street is empty. The porch lights are on, but nobody is home.', 'The glass is ice cold.', 'One house across the street has its lights on. It has had them on since the Hollowtide.']));
   }
   function setWindow(open) {
     winOpenTarget = open ? 1 : 0;
+    $('#winToggle').textContent = open ? 'Close the window' : 'Open the window';
     if (ctx) { const k = now(); burst(k, .7, 260, .35, .8); burst(k + .1, .5, 900, .1, 1); }
     if (open) { note('room', 'opened'); caption('You heave the window up. Cold air off the harbor. Rain, and the sound of the water, and somewhere far off, a bell.'); }
     else caption('You pull the window shut. The latch clicks. It is very quiet in here now.');
   }
+  $('#winToggle').addEventListener('click', () => setWindow(winOpenTarget < .5));
   function showFigure(ms) { if (figure < .05) figSpot = Math.min(FIG_SPOTS.length - 1, figSeen); figSeen++; figureTarget = 1; setTimeout(() => figureTarget = 0, ms); }
   let figSeen = 0;
 
   // ================= panels =================
   let openPanel = null;
-  function closePanels() { if (openPanel === 'phone') { sfx.click(); callRun++; callNode = null; hush(); phoneStop(); lineBusy = false; } ['#radioPanel', '#phonePanel', '#termPanel'].forEach(s => $(s).hidden = true); openPanel = null; }
+  function closePanels() { if (openPanel === 'phone') { sfx.click(); callRun++; callNode = null; hush(); phoneStop(); lineBusy = false; } ['#radioPanel', '#phonePanel', '#termPanel', '#winPanel'].forEach(s => $(s).hidden = true); openPanel = null; document.body.classList.remove('paneled'); }
   function show(name) {
-    closePanels(); openPanel = name;
+    closePanels(); openPanel = name; document.body.classList.add('paneled');
     if (name === 'radio') { $('#radioPanel').hidden = false; placeNeedle(); }
     if (name === 'phone') { $('#phonePanel').hidden = false; pickUp(); }
+    if (name === 'window') { $('#winPanel').hidden = false; $('#winToggle').textContent = winOpenTarget > .5 ? 'Close the window' : 'Open the window'; }
     if (name === 'computer') { termGreet(); $('#termPanel').hidden = false; if (matchMedia('(pointer: fine)').matches) termInput.focus(); getSample(); }
   }
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closePanels));
@@ -1623,10 +1704,10 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
   function interact(o) {
     initAudio();
     if (o === 'lantern') return setLantern(!lit);
-    if (o === 'window') return windowLook();
+    if (o === 'window') { show('window'); return windowLook(); }
     if (o === 'sash') return setWindow(winOpenTarget < .5);
-    if (o === 'sign') { note('room', 'sign'); return caption('HOME SWEET HOME. Someone stitched it in 1961. The very last stitch was never finished.'); }
-    if (o === 'clock') { note('room', 'clock'); secTwitch = 1; if (ctx) { const k = now(); for (let i = 0; i < 4; i++) burst(k + i * .5, .02, 3200, .35, 5); } return caption('3:12. The second hand tries to move on, then falls back. It has been 3:12 since 1961.'); }
+    if (o === 'sign') { note('room', 'sign'); return caption('HOME SWEET HOME. Someone stitched it the autumn of 2015. The very last stitch was never finished.'); }
+    if (o === 'clock') { note('room', 'clock'); secTwitch = 1; if (ctx) { const k = now(); for (let i = 0; i < 4; i++) burst(k + i * .5, .02, 3200, .35, 5); } return caption('3:12. The second hand tries to move on, then falls back. It has been 3:12 since the Hollowtide.'); }
     show(o);
     if (o === 'radio' && !radioOn) setRadio(true); // clicking the radio switches it on
   }
@@ -1634,14 +1715,14 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
   // ================= random scares =================
   let entered = false, ending = false;
   const events = [
-    [2, () => { sfx.foghorn(); caption('Out in the harbor, the foghorn. Nobody has kept the lighthouse since 1961.', 4500); }],
+    [2, () => { sfx.foghorn(); caption('Out in the harbor, the foghorn. Nobody has kept the lighthouse since the Hollowtide.', 4500); }],
     [3, () => { gutter = 1.4; }],
     [2, () => { sfx.tap(); caption('Something taps on the glass. Three times.'); }],
     [2, () => { showFigure(lit ? 5000 : 9000); if (Math.random() < .5) caption('Down in the street, someone is standing very still.', 3500); }],
     [2, () => { handTarget = 1; setTimeout(() => handTarget = 0, 12000); sfx.squeak(); caption('A squeak on the glass, like a palm pressed flat.', 3500); }],
     [2, () => { if (openPanel !== 'phone') { sfx.ring(); shake = 1.2; caption('The phone gives one ring. Then nothing.', 3500); } }],
     [1, () => { if (openPanel !== 'phone') startRinging(4); }],
-    [1, () => { if (!radioOn && ctx) { radioNoise.gain.setTargetAtTime(.3, now(), .05); radioNoise.gain.setTargetAtTime(0, now() + 1.6, .2); dialMat.color.setHex(0xffffff); setTimeout(() => !radioOn && dialMat.color.setHex(0x5a4a38), 1700); caption('The radio crackles on for a moment. Nobody touched it.', 3500); } }],
+    [1, () => { if (!radioOn && ctx) { radioNoise.gain.setTargetAtTime(.17, now(), .05); radioNoise.gain.setTargetAtTime(0, now() + 1.6, .2); dialMat.color.setHex(0xffffff); setTimeout(() => !radioOn && dialMat.color.setHex(0x5a4a38), 1700); caption('The radio crackles on for a moment. Nobody touched it.', 3500); } }],
     [1, () => sfx.heartbeat()]
   ];
   function scheduleScare() {
@@ -1661,7 +1742,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     const name = state.name ? who() : '';
     const lines = ['Hello? Is someone there?', 'Oh. Oh, you found me.', `I’ve been talking into the fog for ${years()} years.${name ? ' Thank you, ' + name + '.' : ''}`, 'Let me finish the song. I hate leaving a song unfinished.'];
     speak(lines.join(' ... '), { rate: .9, pitch: 1.05, voice: 'female' });
-    await typeTx(lines.concat([{ t: 'The waltz picks up where it stopped in 1961.', cls: 'dim' }]));
+    await typeTx(lines.concat([{ t: 'The waltz picks up where it stopped on the night of the Hollowtide.', cls: 'dim' }]));
     if (ctx) { stopAudio = program(0, (g, t) => [...WALTZ, 72, 76, 79, 84, 0, 0, 72].forEach((n, i) => n && tone(g, hz(n), t + i * .42, 1.4, 'triangle', .24)))(); radioBus.gain.setTargetAtTime(1, now(), .05); radioNoise.gain.setTargetAtTime(.02, now(), .1); }
     await wait(reduce ? 500 : 10500);
     speak('This is W K R S, HollowVale Harbor, signing off. Thank you for listening. Goodnight.', { rate: .85, pitch: 1.05, voice: 'female' });
@@ -1698,7 +1779,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
 
   // ================= notes =================
   const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock'], ['opened', 'The open window'], ['sign', 'Home sweet home'], ['walker', 'Someone walking past']];
-  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['band', '\u201cOPEN THE BAND\u201d'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET'], ['yehukan', 'SPOKE YE HUKAN']]);
+  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['year', 'WHAT YEAR IT IS'], ['stations', 'EVERY STATION'], ['band', '\u201cOPEN THE BAND\u201d'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET'], ['yehukan', 'SPOKE YE HUKAN']]);
   const foundCount = () => state.radio.length + state.words.length + state.calls.length + state.room.length;
   const totalCount = () => S.length + TERM.length + Object.keys(CALLS).length + ROOM.length;
   function updateNotesCount() { $('#notesCount').textContent = `${foundCount()}`; }
@@ -1774,6 +1855,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     handset.position.z += ((up ? .22 : HS_REST.z) - handset.position.z) * Math.min(1, dt * 6);
     handset.rotation.z += ((up ? .5 : (shake > 0 ? Math.sin(t / 20) * .05 : 0)) - handset.rotation.z) * Math.min(1, dt * 6);
     if (walker || walkerWas || Math.abs(figure - lastFig) > .004 || (streetReady && lastFig < 0)) { walkerWas = !!walker; drawStreet(); lastFig = figure; }
+    sign.rotation.z = Math.sin(t / 1300) * (.006 + .03 * winOpen); sign.rotation.y = Math.sin(t / 1900) * (.01 + .05 * winOpen);
     const tick = (t % 2000) < 180 ? -Math.PI / 30 : 0;
     if (secTwitch > 0) secTwitch -= dt * .25;
     secHand.rotation.z += ((secBase + tick * (1 + secTwitch * 2)) - secHand.rotation.z) * Math.min(1, dt * 20);
