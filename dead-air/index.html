@@ -372,14 +372,37 @@ body.hovering #gl { cursor: pointer; }
 
   // ================= speech =================
   const canSpeak = 'speechSynthesis' in window;
-  function speak(text, { rate = .82, pitch = .7 } = {}) {
+  // pick the best-sounding English voices this device has, and keep a woman's and a man's voice apart
+  let voiceList = [];
+  const loadVoices = () => { try { voiceList = speechSynthesis.getVoices() || []; } catch (e) {} };
+  if (canSpeak) { loadVoices(); try { speechSynthesis.addEventListener('voiceschanged', loadVoices); } catch (e) {} }
+  const FEMALE = /female|samantha|victoria|karen|moira|tessa|fiona|zira|aria|jenny|libby|sonia|susan|hazel|serena|allison|ava|kate|emma|amy|joanna|salli|kimberly|ivy|natasha|catherine|michelle|sara|google us english$/i;
+  const MALE = /\bmale|daniel|alex|fred|david|mark|guy|ryan|george|thomas|arthur|oliver|rishi|christopher|eric|andrew|brian|aaron|gordon|james|matthew|joey|justin|russell|google uk english male/i;
+  const voiceScore = v => (/natural|neural|online|premium|enhanced/i.test(v.name) ? 6 : 0) + (/google/i.test(v.name) ? 2 : 0) + (/^en[-_](US|GB)/i.test(v.lang) ? 2 : 0) + (v.localService === false ? 1 : 0);
+  const voiceCache = {};
+  function pickVoice(role) {
+    if (voiceCache[role] && voiceList.includes(voiceCache[role])) return voiceCache[role];
+    const en = voiceList.filter(v => /^en/i.test(v.lang)), pool = en.length ? en : voiceList;
+    let c = role === 'female' ? pool.filter(v => FEMALE.test(v.name))
+      : pool.filter(v => MALE.test(v.name) && !/female/i.test(v.name));
+    if (!c.length) c = pool;
+    const v = c.slice().sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null;
+    if (v) voiceCache[role] = v;
+    return v;
+  }
+  function speak(text, { rate = .82, pitch = .7, voice = 'male' } = {}) {
     return new Promise(res => {
-      const fallback = setTimeout(res, 900 + text.length * 70);
+      let done = false; const finish = () => { if (!done) { done = true; clearTimeout(fallback); res(); } };
+      const fallback = setTimeout(finish, 2500 + text.length * 95 / rate);
       if (!canSpeak) return;
       try {
         speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text); u.rate = rate; u.pitch = pitch; u.volume = 1;
-        u.onend = () => { clearTimeout(fallback); res(); };
+        const u = new SpeechSynthesisUtterance(text);
+        const v = pickVoice(voice); if (v) { u.voice = v; u.lang = v.lang; }
+        // a device with only one voice: push the two hosts' pitches far apart instead
+        const same = pickVoice('female') === pickVoice('male');
+        u.rate = rate; u.pitch = same ? (voice === 'female' ? Math.max(pitch, 1.5) : Math.min(pitch, .6)) : pitch; u.volume = 1;
+        u.onend = finish; u.onerror = finish;
         speechSynthesis.speak(u);
       } catch (e) {}
     });
@@ -792,32 +815,99 @@ body.hovering #gl { cursor: pointer; }
     { id: 'hardware', band: 'am', f: 36, name: 'Hartwell’s Hardware',
       lines: () => ['Hartwell’s Hardware, on Main Street!', 'Lamp oil. Matches. Nails for the windows.', 'Everything you need for a long night in the fog.', { t: 'Hartwell’s closed in 1961. Nobody told the advertisement.', cls: 'dim' }],
       voice: [0, 1, 2], audio: program(6, (g, t) => [67, 72, 76, 79, 76, 72].forEach((n, i) => tone(g, hz(n), t + i * .18, .3, 'square', .07))) },
-    { id: 'history', band: 'am', f: 49, name: 'The harbor\u2019s history',
+    { id: 'history', band: 'am', f: 49, name: 'The harbor\u2019s history', header: 'STATION 49 \u00b7 HollowVale Harbor Historical Society',
       script: [
-        ['This is the HollowVale Harbor Historical Society. Recorded for the record. Do not adjust your set.'],
-        ['HollowVale Harbor was founded in 1803, by whalers who said the fog here was kinder than the sea.'],
-        ['In 1871 the lighthouse was built on Gull Point. Its first keeper wrote in his log that, some nights, the fog knocked.'],
-        ['In 1904 the keeper went out to answer the knocking. His lantern was found on the rocks, still burning.'],
-        ['In 1923, thirty-one fishing boats sailed out into the fog. None came back. Their bells were heard in the harbor for a week.'],
-        ['On October 14, 1961, at 3:12 in the morning, the WKRS transmitter began to sing by itself. By sunrise the harbor was empty.'],
-        ['The Historical Society reminds you: if you hear a bell in the fog, do not go down to the water.']
-      ], scriptOpts: { rate: .72, pitch: .35 },
-      lines: () => [{ t: 'STATION 49 \u00b7 HollowVale Harbor Historical Society', cls: 'big' }, { t: 'A slow, flat voice under the hiss:', cls: 'dim' }, ...S.find(x => x.id === 'history').script.map(([t]) => t)],
-      audio: program(8, (g, t) => { tone(g, 55, t, 8, 'sine', .12); tone(g, 58, t, 8, 'sine', .06); tone(g, 659, t + 2.5, 3.5, 'sine', .07); tone(g, 1318, t + 2.5, 1.5, 'sine', .02); tone(g, 659, t + 6, 3, 'sine', .05); }) },
-    { id: 'talkshow', band: 'am', f: 72, name: 'Sunny Side Up',
-      script: [
-        ['Good morning, HollowVale! You\u2019re listening to Sunny Side Up. I\u2019m Marge.', { rate: 1.02, pitch: 1.35 }],
-        ['And I\u2019m Henry! What a lovely morning it is.', { rate: 1, pitch: .9 }],
-        ['Today in the garden: hydrangeas! Tuck a rusty nail into the soil and the flowers turn a gorgeous purple. Isn\u2019t that something?', { rate: 1.02, pitch: 1.35 }],
-        ['A listener writes in about her tabby cat, Pickles, who has learned to open the bread box. Clever girl, Pickles!', { rate: 1, pitch: .9 }],
-        ['Our dare of the day: tell somebody you love them before lunch.', { rate: 1.02, pitch: 1.35 }],
-        ['Kettle\u2019s on, door\u2019s open, and the coffee is always hot. Stay sunny, neighbors!', { rate: 1, pitch: .9 }]
+        ['N', 'This is the HollowVale Harbor Historical Society. This broadcast is recorded for the record. Please do not adjust your set.'],
+        ['N', 'Tonight: the complete history of HollowVale Harbor, from the first boat to the last.'],
+        ['N', 'Part one. The founding.'],
+        ['N', 'In the spring of 1803, three whaling ships came around Gull Point in a fog so thick the sailors tied ropes between their wrists.'],
+        ['N', 'They found a deep, quiet harbor, ringed with black rock, and water so still it held the sky like a mirror.'],
+        ['N', 'Captain Elias Vane wrote in his log: the fog here is kinder than the sea. We will stay.'],
+        ['N', 'By winter there were eleven houses, a smokehouse, and a church with no bell. The bell, they said, would come later.'],
+        ['N', 'Part two. The lighthouse.'],
+        ['N', 'In 1871, the town built a lighthouse on Gull Point. Sixty feet tall, painted white, with a lamp that could be seen nine miles out to sea.'],
+        ['N', 'Its first keeper was a quiet man named Abel Morrow. He kept a careful log, and nearly every entry ends the same way. Light lit. Fog thick. All quiet.'],
+        ['N', 'Until the autumn of 1874, when the entries begin to change.'],
+        ['N', 'October the third. Something knocked at the lamp room door. No one was there.'],
+        ['N', 'October the ninth. The knocking again. Three times. It came from the fog side of the glass.'],
+        ['N', 'October the fourteenth. I did not answer it. I will not answer it.'],
+        ['N', 'Abel Morrow kept the light for thirty more years. He never once answered the knocking.'],
+        ['N', 'Part three. The keeper who answered.'],
+        ['N', 'In 1904, a new keeper arrived. A young man from the city, who did not believe in old men\u2019s logs.'],
+        ['N', 'On his first foggy night, he heard the knocking. He took his lantern, and he went down to answer it.'],
+        ['N', 'In the morning, his lantern was found on the rocks below the light. Still burning. The keeper was never found.'],
+        ['N', 'Part four. The fleet.'],
+        ['N', 'On the morning of June the eleventh, 1923, thirty one fishing boats left the harbor in clear weather.'],
+        ['N', 'By noon, a fog came in off the water faster than anyone had ever seen.'],
+        ['N', 'None of the boats came back. No wreckage was ever found.'],
+        ['N', 'But for seven nights afterward, the people of HollowVale heard the boats\u2019 bells ringing out in the fog. One for each boat. Thirty one bells.'],
+        ['N', 'On the eighth night, the bells stopped. And the church, at last, had a bell of its own. No one in town would say where it came from.'],
+        ['N', 'Part five. The radio station.'],
+        ['N', 'WKRS went on the air in 1948, from a small booth above the harbor. It played music, read the marine weather, and kept the town company through the long foggy nights.'],
+        ['N', 'Its most beloved voice was Ruth Calloway, host of Night Owl, from midnight to six.'],
+        ['N', 'People said that when Ruth was on the air, the fog stayed politely out at sea.'],
+        ['N', 'Part six. October the fourteenth, 1961.'],
+        ['N', 'At 3:12 in the morning, the WKRS transmitter began to sing by itself. No one was touching the controls.'],
+        ['N', 'Every radio in HollowVale Harbor turned itself on.'],
+        ['N', 'The fog came up the streets, house by house, and the porch lights went on one by one, as if someone were walking from door to door.'],
+        ['N', 'By sunrise, the harbor was empty. Four hundred people. Every boat still tied at the dock. Every kettle still warm.'],
+        ['N', 'Ruth Calloway was never found. But some nights, between the stations, you can still hear her.'],
+        ['N', 'That concludes the history of HollowVale Harbor.'],
+        ['N', 'The Historical Society reminds you. If you hear a bell in the fog, do not go down to the water. And if something knocks, do not answer it.'],
+        ['N', 'This recording will now repeat.']
       ],
-      lines: () => [{ t: 'STATION 72 \u00b7 Sunny Side Up with Marge and Henry', cls: 'big' }, { t: 'Soft piano, and two warm voices:', cls: 'dim' },
-        'MARGE: Good morning, HollowVale! You\u2019re listening to Sunny Side Up. I\u2019m Marge.', 'HENRY: And I\u2019m Henry! What a lovely morning it is.',
-        'MARGE: Today in the garden: hydrangeas! Tuck a rusty nail into the soil and the flowers turn a gorgeous purple.', 'HENRY: A listener\u2019s tabby cat, Pickles, has learned to open the bread box. Clever girl!',
-        'MARGE: Our dare of the day: tell somebody you love them before lunch.', 'HENRY: Kettle\u2019s on, door\u2019s open. Stay sunny, neighbors!'],
-      audio: program(8, (g, t) => [[60, 64, 67, 71], [65, 69, 72, 76], [62, 65, 69, 72], [67, 71, 74, 77]].forEach((ch, i) => ch.forEach((n, k) => tone(g, hz(n), t + i * 2 + k * .06, 1.9, 'triangle', .045)))) },
+      lines: () => [{ t: 'STATION 49 \u00b7 HollowVale Harbor Historical Society', cls: 'big' }, 'This is the HollowVale Harbor Historical Society.'],
+      audio: program(8, (g, t) => { tone(g, 55, t, 8, 'sine', .1); tone(g, 58, t, 8, 'sine', .05); tone(g, 659, t + 2.5, 3.5, 'sine', .05); tone(g, 1318, t + 2.5, 1.5, 'sine', .015); }) },
+    { id: 'talkshow', band: 'am', f: 72, name: 'Sunny Side Up', header: 'STATION 72 \u00b7 Sunny Side Up with Marge and Henry',
+      script: [
+        ['M', 'Good morning, HollowVale Harbor! You\u2019re listening to Sunny Side Up, on WKRS. I\u2019m Marge.'],
+        ['H', 'And I\u2019m Henry! And what a beautiful morning it is out there.'],
+        ['M', 'It certainly is, Henry. The gulls are up, the coffee\u2019s on, and the harbor is as calm as a bathtub.'],
+        ['H', 'We\u2019ve got a full show for you today. Gardening, pet corner, a recipe, your letters, and of course, the dare of the day.'],
+        ['M', 'Let\u2019s start in the garden. Henry, how are your tomatoes this year?'],
+        ['H', 'Marge, I\u2019m sorry to report that the tomatoes and I are no longer speaking.'],
+        ['M', 'Oh no! What happened?'],
+        ['H', 'The squirrels got to them first. I found one tomato with a single bite out of it, set right back on the vine. Very polite squirrels.'],
+        ['M', 'Well, my hydrangeas are doing wonderfully. And here\u2019s a little trick for everyone at home.'],
+        ['M', 'If you want your hydrangeas to turn purple or blue, tuck a few rusty nails into the soil around the roots.'],
+        ['H', 'Rusty nails! Is that really true?'],
+        ['M', 'Absolutely true. The flowers change color with the soil. Pink in sweet soil, blue and purple when it\u2019s a little sour.'],
+        ['H', 'I learn something new every single morning on this show.'],
+        ['M', 'And now, it\u2019s time for pet corner!'],
+        ['H', 'Our first letter comes from Mrs. Edna Pruitt, on Lantern Street. She writes: Dear Marge and Henry, my tabby cat, Pickles, has learned to open the bread box.'],
+        ['M', 'Oh, Pickles!'],
+        ['H', 'She continues. Every morning I find the bread box open and one slice of bread missing. Pickles doesn\u2019t eat it. She carries it out to the front porch and leaves it there.'],
+        ['M', 'Well, maybe she\u2019s feeding the birds. That\u2019s very generous of her.'],
+        ['H', 'A generous cat. Edna, we think Pickles is a treasure.'],
+        ['M', 'Next, a letter from young Tommy Hale, age nine, who wants to know if dogs can tell time.'],
+        ['H', 'Tommy, my old dog Biscuit used to sit by the door every evening at exactly half past five, waiting for me to come home. So I\u2019d say yes, Tommy. Dogs know.'],
+        ['M', 'That\u2019s lovely, Henry. Now, I promised our listeners a recipe.'],
+        ['H', 'You did, and I\u2019ve been looking forward to it all week.'],
+        ['M', 'Today it\u2019s my grandmother\u2019s clam chowder. You\u2019ll need two dozen clams, three potatoes, an onion, a little salt pork, a pint of milk, and a good pat of butter.'],
+        ['H', 'I\u2019m already hungry.'],
+        ['M', 'Cook the salt pork low and slow. Add the onion until it\u2019s soft, then the potatoes and the clam juice, and simmer until the potatoes are tender.'],
+        ['M', 'Then in go the clams and the milk. And never let it boil once the milk is in.'],
+        ['H', 'Never let it boil. Write that down, everyone.'],
+        ['M', 'Serve it with oyster crackers and good company.'],
+        ['H', 'Now, a few notes from the community board.'],
+        ['M', 'The bake sale at the church hall is this Saturday. Mrs. Abernathy is bringing her famous blueberry pie, so come early.'],
+        ['H', 'The harbor master asks everyone to tie up at the north pier next week, while the main dock gets a fresh coat of paint.'],
+        ['M', 'And the library has new books in, including, Henry, a whole shelf on bird watching.'],
+        ['H', 'Don\u2019t tempt me, Marge.'],
+        ['M', 'And now, the moment you\u2019ve all been waiting for. The dare of the day!'],
+        ['H', 'Today\u2019s dare: tell somebody you love them before lunch.'],
+        ['M', 'It doesn\u2019t have to be fancy. A neighbor, a sister, a friend. Even the mailman.'],
+        ['H', 'Especially the mailman. He works very hard.'],
+        ['M', 'And a little bonus for our friends who are learning Ye Hukan. Today\u2019s word is son. It means happy.'],
+        ['H', 'Son! I\u2019m very son this morning, Marge.'],
+        ['M', 'I can tell, Henry.'],
+        ['H', 'Well, folks, that\u2019s our show.'],
+        ['M', 'Kettle\u2019s on, door\u2019s open, and the coffee is always hot.'],
+        ['H', 'Stay sunny, HollowVale Harbor!'],
+        ['M', 'And we\u2019ll see you tomorrow morning, right here on WKRS.']
+      ],
+      lines: () => [{ t: 'STATION 72 \u00b7 Sunny Side Up with Marge and Henry', cls: 'big' }, 'Good morning, HollowVale Harbor!'],
+      audio: program(8, (g, t) => [[60, 64, 67, 71], [65, 69, 72, 76], [62, 65, 69, 72], [67, 71, 74, 77]].forEach((ch, i) => ch.forEach((n, k) => tone(g, hz(n), t + i * 2 + k * .06, 1.9, 'triangle', .03)))) },
     { id: 'backwards', band: 'am', f: 58, name: 'The backwards voice',
       lines: () => ['A woman talking backwards. You write down what she says:', { t: 'DNAB KNALB EHT NO MI', cls: 'big' }, { t: 'She sounds very tired.', cls: 'dim' }],
       say: 'dnab. knalb. eht. no. mi.', audio: program(3, (g, t) => { for (let i = 0; i < 6; i++) tone(g, 180 + Math.random() * 220, t + i * .4, .35, 'sawtooth', .05); }) },
@@ -839,6 +929,11 @@ body.hovering #gl { cursor: pointer; }
       voice: [0], audio: program(10, (g, t) => { for (let i = 0; i < 10; i++) tone(g, 1000, t + i, i === 9 ? .8 : .1, 'sine', .2); }) },
     { id: 'ruth', band: 'x', f: 77, name: 'Ruth, between the stations', ending: true }
   ];
+  const SPEAKERS = {
+    N: { label: '', voice: 'male', rate: .82, pitch: .62 },          // the Historical Society narrator: slow and low
+    M: { label: 'MARGE', voice: 'female', rate: 1.02, pitch: 1.12 }, // bright, quick
+    H: { label: 'HENRY', voice: 'male', rate: .94, pitch: .82 }      // warm, a little slower
+  };
   S.forEach(s => s.p = toP(s.band, s.f));
   const OWL = S.find(st => st.id === 'nightowl');
   pos.am = OWL.p; // the dial is left on Ruth's show
@@ -906,6 +1001,7 @@ body.hovering #gl { cursor: pointer; }
     if (!current && nearest && dist < b.lock) startStation(nearest);
     if (!current) { txState.textContent = strength > .1 ? 'Faint signal' : 'Static'; if (!staticTimer) staticTimer = setInterval(() => !current && radioOn && staticTx(nearest, strength), 140); }
   }
+  let scriptRun = 0;
   function startStation(st) {
     current = st; clearInterval(staticTimer); staticTimer = null;
     txState.textContent = BANDS[st.band].fmt(st.f) || 'Unmarked';
@@ -914,13 +1010,32 @@ body.hovering #gl { cursor: pointer; }
     const lines = st.lines();
     if (note('radio', st.id)) caption(`Logged: ${st.name}.`, 2600);
     const plain = lines.map(l => typeof l === 'string' ? l : l.t);
-    if (st.script) (async () => { for (const [text, o] of st.script) { if (current !== st) return; await speak(text, o || st.scriptOpts); } })();
+    if (st.script) {
+      txRun++; txEl.innerHTML = '';
+      const head = document.createElement('p'); head.className = 'big'; head.textContent = st.header; txEl.appendChild(head);
+      const run = ++scriptRun; // tuning away and back must not start a second reader
+      (async () => {
+        while (current === st && run === scriptRun) {
+          for (const [who, text] of st.script) {
+            if (current !== st || run !== scriptRun) return;
+            const sp = SPEAKERS[who], p = document.createElement('p');
+            p.textContent = (sp.label ? sp.label + ': ' : '') + text; txEl.appendChild(p);
+            while (txEl.children.length > 7) txEl.children[1].remove();
+            txEl.scrollTop = txEl.scrollHeight;
+            await speak(text, sp);
+            await wait(who === 'N' ? 700 : 250);
+          }
+          await wait(3000);
+        }
+      })();
+      return;
+    }
     else if (st.say) speak(st.say, st.sayOpts);
     else if (st.voice === 'all') speak(plain.filter((_, i) => typeof lines[i] === 'string').join(' ... '), st.sayOpts);
     else if (st.voice) speak(st.voice.map(i => plain[i]).join(' ... '), st.sayOpts);
     typeTx(lines);
   }
-  function stopStation() { if (stopAudio) stopAudio(); stopAudio = null; hush(); current = null; txRun++; }
+  function stopStation() { scriptRun++; if (stopAudio) stopAudio(); stopAudio = null; hush(); current = null; txRun++; }
   function setRadio(on) {
     radioOn = on; $('#powerBtn').setAttribute('aria-pressed', String(on));
     strip.classList.toggle('on', on); magic.classList.toggle('on', on);
@@ -1360,11 +1475,11 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     note('radio', 'ruth');
     const name = state.name ? who() : '';
     const lines = ['Hello? Is someone there?', 'Oh. Oh, you found me.', `I’ve been talking into the fog for ${years()} years.${name ? ' Thank you, ' + name + '.' : ''}`, 'Let me finish the song. I hate leaving a song unfinished.'];
-    speak(lines.join(' ... '), { rate: .9, pitch: 1.05 });
+    speak(lines.join(' ... '), { rate: .9, pitch: 1.05, voice: 'female' });
     await typeTx(lines.concat([{ t: 'The waltz picks up where it stopped in 1961.', cls: 'dim' }]));
     if (ctx) { stopAudio = program(0, (g, t) => [...WALTZ, 72, 76, 79, 84, 0, 0, 72].forEach((n, i) => n && tone(g, hz(n), t + i * .42, 1.4, 'triangle', .24)))(); radioBus.gain.setTargetAtTime(1, now(), .05); radioNoise.gain.setTargetAtTime(.02, now(), .1); }
     await wait(reduce ? 500 : 10500);
-    speak('This is W K R S, HollowVale Harbor, signing off. Thank you for listening. Goodnight.', { rate: .85, pitch: 1.05 });
+    speak('This is W K R S, HollowVale Harbor, signing off. Thank you for listening. Goodnight.', { rate: .85, pitch: 1.05, voice: 'female' });
     await typeTx(['This is WKRS, HollowVale Harbor, signing off.', 'Thank you for listening. Goodnight.']);
     if (ctx) program(0, (g, t) => tone(g, 1000, t, 3, 'sine', .15))();
     await wait(3400);
