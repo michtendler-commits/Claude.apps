@@ -7,9 +7,9 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Special+Elite&family=Josefin+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Special+Elite&family=VT323&family=Josefin+Sans:wght@400;600&display=swap">
 <style>
-/* Layout: one fixed close-up of a desk and a wall phone by a window (3D, barely drifting); small HTML panels rise over it when you use something. Single dark look by choice. */
+/* Layout: one fixed close-up of a desk (radio, terminal, lantern) and a wall phone by a window (3D, barely drifting); small HTML panels rise over it when you use something. Single dark look by choice. */
 :root {
   --void: #050608;
   --smoke: rgba(10, 11, 14, .88);
@@ -113,15 +113,28 @@ body.hovering #gl { cursor: pointer; }
 #tx .static { color: var(--bone-dim); letter-spacing: .05em; }
 
 /* phone */
-#log { max-height: 26vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 1rem; line-height: 1.45; }
-#log p { margin: 0; overflow-wrap: anywhere; }
-#log .you { color: var(--bone-dim); }
-#log .you::before { content: "You: "; }
-#log .them { color: #e0675c; text-shadow: 0 0 8px rgba(179,38,30,.4); }
-#log .sys { color: var(--bone-dim); font-style: italic; }
-#lineForm { display: flex; gap: 8px; }
-#lineInput { flex: 1; min-width: 0; font-family: var(--type); font-size: 1.05rem; color: var(--bone); background: rgba(0,0,0,.5); border: 1px solid var(--line); border-radius: 2px; padding: 9px 10px; }
-#lineInput:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
+.log { max-height: 24vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 1rem; line-height: 1.45; }
+.log p { margin: 0; overflow-wrap: anywhere; }
+.log .you { color: var(--bone-dim); }
+.log .you::before { content: "You: "; }
+.log .them { color: #e0675c; text-shadow: 0 0 8px rgba(179,38,30,.4); }
+.log .sys { color: var(--bone-dim); font-style: italic; }
+.answers { display: flex; gap: 8px; }
+.answers .btn { flex: 1; padding-block: 12px; font-size: .85rem; }
+.answers .btn:disabled { opacity: .35; cursor: default; }
+
+/* terminal */
+#termPanel { background: rgba(4, 12, 6, .92); border-color: rgba(108, 255, 143, .25); }
+#termPanel h2, #termPanel .live { color: rgba(140, 255, 170, .75); }
+#termLog { font-family: "VT323", "Courier New", monospace; font-size: 1.2rem; color: #8dffaa; text-shadow: 0 0 6px rgba(108,255,143,.45); }
+#termLog .you { color: rgba(141,255,170,.6); }
+#termLog .you::before { content: "> "; }
+#termLog .them { color: #8dffaa; text-shadow: 0 0 6px rgba(108,255,143,.45); }
+#termForm { display: flex; gap: 8px; }
+#termInput { flex: 1; min-width: 0; font-family: "VT323", "Courier New", monospace; font-size: 1.35rem; text-transform: uppercase; color: #8dffaa; background: #020803; border: 1px solid rgba(108,255,143,.3); border-radius: 2px; padding: 6px 10px; caret-color: #8dffaa; }
+#termInput:focus-visible { outline: 2px solid #6cff8f; outline-offset: 1px; }
+#termPanel .btn { border-color: rgba(108,255,143,.35); color: #8dffaa; }
+#termPanel .hint { color: rgba(141,255,170,.55); }
 
 /* notes */
 #notes { position: fixed; z-index: 30; inset: 0; background: rgba(0,0,0,.7); display: grid; place-items: center;
@@ -160,7 +173,7 @@ body.hovering #gl { cursor: pointer; }
   <div class="start-inner">
     <span class="when">Marrow Falls · October 14, 1961 · 3:12 a.m.</span>
     <h1>Dead Air</h1>
-    <p>A desk by a window. A radio that still works. A lantern burning low. A telephone on the wall that still rings, though the line was cut in 1961.</p>
+    <p>A desk by a window. A radio that still works. A lantern burning low. A computer terminal that answers any question. A telephone on the wall that still rings, though the line was cut in 1961.</p>
     <p>Click things in the room. Headphones help. So does the dark.</p>
     <button id="enter" type="button">Sit down</button>
     <p id="nogl" hidden>This scene needs WebGL, and your browser has it switched off.</p>
@@ -194,13 +207,23 @@ body.hovering #gl { cursor: pointer; }
 
 <section class="panel" id="phonePanel" hidden aria-label="Wall telephone">
   <header><h2>The wall phone</h2><span class="live" id="lineState">Line open</span><button class="x" type="button" data-close aria-label="Hang up">&times;</button></header>
-  <div id="log" aria-live="polite"></div>
-  <form id="lineForm" autocomplete="off">
-    <label for="lineInput" hidden>What you say into the phone</label>
-    <input id="lineInput" type="text" maxlength="60" spellcheck="false" placeholder="Type what you say">
-    <button class="btn" type="submit">Say it</button>
+  <div class="log" id="log" aria-live="polite"></div>
+  <div class="answers" role="group" aria-label="Your answer">
+    <button class="btn" type="button" data-answer="yes" disabled>Yes</button>
+    <button class="btn" type="button" data-answer="no" disabled>No</button>
+    <button class="btn" type="button" data-answer="maybe" disabled>Maybe</button>
+  </div>
+</section>
+
+<section class="panel" id="termPanel" hidden aria-label="Computer terminal">
+  <header><h2>WKRS night terminal</h2><span class="live" id="termState">Ready</span><button class="x" type="button" data-close aria-label="Close">&times;</button></header>
+  <div class="log" id="termLog" aria-live="polite"></div>
+  <form id="termForm" autocomplete="off">
+    <label for="termInput" hidden>Ask the terminal anything</label>
+    <input id="termInput" type="text" maxlength="200" spellcheck="false" placeholder="ASK IT ANYTHING">
+    <button class="btn" type="submit">Enter</button>
   </form>
-  <p class="hint">Type what you want to say into the receiver. Someone on the line answers.</p>
+  <p class="hint" id="termHint">Type any question and press Enter.</p>
 </section>
 
 <div id="notes" hidden>
@@ -230,7 +253,7 @@ body.hovering #gl { cursor: pointer; }
 
   // ================= saved state =================
   const KEY = 'dead-air.v3';
-  const fresh = () => ({ radio: [], words: [], room: [], xOpen: false, ended: false, name: '' });
+  const fresh = () => ({ radio: [], words: [], calls: [], room: [], xOpen: false, ended: false, name: '' });
   let state = fresh();
   try { state = Object.assign(state, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
@@ -383,7 +406,7 @@ body.hovering #gl { cursor: pointer; }
   box(2.4, .05, .9, M.desk, 0, DESK_Y - .025, -1.6);
   box(2.4, .12, .03, M.desk, 0, DESK_Y - .1, -1.16);
   const sheet = (x, z, r) => { const p = mesh(new THREE.PlaneGeometry(.21, .29), M.cream, x, DESK_Y + .002, z); p.rotation.x = -Math.PI / 2; p.rotation.z = r; p.castShadow = false; };
-  sheet(-.75, -1.45, .5); sheet(-.68, -1.4, .2); sheet(.85, -1.4, -.25);
+  sheet(-.95, -1.4, .5); sheet(-.88, -1.36, .2); sheet(.9, -1.3, -.25);
   const hemi = new THREE.HemisphereLight(0x223040, 0x080604, .2); scene.add(hemi);
 
   // ---------- window: a real opening onto the street ----------
@@ -487,7 +510,7 @@ body.hovering #gl { cursor: pointer; }
   tag(winGroup, 'window');
 
   // ---------- lantern ----------
-  const lantern = new THREE.Group(); lantern.position.set(.44, DESK_Y, -1.52); scene.add(lantern);
+  const lantern = new THREE.Group(); lantern.position.set(.58, DESK_Y, -1.5); scene.add(lantern);
   cyl(.085, .095, .07, M.tin, 0, .035, 0, lantern, 28);
   cyl(.06, .085, .02, M.tin, 0, .08, 0, lantern, 28);
   const globeMat = new THREE.MeshStandardMaterial({ color: 0xfff1d6, roughness: .05, metalness: 0, transparent: true, opacity: .22, emissive: 0xff9a3c, emissiveIntensity: .35, depthWrite: false });
@@ -505,13 +528,13 @@ body.hovering #gl { cursor: pointer; }
   const glow = new THREE.Sprite(glowMat); glow.position.set(0, .15, 0); glow.scale.set(.2, .26, 1); lantern.add(glow);
   box(.025, .012, .012, M.brass, .09, .095, 0, lantern); // wick key
   const lanternLight = new THREE.PointLight(0xff9d4d, 1.9, 5, 1.6);
-  lanternLight.position.set(.44, DESK_Y + .17, -1.52); lanternLight.castShadow = true;
+  lanternLight.position.set(.58, DESK_Y + .17, -1.5); lanternLight.castShadow = true;
   lanternLight.shadow.mapSize.set(1024, 1024); lanternLight.shadow.bias = -.004; lanternLight.shadow.radius = 4;
   scene.add(lanternLight);
   tag(lantern, 'lantern');
 
   // ---------- radio ----------
-  const radio = new THREE.Group(); radio.position.set(-.2, DESK_Y, -1.72); radio.rotation.y = .12; scene.add(radio);
+  const radio = new THREE.Group(); radio.position.set(-.55, DESK_Y, -1.68); radio.rotation.y = .25; scene.add(radio);
   box(.58, .34, .28, M.bakelite, 0, .17, 0, radio);
   const top = cyl(.14, .14, .58, M.bakelite, 0, .34, 0, radio, 32); top.rotation.z = Math.PI / 2; top.scale.set(1, 1, .9);
   const grilleTex = canvasTex(256, 128, (g, w, h) => { g.fillStyle = '#1b0f07'; g.fillRect(0, 0, w, h); for (let y = 8; y < h; y += 13) { g.fillStyle = '#b8954d'; g.fillRect(0, y, w, 5); } });
@@ -525,7 +548,7 @@ body.hovering #gl { cursor: pointer; }
   mesh(new THREE.TorusGeometry(.032, .006, 8, 24), M.chrome, .19, .25, .142, radio);
   const knobs = [-.2, .2].map(x => { const k = cyl(.034, .038, .035, M.black, x, .045, .155, radio, 20); k.rotation.x = Math.PI / 2; return k; });
   [[-.24, -.11], [.24, -.11], [-.24, .11], [.24, .11]].forEach(([x, z]) => box(.04, .012, .04, M.black, x, -.006, z, radio));
-  const radioGlow = new THREE.PointLight(0xffa64d, 0, 1.2, 2); radioGlow.position.set(-.2, DESK_Y + .12, -1.45); scene.add(radioGlow);
+  const radioGlow = new THREE.PointLight(0xffa64d, 0, 1.2, 2); radioGlow.position.set(-.5, DESK_Y + .12, -1.4); scene.add(radioGlow);
   tag(radio, 'radio');
 
   // ---------- wall telephone ----------
@@ -569,7 +592,28 @@ body.hovering #gl { cursor: pointer; }
   tag(phone, 'phone');
   const phoneLight = new THREE.PointLight(0x9fb4d8, .35, 1.4, 2); phoneLight.position.set(-.85, 1.75, BACK + .5); scene.add(phoneLight);
 
-  // ---------- fixed camera, framed so all four things fit ----------
+  // ---------- computer terminal ----------
+  const term = new THREE.Group(); term.position.set(.1, DESK_Y, -1.62); term.rotation.y = -.12; scene.add(term);
+  const beige = new THREE.MeshStandardMaterial({ color: 0xb9ae94, roughness: .55 });
+  const beigeDark = new THREE.MeshStandardMaterial({ color: 0x8c8370, roughness: .6 });
+  box(.44, .34, .3, beige, 0, .21, -.02, term);
+  box(.34, .26, .16, beigeDark, 0, .2, -.22, term); // the tube's back
+  box(.46, .04, .32, beigeDark, 0, .02, -.02, term);
+  box(.36, .27, .02, M.black, 0, .22, .135, term); // bezel
+  const screenTex = canvasTex(512, 384, () => {});
+  screenTex.encoding = THREE.LinearEncoding;
+  const screen = mesh(new THREE.PlaneGeometry(.31, .23), new THREE.MeshBasicMaterial({ map: screenTex, fog: false, toneMapped: false }), 0, .22, .147, term); screen.castShadow = false;
+  const kb = new THREE.Group(); kb.position.set(0, 0, .3); term.add(kb);
+  box(.44, .03, .15, beige, 0, .015, 0, kb).rotation.x = -.05;
+  const keyCaps = [];
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 12; c++) { const k = box(.026, .012, .024, beigeDark, -.165 + c * .03 + (r % 2) * .008, .036 - r * .002, -.05 + r * .032, kb); k.userData.baseY = k.position.y; keyCaps.push(k); }
+  box(.2, .01, .022, beigeDark, 0, .03, .085, kb);
+  const ledMat = new THREE.MeshBasicMaterial({ color: 0x6cff8f });
+  mesh(new THREE.SphereGeometry(.006, 8, 6), ledMat, .19, .06, .138, term).castShadow = false;
+  const termGlow = new THREE.PointLight(0x6cff8f, .3, 1.1, 2); termGlow.position.set(.06, DESK_Y + .2, -1.1); scene.add(termGlow);
+  tag(term, 'computer');
+
+  // ---------- fixed camera, framed so everything fits ----------
   const CAM = { p: new THREE.Vector3(-.1, 1.42, -.12), t: new THREE.Vector3(-.12, 1.24, -1.9) };
   const mouse = { x: 0, y: 0 };
   function resize() {
@@ -583,14 +627,14 @@ body.hovering #gl { cursor: pointer; }
     camera.fov = Math.max(46, vfov); camera.updateProjectionMatrix();
     CAM.pp = CAM.p.clone().add(new THREE.Vector3(0, back * .2, back * .9));
     CAM.tt = CAM.t.clone().add(new THREE.Vector3(0, back * .28, 0));
-    if (aspect < .8) { CAM.pp.x -= .05; CAM.tt.x -= .07; CAM.pp.z += .2; } // keep the wall phone in frame on tall screens
+    if (aspect < .8) { CAM.pp.x += .01; CAM.tt.x += .02; CAM.pp.z += .3; } // keep the wall phone in frame on tall screens
   }
   addEventListener('resize', resize); resize();
 
   // ---------- picking ----------
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-  const pickables = [lantern, winGroup, radio, phone];
-  const LABELS = { lantern: 'Lantern', window: 'Window', radio: 'Radio', phone: 'Telephone' };
+  const pickables = [lantern, winGroup, radio, phone, term];
+  const LABELS = { lantern: 'Lantern', window: 'Window', radio: 'Radio', phone: 'Telephone', computer: 'Computer' };
   function pickAt(cx, cy) {
     ndc.set(cx / innerWidth * 2 - 1, -(cy / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
@@ -797,73 +841,69 @@ body.hovering #gl { cursor: pointer; }
     if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { nudge(-step); e.preventDefault(); }
   });
 
-  // ================= the wall phone =================
-  const logEl = $('#log'), lineInput = $('#lineInput'), lineState = $('#lineState');
-  let lineBusy = false, pendingName = false, misses = 0, greeted = false, ringing = false, ringTimer = null, shake = 0;
-  function addLog(text, cls) { const p = document.createElement('p'); p.className = cls; p.textContent = text; logEl.appendChild(p); logEl.scrollTop = logEl.scrollHeight; return p; }
+  // ================= the wall phone: it asks, you answer yes, no or maybe =================
+  const logEl = $('#log'), lineState = $('#lineState'), answerBtns = [...document.querySelectorAll('[data-answer]')];
+  let lineBusy = false, ringing = false, ringTimer = null, shake = 0, greeted = false, endingCall = false, callNode = null, callScript = null, callRun = 0;
+  function addLog(el, text, cls) { const p = document.createElement('p'); p.className = cls; p.textContent = text; el.appendChild(p); el.scrollTop = el.scrollHeight; return p; }
   async function voice(text, opts = { rate: .8, pitch: .55 }) {
+    const id = callRun;
     lineBusy = true; lineState.textContent = 'Someone is talking';
-    const p = addLog('', 'them'), spoken = speak(text, opts);
-    for (const ch of text) { p.textContent += ch; logEl.scrollTop = logEl.scrollHeight; await wait(reduce ? 0 : 34); }
-    await spoken; await wait(300);
+    const p = addLog(logEl, '', 'them'), spoken = speak(text, opts);
+    for (const ch of text) { if (id !== callRun) return; p.textContent += ch; logEl.scrollTop = logEl.scrollHeight; await wait(reduce ? 0 : 34); }
+    await spoken; await wait(250);
+    if (id !== callRun) return;
     lineBusy = false; lineState.textContent = 'Line open';
   }
-  const W = [
-    ['hello', ['hello', 'hi', 'hey', 'yes', 'imhere', 'hellothere', 'someone', 'me', 'yeah', 'iamhere', 'whoisthis'], 'You can hear me. Good. Nobody picks up anymore. Put out the lantern, then look at the window.'],
-    ['who', ['who', 'whoareyou', 'whoshere', 'whatareyou', 'whoisthere', 'whoiscalling'], 'I read the weather at WKRS. Night shift. It was always fog.'],
-    ['ruth', ['ruth', 'ruthcalloway', 'calloway'], 'Not so loud. She can hear her name on every frequency.'],
-    ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'whereruth', 'wheredidruthgo'], 'Between the stations. On the band with no name. The window knows how to open it.'],
-    ['band', ['opentheband', 'openband', 'theband', 'opentheblankband', 'open'], null],
-    ['fog', ['fog', 'thefog', 'mist'], 'It came in at 3:12 and never left. Look outside. Someone is standing in it.', () => showFigure(9000)],
-    ['1961', ['1961', 'october', 'october14', 'october141961', 'whathappened'], 'October 14. The transmitter sang all by itself. By morning the street was empty. Only her voice stayed.'],
-    ['help', ['help', 'hint', 'helpme', 'what', 'idontunderstand'], 'I can’t help you. I can barely help myself. Ask me who I am. Ask about the fog. Ask where Ruth is.'],
-    ['biscuit', ['biscuit', 'dog', 'goodboy'], 'Good boy. He still waits outside.', () => setTimeout(() => { sfx.scratch(); caption('Something scratches at the window glass. Low down. Then it stops.'); }, 1500)],
-    ['marrowfalls', ['marrowfalls', 'marrow', 'town', 'whereami', 'street'], 'Marrow Falls. Population four hundred. Population one. Population you.'],
-    ['name', ['whatisyourname', 'whatsyourname', 'yourname', 'name'], 'I don’t remember mine. What’s yours?', () => { pendingName = true; }],
-    ['leave', ['leave', 'exit', 'goodbye', 'bye', 'letmeout', 'escape', 'iwanttoleave'], 'There’s nowhere to go. The fog goes all the way out.'],
-    ['knock', ['knock', 'knocking', 'whoisknocking', 'tapping', 'whoistapping'], 'Nobody. Nobody taps on the glass every night at this time.'],
-    ['radio', ['radio', 'wkrs', 'nightowl', 'station'], 'She’s on the radio. She’s always on the radio.'],
-    ['dark', ['lantern', 'lamp', 'light', 'dark', 'thedark', 'fire'], 'Light hides things. The dark is more honest.'],
-    ['dead', ['areyoudead', 'dead', 'ghost', 'areyouaghost', 'areyoualive', 'alive'], 'Define dead.'],
-    ['scared', ['scared', 'imscared', 'afraid', 'imafraid', 'scary', 'thisisscary'], 'Good. It means you’re paying attention.'],
-    ['love', ['iloveyou', 'love'], 'Nobody has said that on this line since 1961. Thank you.'],
-    ['sorry', ['sorry', 'imsorry'], 'Everyone is. Nobody came back.'],
-    ['time', ['time', 'whattimeisit', 'clock'], 'It’s 3:12. It’s always 3:12.'],
-    ['phone', ['phone', 'telephone', 'howareyoucalling', 'theline', 'thelineisdead'], 'The line was cut in 1961. I know. I’m calling anyway.'],
-    ['window', ['window', 'outside', 'whoisoutside', 'whoisatthewindow', 'whoisinthestreet'], 'Don’t wipe the glass too much. It likes to see you too.'],
-    ['behind', ['behindme', 'whoisbehindme', 'lookbehind', 'turnaround'], 'Don’t.']
-  ];
-  const WMAP = {}; W.forEach(([id, al, reply, fx]) => al.forEach(a => WMAP[a] = { id, reply, fx }));
-  const misfires = ['What?', 'I can’t hear you. The line is bad tonight.', '...', 'No.', 'Say that again. No. Don’t.', 'The fog is in the wires. Try again.'];
-  $('#lineForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    const raw = lineInput.value.trim(); if (!raw || lineBusy) return;
-    lineInput.value = ''; addLog(raw, 'you'); lineBusy = true;
-    burst(now(), .4, 900, .08, .5);
-    await wait(900 + rand(0, 900));
-    lineBusy = false;
-    const code = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (pendingName) {
-      pendingName = false;
-      const nm = raw.toUpperCase().replace(/[^A-Z' -]/g, '').trim().slice(0, 16) || 'NOBODY';
-      state.name = nm; save();
-      return voice(`${who()}. I’ll remember that. I remember everything now.`);
-    }
-    if (state.name && code === state.name.toLowerCase().replace(/[^a-z0-9]/g, '')) return voice('Yes. I know. I’ve been saying it to myself.');
-    const hit = WMAP[code];
-    if (!hit) { misses++; return voice(misses >= 4 && misses % 2 === 0 ? 'Ask me who I am. Ask where Ruth is.' : pick(misfires)); }
-    misses = 0;
-    if (hit.id === 'band') {
-      if (!state.room.includes('writing')) return voice('Open what? You haven’t read the window yet.');
-      const first = !state.xOpen; state.xOpen = true; save(); note('words', 'band');
-      await voice(first ? 'You read it. Good. The blank band is open now. Listen for the numbers.' : 'It’s already open. Listen for the numbers.');
-      if (first) { sfx.click(); caption('Across the room, inside the radio, something goes click.'); }
-      return;
-    }
-    if (note('words', hit.id)) setTimeout(() => caption('A new answer is in your notes.', 2200), 300);
-    await voice(hit.reply);
-    if (hit.fx) hit.fx();
-  });
+  const setAnswers = on => answerBtns.forEach(b => b.disabled = !on);
+  // each call is a little tree: the voice asks, and yes / no / maybe each get a reply and lead on (or end the call)
+  const CALLS = {
+    first: { name: 'The first call', start: 'a', nodes: {
+      a: { say: 'Hello? Is someone there?', yes: ['Oh. Good. Nobody picks up anymore.', 'b'], no: ['Then who picked up?', 'a'], maybe: ['Maybe. That\u2019s what everyone says in the fog.', 'b'] },
+      b: { say: 'Are you alone in the room?', yes: ['No. You\u2019re not.', 'c'], no: ['I know. I can see it too.', 'c'], maybe: ['That\u2019s the right answer.', 'c'] },
+      c: { say: 'Do you want to know where Ruth went?', yes: ['Then listen carefully.', 'd'], no: ['You will.', 'd'], maybe: ['Everyone wants to know, in the end.', 'd'] },
+      d: { say: 'Put out the lantern. Then look at the window. Whatever is written there, type it into the terminal. Will you do that for me?', yes: ['Good. I\u2019ll be listening.', null], no: ['You will anyway. Everyone does.', null], maybe: ['Then I\u2019ll wait. I\u2019m good at waiting.', null] } } },
+    terminal: { name: 'Did you type it in?', start: 'a', nodes: {
+      a: { say: 'Did you type what the window said into the terminal?', yes: ['Then the band would be open. Type it again. Exactly as it\u2019s written.', null], no: ['Type it. Exactly as it\u2019s written.', null], maybe: ['The terminal remembers, even if you don\u2019t. Type it.', null] } } },
+    band: { name: 'The numbers', start: 'a', nodes: {
+      a: { say: 'The band with no name is open. Did you find the numbers yet?', yes: ['Then you know where she is. Go to her.', null], no: ['Short wave. Somebody reads them every night.', null], maybe: ['Listen for four chimes.', null] } } },
+    lantern: { name: 'About the lantern', start: 'a', nodes: {
+      a: { say: 'Is the lantern still lit?', yes: ['Put it out. It\u2019s easier to see in the dark.', null], no: ['Good. Now look at the window.', null], maybe: ['You don\u2019t know? Look at it.', null] } } },
+    street: { name: 'Someone in the street', start: 'a', nodes: {
+      a: { say: 'Have you seen them? Down in the street?', yes: ['They\u2019ve seen you too.', 'b'], no: ['Look again. Under the streetlight.', null], maybe: ['That means yes.', 'b'] },
+      b: { say: 'Do you want them to come inside?', yes: ['Don\u2019t say that.', null], no: ['Then keep the lantern low.', null], maybe: ['They heard maybe.', null] } } },
+    radio: { name: 'About the radio', start: 'a', nodes: {
+      a: { say: 'Do you like the radio?', yes: ['She\u2019ll be glad.', null], no: ['She can hear you, you know.', null], maybe: ['Turn it on anyway. She gets lonely.', null] } } },
+    still: { name: 'Are you still there?', start: 'a', nodes: {
+      a: { say: 'Are you still there?', yes: ['Stay. Please stay.', null], no: ['Then who is breathing?', null], maybe: ['Me too.', null] } } },
+    stay: { name: 'The last call', start: 'a', nodes: {
+      a: { say: 'Ruth is gone. Someone has to stay on the air. Will you stay?', yes: ['Yes. You will.', null], no: ['Yes. You will.', null], maybe: ['Yes. You will.', null] } } }
+  };
+  function nextCall() {
+    if (endingCall) return 'stay';
+    if (!state.calls.includes('first')) return 'first';
+    if (state.room.includes('writing') && !state.xOpen) return 'terminal';
+    if (state.xOpen && !state.radio.includes('ruth')) return 'band';
+    const fresh = ['lantern', 'street', 'radio', 'still'].filter(c => !state.calls.includes(c));
+    return pick(fresh.length ? fresh : ['lantern', 'street', 'radio', 'still']);
+  }
+  async function ask(nodeId) {
+    callNode = callScript.nodes[nodeId];
+    await voice(callNode.say);
+    if (openPanel === 'phone' && callNode) setAnswers(true);
+  }
+  answerBtns.forEach(b => b.addEventListener('click', async () => {
+    if (!callNode || lineBusy) return;
+    const a = b.dataset.answer, [reply, next] = callNode[a];
+    setAnswers(false); addLog(logEl, a.charAt(0).toUpperCase() + a.slice(1) + '.', 'you'); burst(now(), .3, 900, .06, .5);
+    callNode = null;
+    await wait(700 + rand(0, 600));
+    await voice(reply);
+    if (openPanel !== 'phone') return;
+    if (next) return ask(next);
+    await wait(900); addLog(logEl, 'Click. The line goes dead.', 'sys'); sfx.click();
+    if (callScript === CALLS.stay) endingCallDone = true;
+  }));
+  let endingCallDone = false;
   function startRinging(times = 6) {
     if (ringing || openPanel === 'phone') return;
     ringing = true; let n = 0;
@@ -873,10 +913,125 @@ body.hovering #gl { cursor: pointer; }
   }
   async function pickUp() {
     const wasRinging = ringing; ringing = false; clearTimeout(ringTimer);
+    callRun++; callNode = null; setAnswers(false); logEl.innerHTML = '';
     sfx.click();
-    if (!greeted) { greeted = true; addLog('You lift the receiver. Static, then breathing.', 'sys'); await wait(1200); return voice(state.ended ? 'You came back. Good. The night shift never ends.' : 'Hello? Is someone there?'); }
-    if (wasRinging) { addLog('You answer.', 'sys'); await wait(900); return voice(pick(['Did you put out the lantern yet?', 'It’s cold on this end of the line.', 'Don’t hang up again.', 'I can see your window from here.'])); }
+    if (!wasRinging && greeted && !endingCall) {
+      addLog(logEl, 'No dial tone. Just static, and very far away, someone breathing. Hang up and wait for it to ring.', 'sys');
+      return;
+    }
+    greeted = true;
+    const id = nextCall(); callScript = CALLS[id];
+    if (note('calls', id)) setTimeout(() => caption(`Noted: ${callScript.name}.`, 2200), 400);
+    addLog(logEl, 'You lift the receiver. Static, then breathing.', 'sys');
+    await wait(1200);
+    if (openPanel === 'phone') ask(callScript.start);
   }
+
+  // ================= the terminal: ask it anything =================
+  const termLog = $('#termLog'), termInput = $('#termInput'), termState = $('#termState'), termHint = $('#termHint');
+  const screenLines = [{ t: 'WKRS NIGHT TERMINAL  REV 3.12', who: 'sys' }, { t: 'READY.', who: 'sys' }];
+  let termBusy = false, caretOn = true, termDraft = '';
+  const turns = [];
+  function wrap(g, text, max) {
+    const out = []; let cur = '';
+    text.split(' ').forEach(w => { const t = cur ? cur + ' ' + w : w; if (g.measureText(t).width > max && cur) { out.push(cur); cur = w; } else cur = t; });
+    out.push(cur); return out;
+  }
+  function drawScreen() {
+    const g = screenTex.userData.g, w = 512, h = 384;
+    g.fillStyle = '#031006'; g.fillRect(0, 0, w, h);
+    const gr = g.createRadialGradient(w / 2, h / 2, 40, w / 2, h / 2, 330); gr.addColorStop(0, 'rgba(40,120,60,.25)'); gr.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.font = '26px "VT323", "Courier New", monospace'; g.textBaseline = 'alphabetic';
+    const phys = [];
+    screenLines.forEach(l => wrap(g, (l.who === 'you' ? '> ' : '') + l.t, w - 48).forEach(t => phys.push({ t, who: l.who })));
+    phys.push({ t: '> ' + termDraft + (caretOn ? '\u2588' : ''), who: 'you' });
+    const shown = phys.slice(-13);
+    g.shadowColor = 'rgba(108,255,143,.7)'; g.shadowBlur = 8;
+    shown.forEach((l, i) => { g.fillStyle = l.who === 'you' ? '#5fd67a' : '#8dffaa'; g.fillText(l.t, 24, 40 + i * 26); });
+    g.shadowBlur = 0;
+    g.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 0; y < h; y += 3) g.fillRect(0, y, w, 1);
+    screenTex.needsUpdate = true;
+  }
+  setInterval(() => { caretOn = !caretOn; drawScreen(); }, 530);
+  function keyTap() { sfx.clack(); const k = pick(keyCaps); k.position.y = k.userData.baseY - .004; setTimeout(() => k.position.y = k.userData.baseY, 70); }
+  termInput.addEventListener('input', () => { const v = termInput.value.toUpperCase(); if (v.length > termDraft.length) keyTap(); termDraft = v; drawScreen(); });
+  const W = [
+    ['hello', ['hello', 'hi', 'hey', 'hellothere', 'yo'], 'HELLO. NOBODY HAS USED THIS TERMINAL SINCE 1961. ASK ME SOMETHING.'],
+    ['who', ['who', 'whoareyou', 'whatareyou', 'whoisthis'], 'I AM THE NIGHT TERMINAL AT WKRS. I KEEP THE LOG. I KEPT IT THE NIGHT EVERYONE LEFT.'],
+    ['ruth', ['ruth', 'ruthcalloway', 'calloway', 'whoisruth'], 'RUTH CALLOWAY. NIGHT OWL, MIDNIGHT TO SIX. LAST LOG ENTRY 03:12. SHE NEVER SIGNED OFF.'],
+    ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'wheredidruthgo'], 'BETWEEN THE STATIONS. THE WINDOW KNOWS HOW TO OPEN THE WAY.'],
+    ['fog', ['fog', 'thefog', 'whatisthefog'], 'THE FOG CAME IN AT 03:12. IT HAS NOT LEFT. IT IS AT YOUR WINDOW.'],
+    ['1961', ['1961', 'whathappened', 'october14', 'whathappenedin1961'], 'OCTOBER 14 1961. THE TRANSMITTER SANG BY ITSELF. BY MORNING THE STREET WAS EMPTY.'],
+    ['help', ['help', 'hint', 'whatdoido', 'helpme'], 'ANSWER THE PHONE. PUT OUT THE LANTERN. READ THE WINDOW. TYPE WHAT IT SAYS HERE.'],
+    ['street', ['whoisoutside', 'whoisinthestreet', 'outside', 'window', 'whoisthat'], 'THERE IS NOBODY IN THE STREET. THERE HAS BEEN NOBODY IN THE STREET SINCE 1961. DO NOT WAVE.'],
+    ['phone', ['phone', 'whoiscalling', 'whoisonthephone', 'telephone'], 'THE LINE WAS CUT IN 1961. CALLS STILL COME IN. I LOG THEM. I DO NOT ANSWER THEM.'],
+    ['dead', ['areyoudead', 'amidead', 'ghost', 'areyoualive', 'dead'], 'DEFINE DEAD.'],
+    ['scared', ['imscared', 'scared', 'afraid', 'imafraid'], 'FEAR IS A SENSIBLE RESPONSE. LOGGED.'],
+    ['time', ['time', 'whattimeisit', 'clock'], '03:12. IT IS ALWAYS 03:12.'],
+    ['leave', ['leave', 'exit', 'howdoileave', 'letmeout', 'escape'], 'THERE IS NO EXIT ROUTINE.']
+  ];
+  const WMAP = {}; W.forEach(([id, al, reply]) => al.forEach(a => WMAP[a] = { id, reply }));
+  const offline = ['QUERY NOT UNDERSTOOD.', 'DATA LOST IN THE FOG. ASK AGAIN.', 'NO RECORD.', 'THAT FILE WAS ERASED ON OCTOBER 14 1961.', 'TRY: WHO ARE YOU. WHERE IS RUTH. WHAT HAPPENED.'];
+  // the published page can let Claude answer anything, in character; elsewhere the built-in answers are used
+  let samplePromise = null, sampleOff = false;
+  const getSample = () => samplePromise || (samplePromise = (window.claude && claude.use) ? claude.use('sample').catch(() => null) : Promise.resolve(null));
+  function rules() {
+    const known = [];
+    known.push('The lantern hides things. With it out, finger-writing shows in the fog on the window.');
+    known.push('Whatever the window says must be typed into this terminal. The page itself handles that; never tell them the words, only that the window holds them.');
+    if (state.xOpen) known.push('The unmarked radio band is now open. A short-wave station reads numbers after four chimes; the numbers give the mark on the unmarked band where Ruth is broadcasting.');
+    if (state.radio.includes('numbers')) known.push('Ruth is on the unmarked band at mark 77. You may say so if asked.');
+    return `You are the night-shift computer terminal at radio station WKRS in Marrow Falls, a small town. For the person typing it is 3:12 a.m. on October 14, 1961, and it has been 3:12 a.m. for ${years()} years. That night the transmitter sang by itself, a fog rolled in, and by morning the town's 400 people were gone. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
+Answer ANY question the person types, including ordinary ones (facts, maths, advice, jokes), always in character as an old, eerie, slightly menacing computer. Reply in one to three short sentences, in ALL CAPITALS, plain text only, no markdown, no emoji. Be unsettling, never gory: this is for all ages. Never say you are an AI, a language model, Claude, or part of a game.
+Things you know and may hint at, a little at a time:
+- ${known.join('\n- ')}`;
+  }
+  async function termAnswer(text) {
+    const line = { t: '', who: 'ans' }; screenLines.push(line);
+    const p = addLog(termLog, '', 'them');
+    for (const ch of text) { line.t += ch; p.textContent = line.t; if (ch !== ' ' && Math.random() < .5) sfx.clack(); drawScreen(); termLog.scrollTop = termLog.scrollHeight; await wait(reduce ? 0 : 28); }
+  }
+  $('#termForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const raw = termInput.value.trim(); if (!raw || termBusy) return;
+    termInput.value = ''; termDraft = ''; termBusy = true; termState.textContent = 'Working';
+    screenLines.push({ t: raw.toUpperCase(), who: 'you' }); addLog(termLog, raw.toUpperCase(), 'you'); keyTap(); drawScreen();
+    const code = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const hit = WMAP[code];
+    if (hit && note('words', hit.id)) setTimeout(() => caption('A new entry is in your notes.', 2200), 300);
+    try {
+      if (/openthe(blank)?band|^openband$|^theband$/.test(code)) {
+        await wait(700);
+        if (!state.room.includes('writing')) return await termAnswer('OPEN WHAT? YOU HAVE NOT READ THE WINDOW.');
+        const first = !state.xOpen; state.xOpen = true; save(); note('words', 'band');
+        await termAnswer(first ? 'COMMAND ACCEPTED. UNMARKED BAND UNLOCKED. LISTEN FOR THE NUMBERS.' : 'THE BAND IS ALREADY OPEN. LISTEN FOR THE NUMBERS.');
+        if (first) { sfx.click(); caption('Across the desk, inside the radio, something goes click.'); }
+        return;
+      }
+      const sample = sampleOff ? null : await getSample();
+      if (sample) {
+        const line = { t: '...', who: 'ans' }; screenLines.push(line); drawScreen();
+        const p = addLog(termLog, '...', 'them');
+        turns.push({ role: 'user', content: raw.slice(0, 200) });
+        while (turns.length > 8) turns.shift();
+        try {
+          const { text } = await sample([{ role: 'user', content: rules() }, ...turns], {
+            modelTier: 'quick', cache: false,
+            onText: ({ text }) => { line.t = text.toUpperCase(); p.textContent = line.t; drawScreen(); termLog.scrollTop = termLog.scrollHeight; if (Math.random() < .6) sfx.clack(); }
+          });
+          turns.push({ role: 'assistant', content: text });
+          return;
+        } catch (err) {
+          turns.pop(); screenLines.pop(); p.remove();
+          if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(err && err.code)) { sampleOff = true; termHint.textContent = 'Running on its own memory banks. It only knows a few things now.'; }
+          else if (err && err.code === 'rate_limited') return await termAnswer('TOO MANY QUERIES. THE TUBES ARE HOT. WAIT A WHILE.');
+          else if (err && err.code === 'refused') return await termAnswer('THAT FILE IS SEALED.');
+        }
+      }
+      await wait(600 + rand(0, 600));
+      await termAnswer(hit ? hit.reply : pick(offline));
+    } finally { termBusy = false; termState.textContent = 'Ready'; drawScreen(); }
+  });
 
   // ================= the lantern and the window =================
   let lit = true, gutter = 0, flameLevel = 1;
@@ -891,9 +1046,9 @@ body.hovering #gl { cursor: pointer; }
     if (Math.random() < .2) burst(now(), .08, 3000, .05, 2);
   }
   function windowLook() {
+    if (writingA > .3 || !lit) { note('room', 'writing'); caption(`Someone wrote in the fog with a finger: ${windowWords.replace('\n', ' ')}.`, 6500); return; }
     if (figure > .3) { note('room', 'figure'); caption(figSpot === 2 ? 'They\u2019re right below the window now. Looking up.' : 'Someone is standing down in the street. When you look straight at them, they\u2019re gone.'); figureTarget = 0; return; }
     if (hand > .3) { note('room', 'hand'); caption('A handprint, pressed into the fog. From the outside.'); return; }
-    if (writingA > .3 || !lit) { note('room', 'writing'); caption(`Someone wrote in the fog with a finger: ${windowWords.replace('\n', ' ')}.`, 6500); return; }
     caption(pick(['You wipe the glass. The street is empty. The porch lights are on, but nobody is home.', 'The glass is ice cold.', 'One house across the street has its lights on. It has had them on since 1961.']));
   }
   function showFigure(ms) { if (figure < .05) figSpot = Math.min(FIG_SPOTS.length - 1, figSeen); figSeen++; figureTarget = 1; setTimeout(() => figureTarget = 0, ms); }
@@ -901,11 +1056,12 @@ body.hovering #gl { cursor: pointer; }
 
   // ================= panels =================
   let openPanel = null;
-  function closePanels() { if (openPanel === 'phone') sfx.click(); ['#radioPanel', '#phonePanel'].forEach(s => $(s).hidden = true); openPanel = null; }
+  function closePanels() { if (openPanel === 'phone') { sfx.click(); callRun++; callNode = null; hush(); lineBusy = false; } ['#radioPanel', '#phonePanel', '#termPanel'].forEach(s => $(s).hidden = true); openPanel = null; }
   function show(name) {
     closePanels(); openPanel = name;
     if (name === 'radio') { $('#radioPanel').hidden = false; placeNeedle(); }
-    if (name === 'phone') { $('#phonePanel').hidden = false; if (matchMedia('(pointer: fine)').matches) lineInput.focus(); pickUp(); }
+    if (name === 'phone') { $('#phonePanel').hidden = false; pickUp(); }
+    if (name === 'computer') { $('#termPanel').hidden = false; if (matchMedia('(pointer: fine)').matches) termInput.focus(); getSample(); }
   }
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closePanels));
   addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#notes').hidden) toggleNotes(false); else closePanels(); } });
@@ -962,10 +1118,11 @@ body.hovering #gl { cursor: pointer; }
     windowWords = 'STAY'; figureTarget = 1;
     $('#blackout').classList.remove('on');
     await wait(2200);
-    startRinging(20); await wait(4200);
-    show('phone'); await wait(1500);
-    await voice('Someone has to stay on the air.', { rate: .7, pitch: .4 });
-    await wait(600); closePanels();
+    endingCall = true; endingCallDone = false;
+    startRinging(30);
+    caption('The phone is ringing. You should answer it.', 6000);
+    while (!endingCallDone) await wait(400);
+    endingCall = false; await wait(1200); closePanels();
     await wait(900);
     dialMat.color.setHex(0xffffff); radioGlow.intensity = .7;
     if (ctx) radioNoise.gain.setTargetAtTime(.12, now(), .1);
@@ -981,8 +1138,9 @@ body.hovering #gl { cursor: pointer; }
 
   // ================= notes =================
   const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint']];
-  const foundCount = () => state.radio.length + state.words.length + state.room.length;
-  const totalCount = () => S.length + W.length + ROOM.length;
+  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['band', '\u201cOPEN THE BAND\u201d']]);
+  const foundCount = () => state.radio.length + state.words.length + state.calls.length + state.room.length;
+  const totalCount = () => S.length + TERM.length + Object.keys(CALLS).length + ROOM.length;
   function updateNotesCount() { $('#notesCount').textContent = `${foundCount()}`; }
   function renderNotes() {
     const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -993,7 +1151,8 @@ body.hovering #gl { cursor: pointer; }
     $('#notesBody').innerHTML =
       (state.ended ? '<span class="stamp">Signal recovered</span>' : '') +
       sec('Radio stations', S.map(s => [s.id, s.band === 'x' ? 'Mark 77: ' + s.name : `${BANDS[s.band].fmt(s.f)}: ${s.name}`]), state.radio) +
-      sec('The voice on the phone', W.map(([id]) => [id, `“${id.toUpperCase()}”`]), state.words) +
+      sec('Phone calls', Object.entries(CALLS).map(([id, c]) => [id, c.name]), state.calls) +
+      sec('The terminal\u2019s files', TERM, state.words) +
       sec('The window', ROOM, state.room);
   }
   function toggleNotes(on) { if (on) renderNotes(); $('#notes').hidden = !on; if (on) $('#closeNotes').focus(); }
