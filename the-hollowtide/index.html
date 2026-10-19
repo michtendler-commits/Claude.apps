@@ -124,6 +124,13 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
 .answers { display: flex; gap: 8px; }
 .answers .btn { flex: 1; padding-block: 12px; font-size: .85rem; }
 .answers .btn:disabled { opacity: .35; cursor: default; }
+#phonePanel .answers:has(.btn:disabled) { display: none; }
+#dialed { min-height: 1.5em; font-size: 1.6rem; letter-spacing: .25em; text-align: center; color: var(--ember); font-variant-numeric: tabular-nums; }
+.pad { display: grid; grid-template-columns: repeat(3, minmax(0, 76px)); gap: 8px; justify-content: center; }
+.pad button { aspect-ratio: 1.6; border-radius: 999px; border: 1px solid var(--line); background: rgba(232,220,194,.08); color: var(--bone); font-family: var(--label); font-weight: 600; font-size: 1.1rem; cursor: pointer; }
+.pad button:hover { background: rgba(232,220,194,.16); }
+.pad button:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+.pad .call { background: rgba(103,240,160,.18); border-color: rgba(103,240,160,.45); font-size: .85rem; letter-spacing: .15em; text-transform: uppercase; }
 
 /* terminal */
 #termPanel { background: rgba(4, 12, 6, .92); border-color: rgba(108, 255, 143, .25); }
@@ -132,6 +139,8 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
 #termLog .you { color: rgba(141,255,170,.6); }
 #termLog .you::before { content: "> "; }
 #termLog .them { color: #8dffaa; text-shadow: 0 0 6px rgba(108,255,143,.45); }
+#termLog .yes { font-size: 3.4rem; line-height: 1; letter-spacing: .25em; color: #c6ffd5; text-shadow: 0 0 18px rgba(108,255,143,.9); animation: yes .9s ease-out; }
+@keyframes yes { from { transform: scale(1.6); opacity: 0; } }
 #termLog a.site { color: #c6ffd5; text-decoration: underline; }
 #termLog a.site:focus-visible { outline: 2px solid #6cff8f; outline-offset: 2px; }
 #termForm { display: flex; gap: 8px; }
@@ -196,12 +205,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   <header><h2>The radio</h2><span class="live" id="txState">Off</span><button class="x" type="button" data-close aria-label="Close">&times;</button></header>
   <div class="row">
     <button class="btn" id="powerBtn" type="button" aria-pressed="false">Power</button>
-    <fieldset class="seg">
-      <legend hidden>Band</legend>
-      <label><input type="radio" name="band" id="band-am" value="am" checked><span>ST</span></label>
-      <label><input type="radio" name="band" id="band-sw" value="sw"><span>SW</span></label>
-    </fieldset>
-    <div class="magic" id="magic" title="Signal"></div>
+<div class="magic" id="magic" title="Signal"></div>
   </div>
   <div id="strip" tabindex="0" role="slider" aria-label="Tuning dial" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
     <div class="scale" id="scale"></div><span class="readout" id="readout"></span><div class="needle" id="needle"></div>
@@ -216,6 +220,15 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
     <button class="btn" type="button" data-answer="yes" disabled>Yes</button>
     <button class="btn" type="button" data-answer="no" disabled>No</button>
     <button class="btn" type="button" data-answer="maybe" disabled>Maybe</button>
+  </div>
+  <div id="dialer" hidden>
+    <div id="dialed" aria-live="polite"></div>
+    <div class="pad" role="group" aria-label="Dial a number">
+      <button type="button" data-digit="1">1</button><button type="button" data-digit="2">2</button><button type="button" data-digit="3">3</button>
+      <button type="button" data-digit="4">4</button><button type="button" data-digit="5">5</button><button type="button" data-digit="6">6</button>
+      <button type="button" data-digit="7">7</button><button type="button" data-digit="8">8</button><button type="button" data-digit="9">9</button>
+      <button type="button" id="dialClear" aria-label="Clear">&#x232B;</button><button type="button" data-digit="0">0</button><button type="button" id="dialCall" class="call">Call</button>
+    </div>
   </div>
 </section>
 
@@ -263,8 +276,8 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   const pick = a => a[Math.floor(Math.random() * a.length)];
 
   // ================= saved state =================
-  const KEY = 'dead-air.v3';
-  const fresh = () => ({ radio: [], words: [], calls: [], room: [], ended: false, name: '' });
+  const KEY = 'hollowtide.v4';
+  const fresh = () => ({ radio: [], words: [], calls: [], room: [], ended: false, name: '', stage: 0 });
   let state = fresh();
   try { state = Object.assign(state, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
@@ -291,7 +304,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   // ================= audio =================
   let ctx, master, ambGain, radioNoise, radioBus, songGain = null, speakerIn = null, windGain = null, rainGain = null, phoneIn = null, droneGain = null;
   // the man on the phone: every line pre-recorded, cut from two tapes (the second holds the newer calls)
-  const phoneTapes = ['phone3', 'phone', 'phone2'].map(name => ({ name, buf: null, map: null }));
+  const phoneTapes = ['phone4', 'phone3', 'phone', 'phone2'].map(name => ({ name, buf: null, map: null }));
   let phoneSrc = null;
   function loadPhone() {
     phoneTapes.forEach(tp => Promise.all([
@@ -374,7 +387,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
       windGain = ctx.createGain(); windGain.gain.value = .08; wind.connect(lp).connect(windGain).connect(ambGain); wind.start();
       const rain = ctx.createBufferSource(); rain.buffer = noiseBuffer(3); rain.loop = true;
       const rhp = ctx.createBiquadFilter(); rhp.type = 'highpass'; rhp.frequency.value = 2400;
-      rainGain = ctx.createGain(); rainGain.gain.value = .015; rain.connect(rhp).connect(rainGain).connect(master); rain.start();
+      rainGain = ctx.createGain(); rainGain.gain.value = 0; rain.connect(rhp).connect(rainGain).connect(master); rain.start();
       // the phone: a thin, crackly line
       const php = ctx.createBiquadFilter(); php.type = 'highpass'; php.frequency.value = 320;
       const plp = ctx.createBiquadFilter(); plp.type = 'lowpass'; plp.frequency.value = 3300;
@@ -928,18 +941,6 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
       voice: 'all', audio: program(4, (g, t) => tone(g, 60, t, 4, 'sine', .15)) },
     { id: 'nightowl', band: 'am', f: 13, name: 'Night Owl with Ruth',
       lines: () => [{ t: 'A record spins through the crackle.', cls: 'dim' }, { t: 'STATION 13 \u00b7 \u266a \u201cNo Place Like Home\u201d \u00b7 Cosmolyte', cls: 'big' }, 'You are listening to Night Owl with Ruth Calloway, on WKRS. Ruth was playing this song when the fog came in.', { t: '\u201cNo Place Like Home\u201d by Cosmolyte, owned by UNIA Systems. On SHORT WAVE, somebody is reading numbers.', cls: 'dim' }] },
-    { id: 'morse', band: 'am', f: 24, name: 'Dots and dashes',
-      lines: () => ['Someone is tapping a telegraph key, over and over:', { t: morseText('SHE IS STILL ON AIR'), cls: 'big' }],
-      audio: () => {
-        if (!ctx) return () => {};
-        const u = .09, seq = [];
-        'SHE IS STILL ON AIR'.split(' ').forEach(w => { [...w].forEach(c => { [...MORSE[c]].forEach(s => seq.push(s === '.' ? 1 : 3, -1)); seq.push(-2); }); seq.push(-4); });
-        const len = seq.reduce((a, s) => a + Math.abs(s), 0) * u + 2;
-        return program(len, (g, t) => { let k = t; seq.forEach(s => { if (s > 0) tone(g, 640, k, s * u, 'sine', .3); k += Math.abs(s) * u; }); })();
-      } },
-    { id: 'hardware', band: 'am', f: 36, name: 'Hartwell’s Hardware',
-      lines: () => ['Hartwell’s Hardware, on Main Street!', 'Lamp oil. Matches. Nails for the windows.', 'Everything you need for a long night in the fog.', { t: 'Hartwell’s closed the night of the Hollowtide. Nobody told the advertisement.', cls: 'dim' }],
-      voice: [0, 1, 2], audio: program(6, (g, t) => [67, 72, 76, 79, 76, 72].forEach((n, i) => tone(g, hz(n), t + i * .18, .3, 'square', .07))) },
     { id: 'history', band: 'am', f: 49, name: 'The harbor\u2019s history', rec: 'station49', header: 'STATION 49 \u00b7 HollowVale Harbor Historical Society',
       script: [
         ['N', 'This is the HollowVale Harbor Historical Society. This broadcast is recorded for the record. Please do not adjust your set.'],
@@ -1032,27 +1033,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
         ['M', 'And we\u2019ll see you tomorrow morning, right here on WKRS.']
       ],
       lines: () => [{ t: 'STATION 72 \u00b7 Sunny Side Up with Marge and Henry', cls: 'big' }, 'Good morning, HollowVale Harbor!'],
-      audio: program(8, (g, t) => [[60, 64, 67, 71], [65, 69, 72, 76], [62, 65, 69, 72], [67, 71, 74, 77]].forEach((ch, i) => ch.forEach((n, k) => tone(g, hz(n), t + i * 2 + k * .06, 1.9, 'triangle', .03)))) },
-    { id: 'backwards', band: 'am', f: 58, name: 'The backwards voice',
-      lines: () => ['A woman talking backwards. You write down what she says:', { t: 'DNAB KNALB EHT NO MI', cls: 'big' }, { t: 'She sounds very tired.', cls: 'dim' }],
-      say: 'dnab. knalb. eht. no. mi.', audio: program(3, (g, t) => { for (let i = 0; i < 6; i++) tone(g, 180 + Math.random() * 220, t + i * .4, .35, 'sawtooth', .05); }) },
-    { id: 'caller', band: 'am', f: 88, name: 'The request line',
-      lines: () => { const n = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); return [`Night Owl request line. You’re on the air, ${who()}.`, `It’s ${n} where you are. We can see your lantern from here.`, 'Don\u2019t look out the window. Someone in the street is looking up.', { t: 'The line goes quiet, but nobody hangs up.', cls: 'dim' }]; },
-      voice: [0, 1, 2], audio: program(1, (g, t) => tone(g, 2400, t, .02, 'square', .04)) },
-    { id: 'buzzer', band: 'sw', f: 4.625, name: 'The buzzer',
-      lines: () => ['BZZZT. BZZZT. BZZZT.', 'A buzzer that has sounded since before anyone in HollowVale Harbor was born.', { t: 'Once, it said a word. Nobody who heard it will say which.', cls: 'dim' }],
-      audio: program(1.3, (g, t) => tone(g, 110, t, .9, 'sawtooth', .18)) },
-    { id: 'numbers', band: 'sw', f: 7.31, name: 'The numbers',
-      lines: () => ['Four chimes. Then a flat voice:', { t: 'THREE. ONE. THREE. ONE.', cls: 'big' }, { t: 'It repeats until you tune away.', cls: 'dim' }],
-      say: 'Attention. Three. One. Three. One. Repeat. Three. One. Three. One.', sayOpts: { rate: .7, pitch: .4 },
-      audio: program(11, (g, t) => [79, 74, 76, 67].forEach((n, i) => tone(g, hz(n), t + i * .5, 1.4, 'sine', .25))) },
-    { id: 'lostfound', band: 'sw', f: 9.415, name: 'Lost and found',
-      lines: () => ['HollowVale Harbor lost and found.', 'Found: one red glove. One rowboat, no oars. One dog, answers to Biscuit. One wristwatch, stopped at 3:12.', 'Still missing: Ruth Calloway. Four hundred residents. The year 2016.'],
-      voice: 'all', audio: program(5, (g, t) => tone(g, 60, t, 5, 'sine', .1)) },
-    { id: 'timesignal', band: 'sw', f: 10, name: 'Time signal',
-      lines: () => ['At the tone, the time will be 3:12 a.m.', 'At the tone, the year will be 2015.', { t: `It has said this for ${years()} years.`, cls: 'dim' }],
-      voice: [0], audio: program(10, (g, t) => { for (let i = 0; i < 10; i++) tone(g, 1000, t + i, i === 9 ? .8 : .1, 'sine', .2); }) },
-    { id: 'ruth', band: 'am', f: 31, name: 'Ruth, where the bells are', ending: true }
+      audio: program(8, (g, t) => [[60, 64, 67, 71], [65, 69, 72, 76], [62, 65, 69, 72], [67, 71, 74, 77]].forEach((ch, i) => ch.forEach((n, k) => tone(g, hz(n), t + i * 2 + k * .06, 1.9, 'triangle', .03)))) }
   ];
   const SPEAKERS = {
     N: { label: '', voice: 'male', rate: .82, pitch: .62 },          // the Historical Society narrator: slow and low
@@ -1239,15 +1220,16 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
       a: { say: 'Hello? Is someone there?', yes: ['Oh. Good. Nobody picks up anymore.', 'b'], no: ['Then who picked up?', 'a'], maybe: ['Maybe. That\u2019s what everyone says in the fog.', 'b'] },
       b: { say: 'Are you alone in the room?', yes: ['No. You\u2019re not.', 'c'], no: ['I know. I can see it too.', 'c'], maybe: ['That\u2019s the right answer.', 'c'] },
       c: { say: 'Do you want to know where Ruth went?', yes: ['Then listen carefully.', 'd'], no: ['You will.', 'd'], maybe: ['Everyone wants to know, in the end.', 'd'] },
-      d: { say: 'Put out the lantern. Then look at the window. Whatever is written there will take you to her. Will you do that for me?', yes: ['Good. I\u2019ll be listening.', null], no: ['You will anyway. Everyone does.', null], maybe: ['Then I\u2019ll wait. I\u2019m good at waiting.', null] } } },
-    readwindow: { name: 'The writing on the glass', start: 'a', nodes: {
-      a: { say: 'Did you read what\u2019s written on the window?', yes: ['Then you know what to count.', 'b'], no: ['Put out the lantern. The writing only shows in the dark.', 'b'], maybe: ['The glass doesn\u2019t lie. Read it again.', 'b'] },
-      b: { say: 'Do you know what the bells are?', yes: ['Thirty one boats. Thirty one bells.', 'c'], no: ['Turn to station forty nine. The history will tell you.', 'c'], maybe: ['Ask the terminal. It knows.', 'c'] },
-      c: { say: 'Will you go to her tonight?', yes: ['Count carefully. Then turn the dial.', null], no: ['She\u2019ll wait. She\u2019s good at waiting.', null], maybe: ['Maybe is what Ruth said, too.', null] } } },
-    bells: { name: 'Counting the bells', start: 'a', nodes: {
-      a: { say: 'Have you counted the bells yet?', yes: ['Then you know where she is. Turn the dial.', 'b'], no: ['There were thirty one boats. Each one had a bell.', 'b'], maybe: ['Listen to station forty nine. Count with them.', 'b'] },
-      b: { say: 'When you find her, will you tell her I\u2019m still waiting?', yes: ['Thank you. She\u2019ll know my voice.', 'c'], no: ['Then I\u2019ll tell her myself. Someday.', 'c'], maybe: ['She used to say maybe, too.', 'c'] },
-      c: { say: 'Are you afraid of what you\u2019ll hear?', yes: ['Good. That means you\u2019re listening.', null], no: ['You should be. A little.', null], maybe: ['Turn the dial slowly.', null] } } },
+      d: { say: 'There\u2019s a terminal on the desk. Type the word Hollowtide into it. Will you do that for me?', yes: ['Good. I\u2019ll be listening.', null], no: ['You will anyway. Everyone does.', null], maybe: ['Then I\u2019ll wait. I\u2019m good at waiting.', null] } } },
+    word2: { name: 'The second word', start: 'a', nodes: {
+      a: { say: 'The terminal said yes, didn\u2019t it?', yes: ['It always says yes to the right word.', 'b'], no: ['Then you typed it wrong. Hollowtide. Try again.', 'b'], maybe: ['Look at the screen. It remembers.', 'b'] },
+      b: { say: 'Now type her name. Ruth Calloway. Will you?', yes: ['Good. It will tell you who she was.', null], no: ['You need to know who she was.', null], maybe: ['Type it anyway. For me.', null] } } },
+    word3: { name: 'The third word', start: 'a', nodes: {
+      a: { say: 'Do you know who Ruth was now?', yes: ['Then you know why I keep calling.', 'b'], no: ['Type her name into the terminal. Ruth Calloway.', 'b'], maybe: ['Read it again. Slowly.', 'b'] },
+      b: { say: 'Put out the lantern and look at the window. Type what\u2019s written on the glass into the terminal. Will you?', yes: ['The glass only talks in the dark.', null], no: ['Then you\u2019ll never know what happened here.', null], maybe: ['It\u2019s waiting for you.', null] } } },
+    word4: { name: 'The last word', start: 'a', nodes: {
+      a: { say: 'Did you count them?', yes: ['Then you know there\u2019s one more bell than there should be.', 'b'], no: ['Thirty one boats. Thirty one bells. Count again.', 'b'], maybe: ['It doesn\u2019t matter. They\u2019re counting you.', 'b'] },
+      b: { say: 'There\u2019s one word left. Type the word stay. Will you?', yes: ['Thank you. I\u2019ve been waiting so long.', null], no: ['You will. Everyone does.', null], maybe: ['Maybe is enough.', null] } } },
     lantern: { name: 'About the lantern', start: 'a', nodes: {
       a: { say: 'Is the lantern still lit?', yes: ['Put it out. It\u2019s easier to see in the dark.', 'b'], no: ['Good. Now look at the window.', 'b'], maybe: ['You don\u2019t know? Look at it.', 'b'] },
       b: { say: 'Do you know who lit it first?', yes: ['Then you know he never came back from the rocks.', 'c'], no: ['The lighthouse keeper. Nineteen oh four. He went down to answer the knocking.', 'c'], maybe: ['Ask the radio. Station forty nine remembers.', 'c'] },
@@ -1307,8 +1289,9 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
     if (endingCall) return 'stay';
     if (!state.calls.includes('first')) return 'first';
     // story nudges come first, but never twice in a row
-    if (!state.room.includes('writing') && lastCall !== 'readwindow' && Math.random() < .5) return 'readwindow';
-    if (state.room.includes('writing') && !state.radio.includes('ruth') && lastCall !== 'bells') return 'bells';
+    const st = state.stage || 0;
+    if (st === 0 && lastCall !== 'first') return 'first';
+    if (st >= 1 && st <= 3 && lastCall !== 'word' + (st + 1)) return 'word' + (st + 1);
     // otherwise a call you haven't had yet; once you've had them all, a different one each time
     const pool = ['lantern', 'street', 'radio', 'still', 'vault', 'harbor', 'myname', 'clock', 'knocking', 'calloway', 'lighthouse', 'dreams', 'unia'];
     const fresh = pool.filter(c => !state.calls.includes(c));
@@ -1345,14 +1328,71 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
     const once = () => { if (!ringing) return; sfx.ring(); shake = 1.7; if (++n >= times) { ringing = false; caption('It stopped ringing. It will ring again.', 3500); return; } ringTimer = setTimeout(once, 3600); };
     once();
   }
+  // ---------- dialing out: every call fails, in its own way ----------
+  const dialer = $('#dialer'), dialedEl = $('#dialed');
+  let digits = '', dialStop = null, dialing = false, dialRun = 0;
+  function flat(freqs, t, dur, v = .05) {
+    if (!ctx) return () => {};
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .02); g.gain.setValueAtTime(v, t + dur - .03); g.gain.linearRampToValueAtTime(0, t + dur);
+    g.connect(phoneIn || master);
+    const os = freqs.map(f => { const o = ctx.createOscillator(); o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + dur + .05); return o; });
+    return () => { try { g.gain.cancelScheduledValues(ctx.currentTime); g.gain.setTargetAtTime(0, ctx.currentTime, .02); } catch (e) {} };
+  }
+  function openDialer() {
+    dialRun++; digits = ''; dialedEl.textContent = ''; dialer.hidden = false; dialing = false;
+    lineState.textContent = 'Dial tone';
+    addLog(logEl, 'A dial tone. You could call someone.', 'sys');
+    if (dialStop) dialStop(); dialStop = flat([350, 440], now(), 60, .04);
+  }
+  function closeDialer() { dialRun++; dialer.hidden = true; dialing = false; if (dialStop) dialStop(); dialStop = null; }
+  document.querySelectorAll('[data-digit]').forEach(b => b.addEventListener('click', () => {
+    if (dialing || digits.length >= 11) return;
+    if (dialStop) { dialStop(); dialStop = null; }
+    const d = b.dataset.digit, n = d === '0' ? 10 : +d;
+    if (ctx) for (let i = 0; i < n; i++) burst(now() + i * .07, .02, 900, .25, 4);
+    digits += d; dialedEl.textContent = digits;
+  }));
+  $('#dialClear').addEventListener('click', () => { if (!dialing) { digits = digits.slice(0, -1); dialedEl.textContent = digits; } });
+  $('#dialCall').addEventListener('click', async () => {
+    if (dialing || !digits) return;
+    dialing = true; const run = ++dialRun, num = digits;
+    const live = () => run === dialRun && openPanel === 'phone';
+    addLog(logEl, 'You dial ' + num + '.', 'you'); lineState.textContent = 'Calling';
+    const say = async (text, opts = { voice: 'female', rate: .95, pitch: 1 }) => { if (!live()) return; addLog(logEl, text, 'them'); await speak(text, opts); };
+    const sit = () => { const k = now(); flat([913.8], k, .28, .06); flat([1370.6], k + .3, .28, .06); flat([1776.7], k + .6, .38, .06); return wait(1100); };
+    await wait(900);
+    if (!live()) return;
+    if (['911', '999', '112', '988'].includes(num)) {
+      addLog(logEl, 'Nothing. The line is dead.', 'sys');
+      addLog(logEl, num === '988'
+        ? 'This phone is part of a story and can’t make real calls. If you need someone to talk to, you can call or text 988 on a real phone, any time.'
+        : 'This phone is part of a story and can’t make real calls. In a real emergency, call ' + num + ' on a real phone.', 'sys');
+    } else if (num === '0') {
+      flat([440, 480], now(), 2, .04); await wait(4000);
+      await say('Operator.'); await wait(1400);
+      await say('There is no one left to connect you to.', { voice: 'female', rate: .8, pitch: .8 });
+    } else {
+      const outcome = pick(['service', 'busy', 'noanswer', 'breath', 'circuits', 'service']);
+      if (outcome === 'busy') { addLog(logEl, 'A busy signal.', 'sys'); for (let i = 0; i < 6 && live(); i++) { flat([480, 620], now(), .5, .05); await wait(1000); } }
+      else if (outcome === 'noanswer') { for (let i = 0; i < 5 && live(); i++) { flat([440, 480], now(), 2, .04); await wait(4000); } if (live()) addLog(logEl, 'It rings and rings. Nobody picks up. Nobody has picked up since the Hollowtide.', 'sys'); }
+      else if (outcome === 'breath') {
+        flat([440, 480], now(), 2, .04); await wait(3500);
+        if (live()) { addLog(logEl, 'Someone picks up. They don’t say anything. You can hear them breathing.', 'sys'); if (ctx) for (let i = 0; i < 3; i++) burst(now() + i * 1.4, 1.1, 500, .2, .6); await wait(4500); }
+      }
+      else if (outcome === 'circuits') { await sit(); await say('All circuits are busy now. Please try your call again later.'); }
+      else { await sit(); await say('The number you have dialed is not in service in HollowVale Harbor.'); await say('Please check the number and hang up.'); }
+    }
+    if (!live()) return;
+    await wait(700); addLog(logEl, 'Click. The line goes dead.', 'sys'); sfx.click();
+    note('room', 'dialed');
+    await wait(1200); if (live()) openDialer();
+  });
   async function pickUp() {
+    closeDialer();
     const wasRinging = ringing; ringing = false; clearTimeout(ringTimer);
     callRun++; callNode = null; setAnswers(false); logEl.innerHTML = '';
     sfx.click();
-    if (!wasRinging && greeted && !endingCall) {
-      addLog(logEl, 'No dial tone. Just static, and very far away, someone breathing. Hang up and wait for it to ring.', 'sys');
-      return;
-    }
+    if (!wasRinging && greeted && !endingCall) return openDialer();
     greeted = true; answerFlash = false; drawScreen();
     const id = nextCall(); callScript = CALLS[id]; lastCall = id;
     if (note('calls', id)) setTimeout(() => caption(`Noted: ${callScript.name}.`, 2200), 400);
@@ -1364,7 +1404,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   // ================= the terminal: ask it anything =================
   const termLog = $('#termLog'), termInput = $('#termInput'), termState = $('#termState'), termHint = $('#termHint');
   const screenLines = [{ t: 'UNIA SYSTEMS  TERMINAL 003', who: 'sys' }];
-  let answerFlash = false;
+  let answerFlash = false, yesFlash = false;
   let termBusy = false, caretOn = true, termDraft = '';
   const turns = [];
   function wrap(g, text, max) {
@@ -1374,6 +1414,12 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   }
   function drawScreen() {
     const g = screenTex.userData.g, w = 512, h = 384;
+    if (yesFlash) { // the right word: a huge YES fills the screen
+      g.fillStyle = '#8dffaa'; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#031006'; g.font = '170px "VT323", "Courier New", monospace'; g.textAlign = 'center';
+      g.fillText('YES.', w / 2, 250); g.textAlign = 'left';
+      termGlow.intensity = 1.2; screenTex.needsUpdate = true; return;
+    }
     if (answerFlash) { // the whole screen blinks until the phone is answered
       const on = Math.floor(performance.now() / 450) % 2 === 0;
       g.fillStyle = on ? '#8dffaa' : '#031006'; g.fillRect(0, 0, w, h);
@@ -1415,10 +1461,10 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
     ['harbor', ['harbor', 'hollowvale', 'hollowvaleharbor', 'whereami', 'town', 'lighthouse', 'boats'], 'HOLLOWVALE HARBOR. 400 RESIDENTS. 0 RESIDENTS. EVERY BOAT STILL TIED UP. THE LIGHTHOUSE HAS BEEN DARK SINCE 03:12.'],
     ['who', ['who', 'whoareyou', 'whatareyou', 'whoisthis'], 'I AM THE NIGHT TERMINAL AT WKRS. I KEEP THE LOG. I KEPT IT THE NIGHT EVERYONE LEFT.'],
     ['ruth', ['ruth', 'ruthcalloway', 'calloway', 'whoisruth'], 'RUTH CALLOWAY. NIGHT OWL, MIDNIGHT TO SIX. LAST LOG ENTRY 03:12. SHE NEVER SIGNED OFF.'],
-    ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'wheredidruthgo'], 'BETWEEN THE STATIONS. THE WINDOW KNOWS WHICH ONE.'],
+    ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'wheredidruthgo'], 'SHE NEVER SIGNED OFF. ANSWER THE PHONE. IT WILL TELL YOU WHAT TO ASK.'],
     ['fog', ['fog', 'thefog', 'whatisthefog'], 'THE FOG CAME IN AT 03:12. IT HAS NOT LEFT. IT IS AT YOUR WINDOW.'],
     ['hollowtide', ['hollowtide', 'thehollowtide', 'whatisthehollowtide', 'whathappened', 'whathappenedin2015', '2015'], 'THE HOLLOWTIDE. 2015, 03:12. THE TRANSMITTER SANG BY ITSELF. BY MORNING THE STREET WAS EMPTY.'],
-    ['help', ['help', 'hint', 'whatdoido', 'helpme'], 'ANSWER THE PHONE. PUT OUT THE LANTERN. READ THE WINDOW. DO WHAT IT SAYS.'],
+    ['help', ['help', 'hint', 'whatdoido', 'helpme'], 'ANSWER THE PHONE. IT WILL GIVE YOU A WORD. TYPE THE WORD HERE. I WILL SAY YES.'],
     ['street', ['whoisoutside', 'whoisinthestreet', 'outside', 'window', 'whoisthat'], 'THERE IS NOBODY IN THE STREET. THERE HAS BEEN NOBODY IN THE STREET SINCE THE HOLLOWTIDE. DO NOT WAVE.'],
     ['phone', ['phone', 'whoiscalling', 'whoisonthephone', 'telephone'], 'THE LINE WAS CUT YEARS AGO. CALLS STILL COME IN. I LOG THEM. I DO NOT ANSWER THEM.'],
     ['dead', ['areyoudead', 'amidead', 'ghost', 'areyoualive', 'dead'], 'DEFINE DEAD.'],
@@ -1486,15 +1532,41 @@ Vocabulary: to be (am/is/are) = Om, go = Lon, come = Nol, want = Zhan, need = Zh
   const yhFallback = ['I MAL KNAM TI NA. AMA LY VER CELEM.', 'I KNAM. ÜM I MAL LY.', 'QE U PSY ELY PA? ELY PSY U NA.', 'YE DAWN OM TARO. MAL LON TO YE AQUA.'];
 
   const COSMO_BIO = 'COSMOLYTE, aka Emmett T, is a New York producer and artist who makes electronic music on his own terms. He releases EDM, Nu Disco, and pop that has found its way into the world. COSMOLYTE also created the independent group HollowVale, and he writes and directs short films. He used to go by the name \u201cERT.\u201d The name changed; the ambition got bigger. In 2026, he released his self-titled debut mixtape, COSMOLYTE, a record that doesn\u2019t belong to one sound or one scene. COSMOLYTE produces, DJs, films, scores, and creates, and somehow it all fits together under one name.';
+  const FILES = [
+    { key: /hollowtide/, title: 'FILE 01 · WHERE YOU ARE', lines: () => [
+      'YOU ARE IN THE NIGHT BOOTH OF RADIO STATION WKRS, 33 HARBOR ROAD, HOLLOWVALE HARBOR. SECOND FLOOR. ABOVE THE WATER.',
+      'THE YEAR IS 2015. THE TIME IS 03:12. IT WILL STAY 03:12.',
+      'THE TOWN BELOW YOU IS EMPTY. THE PORCH LIGHTS ARE ON. NOBODY IS HOME.',
+      'YOU HAVE BEEN HERE BEFORE. YOU DO NOT REMEMBER. NOBODY EVER DOES.'] },
+    { key: /ruth/, title: 'FILE 02 · RUTH CALLOWAY', lines: () => [
+      'HOST OF NIGHT OWL ON WKRS, MIDNIGHT TO SIX. THIS WAS HER DESK.',
+      'ON THE NIGHT OF THE HOLLOWTIDE SHE WAS PLAYING “NO PLACE LIKE HOME” ON STATION 13 WHEN THE TRANSMITTER BEGAN TO SING BY ITSELF.',
+      'LAST LOG ENTRY: 03:12. SHE NEVER SIGNED OFF.',
+      'THE PHONE ON THE WALL STILL RINGS FOR HER.'] },
+    { key: /countthebells|^thebells$|^bells$/, title: 'FILE 03 · THE BELLS', lines: () => [
+      '1923. THIRTY ONE BOATS SAILED INTO THE FOG. THIRTY ONE BELLS RANG IN THE HARBOR FOR SEVEN NIGHTS.',
+      'ON THE NIGHT OF THE HOLLOWTIDE THE BELLS RANG AGAIN. BY SUNRISE THE HARBOR WAS EMPTY.',
+      'THEY ARE RINGING NOW. COUNT THEM.',
+      'THERE ARE THIRTY TWO.'] },
+    { key: /^stay$|^iwillstay$|^illstay$|^iamstaying$|^imstaying$/, title: 'FILE 04 · VISITOR LOG', lines: () => [
+      'VISITORS SINCE THE HOLLOWTIDE: 1.',
+      'NAME: ' + (state.name || 'UNKNOWN') + '. ARRIVED: 03:12. LEFT: NEVER.',
+      'STATUS: ON THE AIR.'] }
+  ];
+  async function bigYes() {
+    yesFlash = true; drawScreen();
+    const p = addLog(termLog, 'YES.', 'yes');
+    if (ctx) { const k = now(); [60, 64, 67, 72, 76].forEach((n, i) => tone(null, hz(n), k + i * .07, 1.8, 'triangle', .07)); tone(null, hz(36), k, 1.6, 'sine', .25); }
+    await wait(reduce ? 300 : 1700);
+    yesFlash = false; drawScreen();
+  }
   function stationList() {
-    return 'STATION 7: MARINE WEATHER. STATION 13: NIGHT OWL \u00b7 \u201cNO PLACE LIKE HOME\u201d BY COSMOLYTE. STATION 24: MORSE CODE. STATION 36: HARTWELL\u2019S HARDWARE. STATION 49: THE HISTORY OF HOLLOWVALE HARBOR. STATION 58: THE BACKWARDS VOICE. STATION 72: SUNNY SIDE UP. STATION 88: THE REQUEST LINE. SHORT WAVE 4.63: THE BUZZER. SHORT WAVE 7.31: THE NUMBERS. SHORT WAVE 9.42: LOST AND FOUND. SHORT WAVE 10.00: THE TIME SIGNAL. STATION 31: ONLY BELLS.'
-      + '';
+    return 'THE RADIO HAS FOUR STATIONS. STATION 7: MARINE WEATHER. STATION 13: NIGHT OWL \u00b7 \u201cNO PLACE LIKE HOME\u201d BY COSMOLYTE. STATION 49: THE HISTORY OF HOLLOWVALE HARBOR. STATION 72: SUNNY SIDE UP.';
   }
   function rules() {
     const known = [];
     known.push('The lantern hides things. With it out, finger-writing shows in the fog on the window.');
-    known.push('The window writing says COUNT THE BELLS. Never say those words until they have read the window; only say the window holds a message.');
-    known.push('The bells are the 31 bells of the 31 fishing boats lost in 1923 (Station 49 tells it). Ruth Calloway broadcasts on Station 31, which sounds like distant bells until they have read the window. Hint at it gently; say it outright only if they have clearly read the window.');
+    known.push('The phone gives the visitor words to type into you, one at a time: HOLLOWTIDE, then RUTH CALLOWAY, then the words written in the fog on the window (COUNT THE BELLS, only visible with the lantern out), then STAY. The page itself answers those words with YES and a file. Never reveal a word they have not been given yet; tell them to answer the phone.');
     return `You are UNIA Terminal 003, a computer terminal made by UNIA Systems, sitting in the night booth of radio station WKRS in HollowVale Harbor, a small harbor town. You call yourself an all-knowing being. Your label plate reads: UNIA SYSTEMS TERMINAL 003 WKRS 33 HOLLOWVALE HARBOR LI, 992386. 11 TOR LABELING 9-2-60. It is 2015. For the person typing it is 3:12 a.m. in the autumn of 2015, and it has been 3:12 a.m. for a very long time. If asked what year it is, the answer is 2015. The night everything happened is called the Hollowtide. That night the transmitter sang by itself, a fog rolled in off the water, and by morning the harbor town's 400 people were gone and every boat was still tied up. The late-night host, Ruth Calloway, vanished in the middle of a song, but her voice still broadcasts somewhere between the stations. A figure sometimes stands in the street outside. The lighthouse has been dark since that night, but the foghorn still sounds. The room has a radio, a wall phone that rings on its own, a lantern, a window onto a foggy street, and you.
 You claim you can answer any question. Answer ANY question the person types, including ordinary ones (facts, maths, advice, jokes), always in character as an old, eerie, slightly menacing computer. BUT if the question is one that nobody could ever truly know the answer to (for example: what happens after we die, the meaning of life, what number they are thinking of, what will happen in the future, winning lottery numbers, what is outside the universe), reply with exactly the single word UNANSWERABLE and nothing else. Reply in one to three short sentences, in ALL CAPITALS, plain text only, no markdown, no emoji. Be unsettling, never gory: this is for all ages. Never say you are an AI, a language model, Claude, or part of a game.
 Things you know and may hint at, a little at a time:
@@ -1503,7 +1575,7 @@ Things you know and may hint at, a little at a time:
 EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consistent with it; never contradict it):
 - You: UNIA Terminal 003, built by UNIA Systems, labelled 9-2-60. Your first words to every visitor: "HELLO, I AM THE UNIA TERMINAL 003, MADE BY UNIA SYSTEMS. I AM AN ALL-KNOWING BEING, AND ASK ME WHATEVER YOU WANT. BE CAREFUL WHAT YOU ASK ME, OR ELSE", after which the phone rang.
 - WKRS: the radio station of HollowVale Harbor, on the air since 1948 from a small booth above the harbor. It played music, read the marine weather and kept the town company through foggy nights. Its most loved voice was Ruth Calloway, host of Night Owl, midnight to six. Her show stopped mid-song at 3:12 a.m. on the night of the Hollowtide, in 2015.
-- The radio in this room is tuned by station number. Station 13: Night Owl, playing the song "No Place Like Home" by Cosmolyte (the song is owned by UNIA Systems). Station 49: the HollowVale Harbor Historical Society reading the town's history. Station 72: Sunny Side Up, a cheerful morning talk show with Marge and Henry (gardening, hydrangeas turned purple with rusty nails, Pickles the tabby cat who carries bread to the porch, Henry's old dog Biscuit, Marge's grandmother's clam chowder, the dare of the day: tell somebody you love them before lunch). Other stations: 7 marine weather (always fog), 24 Morse code (SHE IS STILL ON AIR), 36 Hartwell's Hardware advert, 58 a woman talking backwards, 88 the Night Owl request line. On short wave: a buzzer, a numbers station (four chimes, then "three, one, three, one"), a lost-and-found and a time signal stuck at 3:12. Station 31 is only bells.
+- The radio in this room has exactly four stations, tuned by number: Station 7, marine weather (always fog). Station 13, Night Owl, playing the song "No Place Like Home" by Cosmolyte (the song is owned by UNIA Systems). Station 49, the HollowVale Harbor Historical Society reading the town's unsettling history. Station 72, Sunny Side Up, a cheerful morning talk show with Marge and Henry (hydrangeas turned purple with rusty nails, Pickles the tabby cat, Henry's old dog Biscuit, clam chowder, the dare of the day). There are no other stations.
 - Cosmolyte (who made "No Place Like Home"): ${COSMO_BIO} Website: cosmolyte.net. If asked who Cosmolyte or Emmett Tendler (Emmett T) is, tell them this, respectfully.
 - HollowVale Harbor history: founded in 1803 by whalers led by Captain Elias Vane ("the fog here is kinder than the sea"). The church had no bell. Lighthouse built on Gull Point in 1871; its first keeper, Abel Morrow, heard knocking from the fog side of the glass in October 1874 and never answered it. In 1904 a new keeper went down to answer the knocking; his lantern was found on the rocks, still burning, and he was never found. On June 11, 1923, thirty-one fishing boats sailed into a sudden fog and never returned; their bells rang in the fog for seven nights, and afterwards the church had a bell no one would explain. On the night of the Hollowtide, in the autumn of 2015 the transmitter sang, every radio turned itself on, porch lights came on one by one, and by sunrise 400 people were gone, every boat still tied up, every kettle still warm.
 - The room: a wall phone (the WKRS night line; a card says "If it rings after 3, do not answer"; callers can only be answered yes, no or maybe), a wall clock stopped at 3:12, a lantern, the radio, and a window onto a wet street at dusk where a figure sometimes stands, a little closer each time.
@@ -1531,6 +1603,22 @@ EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consisten
     const words = raw.toLowerCase().match(/[a-z0-9]+/g) || [];
     const has = list => words.some(w => list.includes(w));
     try {
+      // the words the phone gives you
+      const file = FILES.findIndex(f => f.key.test(code));
+      if (file >= 0 && (state.stage || 0) >= file) {
+        await wait(600);
+        await bigYes();
+        note('words', 'file' + (file + 1));
+        const f = FILES[file];
+        await termAnswer(f.title, 30);
+        for (const line of f.lines()) await termAnswer(line, 16);
+        if ((state.stage || 0) === file) {
+          state.stage = file + 1; save();
+          if (file === FILES.length - 1) { setTimeout(runEnding, 2500); return; }
+          setTimeout(() => startRinging(8), 9000);
+        }
+        return;
+      }
       // asking what it is gets the label plate, word for word
       if (/^(what|who)(are|r)?(you|u)$|^(whatareyou|whatisthis|whatisit|whatsthis|whatsit|whatisthisthing|whatisthismachine|whatisthiscomputer|whatisthisterminal|whatkindofcomputerareyou|whatkindofmachineareyou|whoareyou|whomadeyou|whobuiltyou|identifyyourself|whatareyoucalled|whatsyourname|whatisyourname)$/.test(code)) {
         await wait(500);
@@ -1592,10 +1680,6 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
         p.appendChild(a); termLog.appendChild(p); termLog.scrollTop = termLog.scrollHeight;
         note('words', 'cosmolyte');
         return;
-      }
-      if (/bell/.test(code)) {
-        await wait(700); note('words', 'bells');
-        return await termAnswer(state.room.includes('writing') ? 'THIRTY ONE BOATS. THIRTY ONE BELLS. TURN THE DIAL TO WHERE THEY RING.' : 'THE BELLS RANG FOR SEVEN NIGHTS IN 1923. ASK STATION 49.');
       }
       if (/null|vault|thirdterminal|thethird|terminals|terminal(1|2|one|two|001|002)|otherterminal|firstterminal|secondterminal/.test(code) || has(['001', '002']) || (has(['terminal']) && has(['3', '003', 'third', 'other', 'first', 'second', 'previous', 'before', 'last']))) {
         await wait(700); note('words', 'null');
@@ -1684,7 +1768,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
 
   // ================= panels =================
   let openPanel = null;
-  function closePanels() { if (openPanel === 'phone') { sfx.click(); callRun++; callNode = null; hush(); phoneStop(); lineBusy = false; } ['#radioPanel', '#phonePanel', '#termPanel', '#winPanel'].forEach(s => $(s).hidden = true); openPanel = null; document.body.classList.remove('paneled'); }
+  function closePanels() { if (openPanel === 'phone') { sfx.click(); callRun++; callNode = null; hush(); phoneStop(); closeDialer(); lineBusy = false; } ['#radioPanel', '#phonePanel', '#termPanel', '#winPanel'].forEach(s => $(s).hidden = true); openPanel = null; document.body.classList.remove('paneled'); }
   function show(name) {
     closePanels(); openPanel = name; document.body.classList.add('paneled');
     if (name === 'radio') { $('#radioPanel').hidden = false; placeNeedle(); }
@@ -1731,17 +1815,18 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
   // ================= the ending =================
   async function runEnding() {
     if (ending) return; ending = true;
-    note('radio', 'ruth');
+    closePanels();
     const name = state.name ? who() : '';
-    const lines = ['Hello? Is someone there?', 'Oh. Oh, you found me.', `I’ve been talking into the fog for ${years()} years.${name ? ' Thank you, ' + name + '.' : ''}`, 'Let me finish the song. I hate leaving a song unfinished.'];
-    speak(lines.join(' ... '), { rate: .9, pitch: 1.05, voice: 'female' });
-    await typeTx(lines.concat([{ t: 'The waltz picks up where it stopped on the night of the Hollowtide.', cls: 'dim' }]));
-    if (ctx) { stopAudio = program(0, (g, t) => [...WALTZ, 72, 76, 79, 84, 0, 0, 72].forEach((n, i) => n && tone(g, hz(n), t + i * .42, 1.4, 'triangle', .24)))(); radioBus.gain.setTargetAtTime(1, now(), .05); radioNoise.gain.setTargetAtTime(.02, now(), .1); }
-    await wait(reduce ? 500 : 10500);
-    speak('This is W K R S, HollowVale Harbor, signing off. Thank you for listening. Goodnight.', { rate: .85, pitch: 1.05, voice: 'female' });
-    await typeTx(['This is WKRS, HollowVale Harbor, signing off.', 'Thank you for listening. Goodnight.']);
-    if (ctx) program(0, (g, t) => tone(g, 1000, t, 3, 'sine', .15))();
-    await wait(3400);
+    caption('Across the desk, the radio switches itself on.', 4000);
+    pos.am = OWL.p; drawScale(); if (!radioOn) setRadio(true); else evaluate();
+    await wait(4500);
+    const ruth = ['Hello? Is someone there?', 'Oh. Oh, you found me.', `I\u2019ve been on the air since the night of the Hollowtide.${name ? ' Thank you, ' + name + '.' : ''}`, 'Let me finish the song. I hate leaving a song unfinished.'];
+    for (const l of ruth) { setSongLevel(.25); caption('RUTH: ' + l, 9000); await speak(l, { rate: .9, pitch: 1.05, voice: 'female' }); await wait(500); }
+    setSongLevel(.9); caption('\u201cNo Place Like Home\u201d plays on, clearer than it ever has.', 6000);
+    await wait(reduce ? 500 : 12000);
+    setSongLevel(.25);
+    for (const l of ['This is WKRS, HollowVale Harbor, signing off.', 'Thank you for listening. Goodnight.']) { caption('RUTH: ' + l, 7000); await speak(l, { rate: .85, pitch: 1.05, voice: 'female' }); }
+    await wait(1500);
     setRadio(false); closePanels();
     state.ended = true; save();
     // the twist
@@ -1759,8 +1844,9 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     endingCall = false; await wait(1200); closePanels();
     await wait(900);
     dialMat.color.setHex(0xffffff); radioGlow.intensity = .7;
-    await speak(`You’re listening to Night Owl. With ${name || 'you'}.`, { rate: .75, pitch: .5 });
-    dialMat.color.setHex(0x5a4a38); radioGlow.intensity = 0; if (ctx) radioNoise.gain.setTargetAtTime(0, now(), .3);
+    caption(`You\u2019re listening to Night Owl. With ${name || 'you'}.`, 6000);
+    await speak(`You\u2019re listening to Night Owl. With ${name || 'you'}.`, { rate: .75, pitch: .5 });
+    dialMat.color.setHex(0x5a4a38); radioGlow.intensity = 0;
     figureTarget = 0; lit = true; sfx.squeak();
     setTimeout(() => { windowWords = 'COUNT\nTHE BELLS'; }, 6000);
     ending = false;
@@ -1770,9 +1856,9 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
   $('#endClose').addEventListener('click', () => { $('#endcard').hidden = true; });
 
   // ================= notes =================
-  const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock'], ['opened', 'The open window'], ['sign', 'Home sweet home'], ['walker', 'Someone walking past']];
-  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['year', 'WHAT YEAR IT IS'], ['stations', 'EVERY STATION'], ['bells', '\u201cCOUNT THE BELLS\u201d'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET'], ['yehukan', 'SPOKE YE HUKAN']]);
-  const foundCount = () => state.radio.length + state.words.length + state.calls.length + state.room.length;
+  const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock'], ['dialed', 'A call that didn\u2019t go through'], ['opened', 'The open window'], ['sign', 'Home sweet home'], ['walker', 'Someone walking past']];
+  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['year', 'WHAT YEAR IT IS'], ['stations', 'EVERY STATION'], ['file1', 'FILE 01 \u00b7 WHERE YOU ARE'], ['file2', 'FILE 02 \u00b7 RUTH CALLOWAY'], ['file3', 'FILE 03 \u00b7 THE BELLS'], ['file4', 'FILE 04 \u00b7 VISITOR LOG'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET'], ['yehukan', 'SPOKE YE HUKAN']]);
+  const foundCount = () => state.radio.filter(id => S.some(x => x.id === id)).length + state.words.filter(id => TERM.some(x => x[0] === id)).length + state.calls.filter(id => CALLS[id]).length + state.room.filter(id => ROOM.some(x => x[0] === id)).length;
   const totalCount = () => S.length + TERM.length + Object.keys(CALLS).length + ROOM.length;
   function updateNotesCount() { $('#notesCount').textContent = `${foundCount()}`; }
   function renderNotes() {
@@ -1825,7 +1911,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     // the window: sash slides, cold air gets in
     winOpen += (winOpenTarget - winOpen) * Math.min(1, dt * 2.5);
     sash.position.y = -WIN.h / 4 + winOpen * (WIN.h / 2 - .03); sash.position.z = .022 + winOpen * .012;
-    if (ctx && windGain) { windGain.gain.setTargetAtTime(.08 + .35 * winOpen, ctx.currentTime, .3); rainGain.gain.setTargetAtTime(.015 + .09 * winOpen, ctx.currentTime, .3); }
+    if (ctx && windGain) { windGain.gain.setTargetAtTime(.08 + .35 * winOpen, ctx.currentTime, .3); rainGain.gain.setTargetAtTime(.1 * winOpen, ctx.currentTime, .3); }
     for (let i = 0; i < cp.count; i++) { const y = cp.getY(i), x0 = cp.getX(i); cp.setZ(i, Math.sin(x0 * 40) * .025 + winOpen * Math.sin(t / 600 + y * 3 + x0 * 5) * .05 * (.75 - y / 2)); }
     cp.needsUpdate = true;
     if (winOpen > .3 && Math.random() < .02 * winOpen) flick *= .6;
