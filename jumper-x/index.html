@@ -69,15 +69,21 @@
     padding: 0 max(14px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
     pointer-events: none;
   }
+  .dpad {
+    display: grid; grid-template-columns: repeat(3, var(--pad)); grid-template-rows: repeat(3, var(--pad)); gap: 4px;
+    --pad: clamp(48px, 13.5vw, 64px);
+  }
+  .dpad .up { grid-area: 1 / 2; } .dpad .left { grid-area: 2 / 1; } .dpad .right { grid-area: 2 / 3; } .dpad .down { grid-area: 3 / 2; }
+  .touch .dpad button { width: var(--pad); height: var(--pad); border-radius: 14px; font-size: 20px; }
   .touch button {
-    pointer-events: auto; touch-action: none;
+    pointer-events: auto; touch-action: none; -webkit-user-select: none; user-select: none;
     width: clamp(62px, 17vw, 84px); height: clamp(62px, 17vw, 84px); border-radius: 50%;
     background: rgba(255, 255, 255, .55); border: 3px solid var(--ink); font-size: 26px; color: var(--ink);
     box-shadow: 0 4px 0 rgba(29, 31, 43, .35);
   }
   .touch button.on { background: rgba(255, 255, 255, .9); transform: translateY(2px); box-shadow: 0 2px 0 rgba(29, 31, 43, .35); }
   .touch .jump { margin-left: auto; width: clamp(76px, 21vw, 100px); height: clamp(76px, 21vw, 100px);
-                 background: var(--purple); color: #fff; }
+                 background: var(--purple); color: #fff; font: 400 12px var(--display); align-self: center; }
   .touch .jump.on { background: var(--purple-dark); }
   body.coarse.playing .touch { display: flex; }
 
@@ -199,9 +205,13 @@
 <ol class="board" id="board" hidden></ol>
 
 <div class="touch" id="touch">
-  <button data-k="L" aria-label="Left">◀</button>
-  <button data-k="R" aria-label="Right">▶</button>
-  <button data-k="J" class="jump" aria-label="Jump">⤒</button>
+  <div class="dpad">
+    <button data-k="U" class="up" aria-label="Up (jump)">▲</button>
+    <button data-k="L" class="left" aria-label="Left">◀</button>
+    <button data-k="R" class="right" aria-label="Right">▶</button>
+    <button data-k="D" class="down" aria-label="Down (drop faster)">▼</button>
+  </div>
+  <button data-k="J" class="jump" aria-label="Jump">JUMP</button>
 </div>
 
 <div class="overlay" id="overlay"><div class="card" id="card"></div></div>
@@ -374,7 +384,7 @@ const keys = {};
 const C = {
   state: 'title', seed: 7, texts: [], nextMile: 25, combo: 0, comboT: 0, banked: true, hearts: 3, coins: 0, height: 0, zone: -1,
   players: [], parts: [], banner: 0, bannerText: '', shake: 0, t: 0,
-  touch: { L: false, R: false, J: false }, cam: { x: 0, y: 0, z: 2 }, last: 0, acc: 0, pruneT: 0,
+  touch: { L: false, R: false, J: false, U: false, D: false }, cam: { x: 0, y: 0, z: 2 }, last: 0, acc: 0, pruneT: 0,
 };
 const W = { rows: new Map(), ents: [], movers: [], coins: [], items: [], decor: [], crumble: new Map(), opened: new Set(), springT: new Map(), gen: null };
 
@@ -392,6 +402,7 @@ function resize() {
 addEventListener('resize', resize);
 addEventListener('orientationchange', () => setTimeout(resize, 200));
 document.body.classList.toggle('coarse', matchMedia('(pointer: coarse)').matches);
+addEventListener('touchstart', () => { if (!document.body.classList.contains('coarse')) { document.body.classList.add('coarse'); updateCamera(0, true); } }, { passive: true });
 
 // ---------- random ----------
 function mulberry(a) {
@@ -430,7 +441,7 @@ function setTile(c, r, v) {
 function genInit(seed) {
   W.rows = new Map(); W.ents = []; W.movers = []; W.coins = []; W.items = []; W.decor = [];
   W.crumble = new Map(); W.opened = new Set(); W.springT = new Map();
-  W.gen = { rng: mulberry(seed), prev: { a: 1, b: COLS - 2, r: 0 }, dir: 1, count: 0 };
+  W.gen = { rng: mulberry(seed), prev: { a: 1, b: COLS - 2, r: 0 }, dir: 1, count: 0, springs: [] };
   genUpTo(-60);
 }
 function genUpTo(target) {
@@ -456,7 +467,7 @@ function genStep() {
   const G = W.gen, prev = G.prev;
   const height = -prev.r, d = Math.min(1, height / 500);
   const z = zoneOf(prev.r), zi = zoneInfo(z);
-  const step = prev.spring ? ri(4, 6) : (R() < .12 + d * .25 && height > 15 ? 3 : 2);
+  const step = prev.spring ? ri(4, 5) : (R() < .12 + d * .25 && height > 15 ? 3 : 2);
   const r = prev.r - step;
 
   let kind;
@@ -478,14 +489,15 @@ function genStep() {
       const c = ri(1, COLS - 1 - len), b = c + len - 1;
       const gap = Math.max(c - prev.b - 1, prev.a - b - 1);
       const shift = (c + b) / 2 - (prev.a + prev.b) / 2;
-      if (prev.r !== 0 && gap !== 1) continue;
+      if (prev.r !== 0 && gap !== (prev.spring ? 1 : 2)) continue;
+      if (G.springs.some(sp => sp.c >= c - 1 && sp.c <= b + 1 && sp.r - r <= 10)) continue;   // keep spring bounces clear
       if (prev.r === 0 && b >= COLS / 2 - 3 && c <= COLS / 2 + 2) continue;   // keep the start clear
       if (pass < 2 && !clearBelow(c, b, r)) continue;
       if (prev.r === 0 || (Math.abs(shift) >= 2 && Math.sign(shift) === G.dir)) { a = c; break; }
     }
     if (a < 0) G.dir = -G.dir;
   }
-  if (a < 0) a = prev.b + 2 + len - 1 <= COLS - 2 ? prev.b + 2 : Math.max(1, prev.a - 1 - len);
+  if (a < 0) a = prev.b + 3 + len - 1 <= COLS - 2 ? prev.b + 3 : Math.max(1, prev.a - 2 - len);
   const b = a + len - 1;
 
   for (let c = a; c <= b; c++) setTile(c, r, TILE_OF[kind]);
@@ -499,6 +511,7 @@ function genStep() {
   const right = (a + b) / 2 >= (prev.a + prev.b) / 2;
 
   G.prev = { a, b, r, spring: kind === 'spring' };
+  if (kind === 'spring') { G.springs.push({ c: a, r }); if (G.springs.length > 3) G.springs.shift(); }
   G.path = G.path || []; if (G.path.length < 400) G.path.push(G.prev);
   G.count++;
   if (R() < .3) G.dir = -G.dir;
@@ -731,7 +744,7 @@ function setState(s) {
         <p class="note" id="netNote"></p>
       </div>
       <details class="how"><summary>How to play</summary>
-        <div class="keys"><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> move · <kbd>↑</kbd> <kbd>W</kbd> <kbd>Space</kbd> jump · jump again in the air to double jump</div>
+        <div class="keys"><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> move · <kbd>↑</kbd> <kbd>W</kbd> <kbd>Space</kbd> jump · jump again in the air to double jump · <kbd>↓</kbd> drop faster<br>On a touchscreen, use the arrow pad and the JUMP button</div>
         <div class="legend">
           <span>🔴 <b>Spring</b> bounces you high</span>
           <span>🧊 <b>Ice</b> is slippery</span>
@@ -905,7 +918,7 @@ document.querySelectorAll('#touch button').forEach(b => {
 function readInput() {
   const k = keys, t = C.touch;
   return { l: k.ArrowLeft || k.KeyA || t.L, r: k.ArrowRight || k.KeyD || t.R,
-           j: k.ArrowUp || k.KeyW || k.Space || t.J, d: k.ArrowDown || k.KeyS };
+           j: k.ArrowUp || k.KeyW || k.Space || t.J || t.U, d: k.ArrowDown || k.KeyS || t.D };
 }
 
 // ---------- physics ----------
@@ -1005,7 +1018,8 @@ function updatePlayer(p, dt) {
     }
   }
   if (!inp.j && p.vy < 0 && !p.jumpCut) { p.vy *= .55; p.jumpCut = true; }
-  p.vy = Math.min(p.vy + GRAV * dt, MAXFALL);
+  const diving = inp.d && !p.onGround;   // holding down drops you faster
+  p.vy = Math.min(p.vy + (diving ? GRAV * 2.2 : GRAV) * dt, diving ? MAXFALL * 1.5 : MAXFALL);
 
   if (p.onGround && p.ride) moveX(p, p.ride.dx);
   const wasGround = p.onGround, fallV = p.vy;
@@ -1145,7 +1159,7 @@ function updateCamera(dt, snap) {
   let tx = (x0 + x1) / 2 - vw / 2, ty = (y0 + y1) / 2 - vh * .58;
   tx = vw >= WW ? (WW - vw) / 2 : clamp(tx, 0, WW - vw);
   // on touch screens let the camera sink below the floor so the buttons don't cover you
-  const padB = document.body.classList.contains('coarse') ? 130 / cam.z : 0;
+  const padB = document.body.classList.contains('coarse') ? 210 / cam.z : 0;
   ty = Math.min(ty, 2 * T - vh + padB);
   if (snap) { cam.x = tx; cam.y = ty; }
   else { const k = Math.min(1, dt * 6); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; }
