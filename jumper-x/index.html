@@ -55,7 +55,6 @@
   .pill:empty { display: none; }
   .hud .hearts { color: var(--heart); letter-spacing: 1px; }
   .hud .fx { font-size: clamp(12px, 3vw, 16px); }
-  .hud .lava { color: var(--ember); }
   .hud .grow { flex: 1; }
   .coin-dot { display: inline-block; width: .9em; height: .9em; border-radius: 50%; background: var(--gold);
               border: 2px solid var(--ink); vertical-align: -.1em; margin-right: 6px; }
@@ -190,7 +189,6 @@
   <span class="pill" id="hHeight">Height: 0m</span>
   <span class="pill hearts" id="hHearts">♥♥♥</span>
   <span class="pill fx" id="hFx"></span>
-  <span class="pill lava" id="hLava"></span>
   <span class="grow"></span>
   <span class="pill"><i class="coin-dot"></i><span id="hCoins">0</span></span>
   <button id="musicBtn" title="Music on">♪</button>
@@ -375,10 +373,10 @@ let DPR = 1, SW = 0, SH = 0;
 const keys = {};
 const C = {
   state: 'title', seed: 7, texts: [], nextMile: 25, combo: 0, comboT: 0, banked: true, hearts: 3, coins: 0, height: 0, zone: -1,
-  players: [], parts: [], lavaY: 6 * T, lavaT: 4, banner: 0, bannerText: '', shake: 0, t: 0,
+  players: [], parts: [], banner: 0, bannerText: '', shake: 0, t: 0,
   touch: { L: false, R: false, J: false }, cam: { x: 0, y: 0, z: 2 }, last: 0, acc: 0, pruneT: 0,
 };
-const W = { rows: new Map(), ents: [], movers: [], coins: [], items: [], decor: [], cols: [], crumble: new Map(), opened: new Set(), springT: new Map(), gen: null };
+const W = { rows: new Map(), ents: [], movers: [], coins: [], items: [], decor: [], crumble: new Map(), opened: new Set(), springT: new Map(), gen: null };
 
 // ---------- screen fitting ----------
 // Zoom comes from the screen's area, so every device sees about the same
@@ -428,10 +426,9 @@ function setTile(c, r, v) {
 }
 
 // ---------- endless generation ----------
-// One connected path climbs forever. Every step sits on a stone pillar that
-// stands on the step below it, so the route reads as a single staircase.
+// One path of floating panels climbs forever, each step within reach of the last.
 function genInit(seed) {
-  W.rows = new Map(); W.ents = []; W.movers = []; W.coins = []; W.items = []; W.decor = []; W.cols = [];
+  W.rows = new Map(); W.ents = []; W.movers = []; W.coins = []; W.items = []; W.decor = [];
   W.crumble = new Map(); W.opened = new Set(); W.springT = new Map();
   W.gen = { rng: mulberry(seed), prev: { a: 1, b: COLS - 2, r: 0 }, dir: 1, count: 0 };
   genUpTo(-60);
@@ -487,14 +484,7 @@ function genStep() {
     else if (roll < .4) setTile(c, r, [CRATE, BARREL, BOOKS][ri(0, 2)]);
   }
 
-  // a short stone tower under the end nearest the last step, standing on that
-  // step (which widens to meet it), so the route reads as one staircase.
-  // It is scenery: you walk in front of it.
   const right = (a + b) / 2 >= (prev.a + prev.b) / 2;
-  const cw = len >= 3 ? 2 : 1;
-  const k0 = right ? a : b - cw + 1, k1 = k0 + cw - 1;
-  if (prev.r < 0) for (let c = k0; c <= k1; c++) if (tile(c, prev.r) === EMPTY) setTile(c, prev.r, PLAT);
-  if (prev.r - r > 1) W.cols.push({ c0: k0, c1: k1, r0: r + 1, r1: prev.r - 1 });
 
   G.prev = { a, b, r, spring: kind === 'spring' };
   G.count++;
@@ -549,7 +539,7 @@ function startGame(seed) {
   C.seed = seed || 1 + Math.floor(Math.random() * 1e9);
   genInit(C.seed);
   C.hearts = 3; C.coins = 0; C.height = 0; C.zone = -1; C.parts = [];
-  C.lavaY = 6 * T; C.lavaT = 4; C.acc = 0; C.texts = []; C.nextMile = 25; C.combo = 0; C.comboT = 0; C.banked = false;
+  C.acc = 0; C.texts = []; C.nextMile = 25; C.combo = 0; C.comboT = 0; C.banked = false;
   const p = makePlayer();
   p.x = (COLS / 2) * T - p.w / 2; p.y = -p.h; p.inv = 1;
   C.players = [p];
@@ -701,7 +691,7 @@ function setState(s) {
     const best = store.get('bestH', 0);
     card.innerHTML = `
       <h1 class="logo outlined">JUMPER <span>X</span></h1>
-      <p>A tower that never ends. Hop across stone, crates and barrels, grab coins, and stay ahead of the lava!</p>
+      <p>A tower that never ends. Hop from panel to panel, grab coins and power-ups, and see how high you can climb!</p>
       <div class="you">
         <canvas id="gimPreview" width="96" height="96" aria-hidden="true"></canvas>
         <div class="you-fields">
@@ -854,7 +844,7 @@ function drawPreview() {
 
 // Title screen: the camera drifts up an empty tower
 function showAttract() {
-  C.players = []; C.parts = []; C.lavaY = 6 * T;
+  C.players = []; C.parts = [];
   genInit(7);
   C.cam.z = baseZoom(); C.cam.x = Math.max(0, (WW - SW / C.cam.z) / 2); C.cam.y = T * 2 - SH / C.cam.z;
 }
@@ -961,17 +951,15 @@ function burst(x, y, col, n = 14, spd = 160) {
   }
 }
 
-function hurt(p, lava) {
-  if (p.inv > 0) { if (lava) { p.vy = -JUMP * 1.3; p.jumpCut = true; } return; }
+function hurt(p) {
+  if (p.inv > 0) return;
   if (p.shield) {
     p.shield = false; p.inv = 1.2; sfx.shield(); burst(p.x + p.w / 2, p.y + p.h / 2, '#7fd8ff', 16, 180);
-    if (lava) { p.vy = -JUMP * 1.4; p.jumpCut = true; C.lavaY += 3 * T; }
     return;
   }
   C.hearts--; p.inv = 1.6; C.shake = .3; sfx.hurt();
   burst(p.x + p.w / 2, p.y + p.h / 2, GIM_COLORS[ME.col], 16, 180);
-  p.vy = lava ? -JUMP * 1.4 : -JUMP * .6; p.jumpCut = true;
-  if (lava) C.lavaY += 4 * T;
+  p.vy = -JUMP * .6; p.jumpCut = true;
   if (C.hearts <= 0) { sfx.over(); setState('over'); }
 }
 
@@ -1024,7 +1012,6 @@ function updatePlayer(p, dt) {
     if (tile(c, r) === SPIKE && overlap(p, { x: c * T + 5, y: r * T + 18, w: 22, h: 14 })) hurt(p);
   }
   if (C.state !== 'play') return;
-  if (p.y + p.h > C.lavaY + 4) { hurt(p, true); if (C.state !== 'play') return; }
 
   const pcx = p.x + p.w / 2, pcy = p.y + p.h / 2;
   for (const co of W.coins) {
@@ -1082,16 +1069,6 @@ function update(dt) {
   if (z !== C.zone) { C.zone = z; C.bannerText = zoneInfo(z).name; C.banner = C.bannerMax = 2.6; C.bannerZone = true; }
   genUpTo(Math.floor(top / T) - 45);
 
-  // lava: speeds up with height, and catches up if you get far ahead of it
-  if (C.lavaT > 0) C.lavaT -= dt;
-  else {
-    const d = Math.min(1, C.height / 500);
-    let speed = 13 + d * 26;
-    const gap = C.lavaY - low;
-    if (gap > 14 * T) speed += (gap - 14 * T) * .8;
-    C.lavaY -= speed * dt;
-  }
-
   for (const m of W.movers) {
     m.dx = m.vx * dt; m.x += m.dx;
     if (m.x < m.minX) { m.x = m.minX; m.vx = Math.abs(m.vx); }
@@ -1109,7 +1086,6 @@ function update(dt) {
       if (e.x < T || e.x + e.w > WW - T) { e.vx *= -1; e.x = clamp(e.x, T, WW - T - e.w); }
       e.y = e.y0 + Math.sin(e.t * 2.5) * e.amp;
     }
-    if (e.y > C.lavaY) e.dead = true;
   }
   for (const [key, cr] of W.crumble) {
     if (cr.t > 0) { cr.t -= dt; if (cr.t <= 0) { setTile(cr.c, cr.r, EMPTY); cr.back = 5; burst(cr.c * T + 16, cr.r * T + 8, '#8a8299', 10, 90); } }
@@ -1123,17 +1099,12 @@ function update(dt) {
   for (const q of C.parts) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += (q.g ?? 500) * dt; }
   if (C.parts.length) C.parts = C.parts.filter(q => q.life > 0);
 
-  // forget everything the lava has swallowed
+  // tidy up things already collected or defeated
   if ((C.pruneT -= dt) <= 0) {
-    C.pruneT = 1;
-    const cut = C.lavaY + 8 * T;
-    for (const r of W.rows.keys()) if (r * T > cut) W.rows.delete(r);
-    W.ents = W.ents.filter(e => !e.dead && e.y < cut);
-    W.movers = W.movers.filter(m => m.y < cut);
-    W.coins = W.coins.filter(c => !c.got && c.y < cut);
-    W.items = W.items.filter(i => !i.got && i.y < cut);
-    W.decor = W.decor.filter(d => d.r * T < cut);
-    W.cols = W.cols.filter(k => k.r0 * T < cut);
+    C.pruneT = 2;
+    W.ents = W.ents.filter(e => !e.dead);
+    W.coins = W.coins.filter(c => !c.got);
+    W.items = W.items.filter(i => !i.got);
   }
 }
 
@@ -1166,7 +1137,7 @@ const STONE = { top: '#9aaacc', face: '#7384aa', dark: '#5a6a90', deep: '#4a587b
 function outline(w = 2) { cx.lineWidth = w; cx.strokeStyle = INK; cx.lineJoin = 'round'; cx.lineCap = 'round'; cx.stroke(); }
 function fillOut(col, w = 2) { cx.fillStyle = col; cx.fill(); outline(w); }
 
-// sky, drawn into the pixel buffer before the world (bw × bh world pixels):
+// sky, drawn behind the world in screen-fixed world units (bw × bh):
 // soft stripes, sparkles and two layers of drifting clouds
 function drawSky(bw, bh) {
   const cam = C.cam;
@@ -1231,25 +1202,6 @@ function drawWall(x, y, cap) {
       cx.strokeRect(l + 1, ry + 1, r - l - 2, 14);
     }
   }
-}
-
-// a stone tower behind a step, from just under it down to whatever it stands on
-function drawColumn(k, oy, vh) {
-  const x = k.c0 * T + 3, w = (k.c1 - k.c0 + 1) * T - 6;
-  const top = Math.max(k.r0 * T, oy - 20), bot = Math.min((k.r1 + 1) * T + 4, oy + vh + 20);
-  if (bot <= top) return;
-  cx.fillStyle = '#56658a'; cx.fillRect(x, top, w, bot - top);
-  cx.strokeStyle = INK; cx.lineWidth = 1.4;
-  for (let by = Math.floor(top / 16) * 16; by < bot; by += 16) {
-    const off = ((by / 16) & 1) * 14;
-    for (let bx = x - 14 + off; bx < x + w; bx += 28) {
-      const l = Math.max(x + 2, bx), rr = Math.min(x + w - 2, bx + 28);
-      if (rr - l < 4) continue;
-      cx.fillStyle = hash(Math.round(bx), by) > .5 ? '#6a7a9f' : '#617196';
-      cx.fillRect(l + 1, by + 1, rr - l - 2, 14); cx.strokeRect(l + 1, by + 1, rr - l - 2, 14);
-    }
-  }
-  cx.fillStyle = INK; cx.fillRect(x - 1, top, 2.6, bot - top); cx.fillRect(x + w - 1.6, top, 2.6, bot - top);
 }
 
 // a run of stone ledge, ice or cracked sandstone from column a to b
@@ -1606,47 +1558,60 @@ function drawHat(g, id, top, face) {
 
 // o: { walk, air, vy, look (-1..1 eye direction), blink, hat, seed }
 function drawGimLocal(g, col, face, o = {}) {
-  const bw = 24, bh = 25, by = -3 - bh, bob = o.walk ? -Math.abs(Math.sin(o.walk)) * 1.6 : 0;
-  const step = o.walk ? Math.sin(o.walk) * 3 : 0, look = o.look ?? face;
-  const edge = tint(col, -.6);   // outline in a deep shade of the body colour
+  // a Gim-style gumdrop: rounded dome on top, flat soft bottom, big eyes, stubby limbs
+  const top = -31, bob = o.walk ? -Math.abs(Math.sin(o.walk)) * 1.5 : 0;
+  const step = o.walk ? Math.sin(o.walk) * 2.5 : 0, look = o.look ?? face;
+  const edge = tint(col, -.62);
+  g.lineJoin = 'round'; g.lineCap = 'round';
 
   // feet
-  g.lineWidth = 1.8; g.strokeStyle = edge;
+  g.lineWidth = 2; g.strokeStyle = edge; g.fillStyle = tint(col, -.22);
   for (const s of [-1, 1]) {
-    g.beginPath(); g.ellipse(s * (5 - step * s), -2.2 - Math.max(0, s * step) * .5, 4.6, 3.1, 0, 0, Math.PI * 2);
-    g.fillStyle = tint(col, -.25); g.fill(); g.stroke();
+    g.beginPath(); g.ellipse(s * 6 + step * s * -1, -2.6 - Math.max(0, s * step) * .6, 5, 3.4, 0, 0, Math.PI * 2);
+    g.fill(); g.stroke();
   }
   g.save(); g.translate(0, bob);
-  // arms: swing while walking, flap up in the air
+  // arms
+  const armY = o.air ? top + 14 : top + 20, swing = o.walk ? Math.sin(o.walk) * .5 : 0;
   g.fillStyle = col;
-  const swing = o.walk ? Math.sin(o.walk) * .5 : 0;
-  const armY = o.air ? by + bh * .36 : by + bh * .62;
-  g.beginPath(); g.ellipse(-bw / 2 - 1, armY, 3.2, 4.6, o.air ? -.7 : .3 + swing, 0, Math.PI * 2); g.fill(); g.stroke();
-  g.beginPath(); g.ellipse(bw / 2 + 1, armY, 3.2, 4.6, o.air ? .7 : -.3 + swing, 0, Math.PI * 2); g.fill(); g.stroke();
-  // body: flat colour, a shaded lower edge, a shine and a thick outline
-  g.fillStyle = col; rrect(g, -bw / 2, by, bw, bh, 11); g.fill();
-  g.save(); rrect(g, -bw / 2, by, bw, bh, 11); g.clip();
-  g.fillStyle = tint(col, -.16); g.beginPath(); g.ellipse(4, by + bh + 3, bw * .8, bh * .42, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = tint(col, .25); g.beginPath(); g.ellipse(-5, by + 2, bw * .45, bh * .25, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(-14, armY, 3.4, 5, o.air ? -.8 : .35 + swing, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.beginPath(); g.ellipse(14, armY, 3.4, 5, o.air ? .8 : -.35 + swing, 0, Math.PI * 2); g.fill(); g.stroke();
+  // body
+  const body = () => {
+    g.beginPath();
+    g.moveTo(-13.5, -9);
+    g.bezierCurveTo(-14.5, top + 7, -9, top, 0, top);
+    g.bezierCurveTo(9, top, 14.5, top + 7, 13.5, -9);
+    g.quadraticCurveTo(13.5, -3, 7.5, -3);
+    g.lineTo(-7.5, -3);
+    g.quadraticCurveTo(-13.5, -3, -13.5, -9);
+    g.closePath();
+  };
+  body(); g.fillStyle = col; g.fill();
+  g.save(); body(); g.clip();
+  g.fillStyle = tint(col, -.15); g.beginPath(); g.ellipse(5, -2, 20, 11, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = tint(col, .28); g.beginPath(); g.ellipse(-6, top + 4, 7, 4, -.4, 0, Math.PI * 2); g.fill();
   g.restore();
-  rrect(g, -bw / 2, by, bw, bh, 11); g.lineWidth = 2.4; g.strokeStyle = edge; g.stroke();
-  // big dark oval eyes with a light rim and a glint
-  const ex = look * 2.6, ey = by + bh * .42 + (o.air ? (o.vy < 0 ? -1 : 1) : 0);
+  body(); g.lineWidth = 2.6; g.strokeStyle = edge; g.stroke();
+
+  // big eyes: dark ovals with a lighter inner ring and a shine
+  const ex = look * 2.6, ey = top + 12 + (o.air ? (o.vy < 0 ? -1 : 1) : 0);
   const blink = o.blink !== false && (Math.floor((C.t + (o.seed || 0)) * 10) % 37 === 0);
   const happy = o.happy > 0;
   for (const s of [-1, 1]) {
-    const cxe = ex + s * 4.8;
+    const cxe = ex + s * 5.4;
     if (blink || happy) {
-      g.strokeStyle = '#141628'; g.lineWidth = 1.8; g.lineCap = 'round';
+      g.strokeStyle = '#141628'; g.lineWidth = 2;
       g.beginPath();
-      if (happy) g.arc(cxe, ey + 1.5, 2.7, 1.15 * Math.PI, 1.85 * Math.PI); else { g.moveTo(cxe - 3, ey); g.lineTo(cxe + 3, ey); }
+      if (happy) g.arc(cxe, ey + 1.5, 3, 1.15 * Math.PI, 1.85 * Math.PI); else { g.moveTo(cxe - 3.4, ey); g.lineTo(cxe + 3.4, ey); }
       g.stroke(); continue;
     }
-    g.fillStyle = tint(col, .55); g.beginPath(); g.ellipse(cxe, ey, 3.7, 4.6, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#141628'; g.beginPath(); g.ellipse(cxe + look * .5, ey + .2, 2.9, 3.8, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#fff'; g.beginPath(); g.arc(cxe + look * .5 - 1, ey - 1.3, 1.1, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#141628'; g.beginPath(); g.ellipse(cxe, ey, 4, 5.2, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = tint(col, .35); g.beginPath(); g.ellipse(cxe + look * .8, ey + .6, 2.3, 3, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#141628'; g.beginPath(); g.ellipse(cxe + look * 1, ey + .8, 1.3, 1.8, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(cxe - 1.4, ey - 2.2, 1.2, 0, Math.PI * 2); g.fill();
   }
-  if (o.hat && o.hat !== 'none') drawHat(g, o.hat, by, face);
+  if (o.hat && o.hat !== 'none') drawHat(g, o.hat, top + 2, face);
   g.restore();
 }
 
@@ -1667,7 +1632,7 @@ function animate(p, dt) {
     p[v] += ((1 - p[s]) * 320 - p[v] * 16) * dt;
     p[s] += p[v] * dt;
   }
-  p.lean += ((p.onGround ? p.vx / RUN * .1 : p.vx / RUN * .16) - p.lean) * Math.min(1, dt * 10);
+  p.lean = 0;
   p.look += (p.face - p.look) * Math.min(1, dt * 12);
   if (p.happy > 0) p.happy -= dt;
   // little dust puffs while running
@@ -1722,7 +1687,7 @@ function drawGhosts(dt) {
     const air = Math.abs(my) > 1, st = air ? clamp(-vy / 1400, -.1, .14) : 0;
     cx.globalAlpha = .92;
     drawGim(cx, Math.round(g.rx), Math.round(g.ry), GIM_COLORS[p.col], p.f,
-      { sx: 1 - st, sy: 1 + st, lean: clamp(mx * k / Math.max(dt, .001) / RUN * .12, -.2, .2), walk: g.walk, air, vy, look: g.look, hat: p.hat, seed: p.col * 1.7 });
+      { sx: 1 - st, sy: 1 + st, walk: g.walk, air, vy, look: g.look, hat: p.hat, seed: p.col * 1.7 });
     cx.globalAlpha = 1;
   }
 }
@@ -1753,25 +1718,6 @@ function drawTexts() {
   cx.globalAlpha = 1;
 }
 
-function drawLava(ox, vw, oy, vh) {
-  const y = C.lavaY;
-  if (y > oy + vh + 20) return;
-  const x0 = Math.max(0, ox - 16), x1 = Math.min(WW, ox + vw + 16), bottom = oy + vh + 20;
-  const wave = x => y + Math.sin(x * .05 + C.t * 3) * 4;
-  cx.beginPath(); cx.moveTo(x0, bottom);
-  for (let x = Math.floor(x0 / 12) * 12; x <= x1 + 12; x += 12) cx.lineTo(x, wave(x));
-  cx.lineTo(x1, bottom); cx.closePath();
-  cx.fillStyle = '#ff6a1a'; cx.fill(); outline(2.5);
-  cx.fillStyle = '#ffa12e'; cx.fillRect(x0, y + 10, x1 - x0, Math.max(0, bottom - y - 10));
-  cx.strokeStyle = '#ffd23b'; cx.lineWidth = 2.5; cx.beginPath();
-  for (let x = Math.floor(x0 / 12) * 12; x <= x1 + 12; x += 12) cx.lineTo(x, wave(x) + 5);
-  cx.stroke();
-  for (let i = 0; i < 18; i++) {
-    const bx = (i * 71 + C.t * 18) % WW, by = y + 18 + ((i * 37 + C.t * 26) % 70);
-    cx.beginPath(); cx.arc(bx, by, 2.5 + (i % 3), 0, Math.PI * 2); fillOut('#ffd23b', 1.2);
-  }
-}
-
 // outlined cartoon text in screen space
 function bigText(text, x, y, size, fill, align = 'center', skew = 0) {
   cx.save(); cx.translate(x, y); if (skew) cx.transform(1, 0, skew, 1, 0, 0);
@@ -1782,36 +1728,26 @@ function bigText(text, x, y, size, fill, align = 'center', skew = 0) {
   cx.restore();
 }
 
-// The world is drawn into a small buffer at one pixel per world unit, then
-// scaled up without smoothing for a slightly pixelated look. Names and pop-up
-// text are drawn afterwards at full resolution so they stay sharp.
 const MAIN = cx;
-const PIXEL = 1.5;   // world units per buffer pixel
-const pb = document.createElement('canvas'), pbx = pb.getContext('2d');
 
 function draw() {
   const cam = C.cam, z = cam.z;
   if (!W.gen) { MAIN.setTransform(1, 0, 0, 1, 0, 0); MAIN.fillStyle = '#5ccff3'; MAIN.fillRect(0, 0, cv.width, cv.height); return; }
-  const bw = Math.ceil(SW / z / PIXEL) + 2, bh = Math.ceil(SH / z / PIXEL) + 2;
-  if (pb.width !== bw || pb.height !== bh) { pb.width = bw; pb.height = bh; }
-
   let camX = cam.x, camY = cam.y;
   if (C.shake > 0) { camX += (Math.random() - .5) * 5; camY += (Math.random() - .5) * 5; }
-  const ox = Math.floor(camX / PIXEL) * PIXEL, oy = Math.floor(camY / PIXEL) * PIXEL;
+  const k = z * DPR;
+  MAIN.setTransform(k, 0, 0, k, 0, 0);
+  MAIN.imageSmoothingEnabled = true;
+  drawSky(SW / z, SH / z);
+  MAIN.setTransform(k, 0, 0, k, -camX * k, -camY * k);
 
-  cx = pbx;
-  cx.setTransform(1, 0, 0, 1, 0, 0);
-  drawSky(bw, bh);
-  cx.setTransform(1 / PIXEL, 0, 0, 1 / PIXEL, -ox / PIXEL, -oy / PIXEL);
-
-  const vw = bw * PIXEL, vh = bh * PIXEL;
+  const ox = camX, oy = camY, vw = SW / z, vh = SH / z;
   const c0 = Math.max(0, Math.floor(ox / T)), c1 = Math.min(COLS - 1, Math.floor((ox + vw) / T));
   const r0 = Math.floor(oy / T) - 1, r1 = Math.floor((oy + vh) / T);
   const inView = (x, y, m = 40) => x > ox - m && x < ox + vw + m && y > oy - m && y < oy + vh + m;
 
   if (oy + vh > -200) { drawGroundDecor(); if (C.state !== 'title') drawTutorial(); }
   for (const d of W.decor) if (inView(WW / 2, d.r * T, Math.max(140, WW))) drawDecor(d);
-  for (const k of W.cols) if (k.r0 * T < oy + vh + 20 && (k.r1 + 1) * T > oy - 20) drawColumn(k, oy, vh);
   drawTiles(c0, c1, r0, r1);
   for (const m of W.movers) if (inView(m.x, m.y, 140)) drawMover(m);
   for (const co of W.coins) if (!co.got && inView(co.x, co.y)) drawCoin(co);
@@ -1819,32 +1755,13 @@ function draw() {
   for (const e of W.ents) if (!e.dead && inView(e.x, e.y)) drawEnemy(e);
   drawGhosts(C.frameDt || 0);
   C.players.forEach(drawPlayer);
-  for (const q of C.parts) { cx.globalAlpha = Math.min(1, q.life * 2); cx.fillStyle = q.col; cx.fillRect(Math.round(q.x), Math.round(q.y), Math.ceil(q.size), Math.ceil(q.size)); }
+  for (const q of C.parts) { cx.globalAlpha = Math.min(1, q.life * 2); cx.fillStyle = q.col; cx.fillRect(q.x, q.y, q.size, q.size); }
   cx.globalAlpha = 1;
-  drawLava(ox, vw, oy, vh);
-  cx = MAIN;
-
-  // blow the buffer up with crisp pixels, keeping the camera's sub-pixel scroll
-  const k = z * DPR;
-  MAIN.setTransform(1, 0, 0, 1, 0, 0);
-  MAIN.imageSmoothingEnabled = false;
-  MAIN.drawImage(pb, 0, 0, bw, bh, -(camX - ox) * k, -(camY - oy) * k, bw * k * PIXEL, bh * k * PIXEL);
-
-  // sharp text on top, positioned in world units
-  MAIN.setTransform(k, 0, 0, k, -camX * k, -camY * k);
-  MAIN.imageSmoothingEnabled = true;
   drawNameTags();
   drawTexts();
 
   // screen-space effects
   MAIN.setTransform(DPR, 0, 0, DPR, 0, 0);
-  const below = C.lavaY - (cam.y + SH / z);
-  if (C.state === 'play' && C.lavaT <= 0 && below > 0 && below < 8 * T) {
-    const a = (1 - below / (8 * T)) * .5 * (.8 + Math.sin(C.t * 6) * .2);
-    const g = MAIN.createLinearGradient(0, SH, 0, SH * .7);
-    g.addColorStop(0, `rgba(255,90,20,${a})`); g.addColorStop(1, 'rgba(255,90,20,0)');
-    MAIN.fillStyle = g; MAIN.fillRect(0, SH * .7, SW, SH * .3);
-  }
   if (C.banner > 0 && C.state === 'play') {
     const age = C.bannerMax - C.banner, slide = Math.min(1, age / .3), out = Math.min(1, C.banner / .4);
     MAIN.globalAlpha = out;
@@ -1867,7 +1784,6 @@ function updateHud() {
   setHud('hHeight', 'Height: ' + C.height + 'm');
   setHud('hHearts', '♥'.repeat(Math.max(0, C.hearts)));
   setHud('hCoins', C.coins.toLocaleString());
-  setHud('hLava', C.lavaT > 0 ? 'Lava in ' + Math.ceil(C.lavaT) : '');
   const fx = [];
   for (const p of C.players) {
     if (p.shield) fx.push('🛡️');
