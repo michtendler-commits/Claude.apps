@@ -349,7 +349,7 @@ const T = 32, COLS = 22, WW = COLS * T;
 const GRAV = 800, JUMP = 390, RUN = 90, MAXFALL = 470, STEP = 1 / 120;
 const EMPTY = 0, SOLID = 1, PLAT = 2, SPIKE = 3, CRATE = 4, BOOKS = 5, BARREL = 6,
       SPRING = 7, ICE = 8, CRUMBLE = 9, CHEST = 10, PILLAR = 11;
-const isSolid = t => t === SOLID || t === PILLAR;
+const isSolid = t => t !== EMPTY && t !== SPIKE;   // every block is solid from all sides
 const ONEWAY = new Set([PLAT, CRATE, BOOKS, BARREL, SPRING, ICE, CRUMBLE, CHEST]);
 
 // The tower changes every 45 m. Each zone favours different things to jump on.
@@ -469,6 +469,7 @@ function genStep() {
       const gap = Math.max(c - prev.b - 1, prev.a - b - 1);
       const shift = (c + b) / 2 - (prev.a + prev.b) / 2;
       if (gap > 1 || (prev.spring && gap < 0)) continue;
+      if (prev.r !== 0 && c <= prev.a && b >= prev.b) continue;
       if (prev.r === 0 || (Math.abs(shift) >= 2 && Math.sign(shift) === G.dir)) { a = c; break; }
     }
     if (a < 0) G.dir = -G.dir;
@@ -487,6 +488,7 @@ function genStep() {
   const right = (a + b) / 2 >= (prev.a + prev.b) / 2;
 
   G.prev = { a, b, r, spring: kind === 'spring' };
+  G.path = G.path || []; if (G.path.length < 400) G.path.push(G.prev);
   G.count++;
   if (R() < .3) G.dir = -G.dir;
   if (a <= 3) G.dir = 1;
@@ -714,7 +716,7 @@ function setState(s) {
         <p class="note" id="netNote"></p>
       </div>
       <details class="how"><summary>How to play</summary>
-        <div class="keys"><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> move · <kbd>↑</kbd> <kbd>W</kbd> <kbd>Space</kbd> jump · jump again in the air to double jump · <kbd>↓</kbd> drop down</div>
+        <div class="keys"><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> move · <kbd>↑</kbd> <kbd>W</kbd> <kbd>Space</kbd> jump · jump again in the air to double jump</div>
         <div class="legend">
           <span>🔴 <b>Spring</b> bounces you high</span>
           <span>🧊 <b>Ice</b> is slippery</span>
@@ -913,7 +915,7 @@ function moveY(p, dy) {
     const r = Math.floor((p.y + p.h - .01) / T);
     for (let c = c0; c <= c1; c++) {
       const t = tile(c, r);
-      if (isSolid(t) || (ONEWAY.has(t) && p.dropT <= 0 && prevBottom <= r * T + .5)) {
+      if (isSolid(t)) {
         p.y = r * T - p.h; p.vy = 0; p.onGround = true; land(p, t, c, r); return;
       }
     }
@@ -1089,7 +1091,11 @@ function update(dt) {
   }
   for (const [key, cr] of W.crumble) {
     if (cr.t > 0) { cr.t -= dt; if (cr.t <= 0) { setTile(cr.c, cr.r, EMPTY); cr.back = 5; burst(cr.c * T + 16, cr.r * T + 8, '#8a8299', 10, 90); } }
-    else if ((cr.back -= dt) <= 0) { setTile(cr.c, cr.r, CRUMBLE); W.crumble.delete(key); }
+    else if ((cr.back -= dt) <= 0) {
+      const box = { x: cr.c * T, y: cr.r * T, w: T, h: T };
+      if (C.players.some(p => overlap(p, box))) cr.back = .5;
+      else { setTile(cr.c, cr.r, CRUMBLE); W.crumble.delete(key); }
+    }
   }
   for (const [key, v] of W.springT) { if (v - dt <= 0) W.springT.delete(key); else W.springT.set(key, v - dt); }
   for (const it of W.items) it.t += dt;
@@ -1208,39 +1214,42 @@ function drawWall(x, y, cap) {
 function drawLedge(kind, a, b, r) {
   const x = a * T, y = r * T, w = (b - a + 1) * T;
   if (kind === PLAT) {
-    rrect(cx, x, y, w, 22, 3); fillOut(STONE.dark, 2.2);
+    rrect(cx, x, y, w, T, 4); fillOut(STONE.dark, 2.4);
     cx.fillStyle = STONE.top; cx.fillRect(x + 1.5, y + 1.5, w - 3, 8);
     cx.fillStyle = STONE.hi; cx.fillRect(x + 3, y + 2.5, w - 6, 2);
     cx.strokeStyle = INK; cx.lineWidth = 1.6;
     cx.beginPath(); cx.moveTo(x, y + 10); cx.lineTo(x + w, y + 10); cx.stroke();
     cx.lineWidth = 1.3;
+    cx.beginPath(); cx.moveTo(x, y + 21); cx.lineTo(x + w, y + 21); cx.stroke();
+    cx.lineWidth = 1.3;
     for (let i = 1; i < w / 16; i++) {
       const lx = x + i * 16;
-      if (i % 2 === 0) { cx.beginPath(); cx.moveTo(lx, y + 1); cx.lineTo(lx, y + 10); cx.stroke(); }
+      if (i % 2 === 0) { cx.beginPath(); cx.moveTo(lx, y + 1); cx.lineTo(lx, y + 10); cx.moveTo(lx, y + 21); cx.lineTo(lx, y + T - 1); cx.stroke(); }
       else { cx.beginPath(); cx.moveTo(lx, y + 10); cx.lineTo(lx, y + 21); cx.stroke(); }
     }
-    // little dark notches on the underside
     cx.fillStyle = STONE.deep;
     for (let i = 0; i < w / 16; i++) if (hash(a + i, r) > .55) cx.fillRect(x + i * 16 + 4, y + 13, 7, 5);
   } else if (kind === ICE) {
-    rrect(cx, x, y, w, 14, 4); fillOut('#aee9fb', 2.2);
-    cx.fillStyle = '#e6fbff'; cx.fillRect(x + 3, y + 2.5, w - 6, 3);
-    cx.fillStyle = 'rgba(255,255,255,.85)';
-    for (let i = 0; i < w / 32; i++) { cx.fillRect(x + i * 32 + 8, y + 7, 6, 2); }
     for (let i = 0; i < w / 11; i++) {
-      const ix = x + 4 + i * 11, len = 6 + hash(a + i, r) * 9;
-      cx.beginPath(); cx.moveTo(ix, y + 13); cx.lineTo(ix + 3, y + 13 + len); cx.lineTo(ix + 6, y + 13); cx.closePath();
+      const ix = x + 4 + i * 11, len = 5 + hash(a + i, r) * 8;
+      cx.beginPath(); cx.moveTo(ix, y + T - 1); cx.lineTo(ix + 3, y + T - 1 + len); cx.lineTo(ix + 6, y + T - 1); cx.closePath();
       fillOut('#aee9fb', 1.4);
     }
+    rrect(cx, x, y, w, T, 5); fillOut('#aee9fb', 2.4);
+    cx.fillStyle = '#8fdcf7'; cx.fillRect(x + 2, y + 20, w - 4, 10);
+    cx.fillStyle = '#e6fbff'; cx.fillRect(x + 3, y + 2.5, w - 6, 3);
+    cx.fillStyle = 'rgba(255,255,255,.85)';
+    for (let i = 0; i < w / 32; i++) { cx.fillRect(x + i * 32 + 8, y + 8, 6, 2); cx.fillRect(x + i * 32 + 20, y + 14, 3, 2); }
   } else if (kind === CRUMBLE) {
     for (let c = a; c <= b; c++) {
       const cr = W.crumble.get(c + ',' + r), sh = cr && cr.t > 0 ? (Math.random() - .5) * 3 : 0;
       const tx = c * T + sh;
-      rrect(cx, tx + .5, y, T - 1, 15, 3); fillOut('#d9b98a', 2);
+      rrect(cx, tx + .5, y, T - 1, T, 4); fillOut('#d9b98a', 2.2);
+      cx.fillStyle = '#c29e6c'; cx.fillRect(tx + 2.5, y + 20, T - 5, 10);
       cx.fillStyle = '#efd3a6'; cx.fillRect(tx + 3, y + 2.5, T - 6, 3);
-      cx.strokeStyle = INK; cx.lineWidth = 1.3; cx.beginPath();
-      cx.moveTo(tx + 9, y + 1); cx.lineTo(tx + 13, y + 7); cx.lineTo(tx + 10, y + 14);
-      cx.moveTo(tx + 23, y + 1); cx.lineTo(tx + 20, y + 8); cx.stroke();
+      cx.strokeStyle = INK; cx.lineWidth = 1.4; cx.beginPath();
+      cx.moveTo(tx + 9, y + 1); cx.lineTo(tx + 13, y + 9); cx.lineTo(tx + 9, y + 17); cx.lineTo(tx + 12, y + 26);
+      cx.moveTo(tx + 23, y + 1); cx.lineTo(tx + 19, y + 10); cx.lineTo(tx + 22, y + 15); cx.stroke();
     }
   }
 }
@@ -1559,20 +1568,23 @@ function drawHat(g, id, top, face) {
 // o: { walk, air, vy, look (-1..1 eye direction), blink, hat, seed }
 function drawGimLocal(g, col, face, o = {}) {
   // a Gim-style gumdrop: rounded dome on top, flat soft bottom, big eyes, stubby limbs
-  const top = -31, bob = o.walk ? -Math.abs(Math.sin(o.walk)) * 1.5 : 0;
-  const step = o.walk ? Math.sin(o.walk) * 2.5 : 0, look = o.look ?? face;
+  // walking is a bouncy little hop; standing still is a slow gentle bob
+  const top = -31, hop = o.walk ? -Math.abs(Math.sin(o.walk * .9)) * 3.5 : 0;
+  const bob = o.idle ? Math.sin(C.t * 2.6) * .8 : 0, look = o.look ?? face;
+  const tuck = o.air ? -2 : 0;
+  g.save(); g.translate(0, hop);
   const edge = tint(col, -.62);
   g.lineJoin = 'round'; g.lineCap = 'round';
 
   // feet
   g.lineWidth = 2; g.strokeStyle = edge; g.fillStyle = tint(col, -.22);
   for (const s of [-1, 1]) {
-    g.beginPath(); g.ellipse(s * 6 + step * s * -1, -2.6 - Math.max(0, s * step) * .6, 5, 3.4, 0, 0, Math.PI * 2);
+    g.beginPath(); g.ellipse(s * 6, -2.6 + tuck, 5, 3.4, 0, 0, Math.PI * 2);
     g.fill(); g.stroke();
   }
-  g.save(); g.translate(0, bob);
+  g.save(); g.translate(0, bob + tuck * .5);
   // arms
-  const armY = o.air ? top + 14 : top + 20, swing = o.walk ? Math.sin(o.walk) * .5 : 0;
+  const armY = o.air ? top + 14 : top + 20, swing = o.walk ? Math.sin(o.walk * 1.8) * .35 : 0;
   g.fillStyle = col;
   g.beginPath(); g.ellipse(-14, armY, 3.4, 5, o.air ? -.8 : .35 + swing, 0, Math.PI * 2); g.fill(); g.stroke();
   g.beginPath(); g.ellipse(14, armY, 3.4, 5, o.air ? .8 : -.35 + swing, 0, Math.PI * 2); g.fill(); g.stroke();
@@ -1612,6 +1624,7 @@ function drawGimLocal(g, col, face, o = {}) {
     g.fillStyle = '#fff'; g.beginPath(); g.arc(cxe - 1.4, ey - 2.2, 1.2, 0, Math.PI * 2); g.fill();
   }
   if (o.hat && o.hat !== 'none') drawHat(g, o.hat, top + 2, face);
+  g.restore();
   g.restore();
 }
 
@@ -1662,14 +1675,9 @@ function drawPlayer(p) {
     cx.beginPath(); cx.ellipse(x - 5, y + 10, 4, 7, -.5 - f, 0, Math.PI * 2); cx.fill();
     cx.beginPath(); cx.ellipse(x + 25, y + 10, 4, 7, .5 + f, 0, Math.PI * 2); cx.fill();
   }
-  // in-air stretch follows speed; idle breathing on the ground
-  const st = p.onGround ? 0 : clamp(-p.vy / 1400, -.1, .14);
-  const breathe = p.onGround && Math.abs(p.vx) < 5 ? Math.sin(C.t * 3) * .025 : 0;
-  // shadow
-  cx.fillStyle = 'rgba(0,0,0,.25)'; cx.beginPath(); cx.ellipse(x + 10, y + 26, 9 * p.sx, 2.5, 0, 0, Math.PI * 2); cx.fill();
+  if (p.onGround) { cx.fillStyle = 'rgba(0,0,0,.22)'; cx.beginPath(); cx.ellipse(x + 10, y + 26, 10, 2.5, 0, 0, Math.PI * 2); cx.fill(); }
   drawGim(cx, x, y, GIM_COLORS[ME.col], p.face, {
-    sx: p.sx * (1 - st) * (1 - breathe), sy: p.sy * (1 + st) * (1 + breathe), lean: p.lean,
-    walk: p.walk, air: !p.onGround, vy: p.vy, look: p.look, hat: ME.hat, happy: p.happy,
+    walk: p.walk, idle: p.onGround && Math.abs(p.vx) < 5, air: !p.onGround, vy: p.vy, look: p.look, hat: ME.hat, happy: p.happy,
   });
 }
 
@@ -1684,10 +1692,10 @@ function drawGhosts(dt) {
     const vy = dt > 0 ? my * k / dt : 0;
     g.walk = Math.abs(mx) > .5 && Math.abs(my) < 1 ? g.walk + dt * 10 : 0;
     g.look = (g.look ?? p.f) + (p.f - (g.look ?? p.f)) * Math.min(1, dt * 12);
-    const air = Math.abs(my) > 1, st = air ? clamp(-vy / 1400, -.1, .14) : 0;
+    const air = Math.abs(my) > 1;
     cx.globalAlpha = .92;
     drawGim(cx, Math.round(g.rx), Math.round(g.ry), GIM_COLORS[p.col], p.f,
-      { sx: 1 - st, sy: 1 + st, walk: g.walk, air, vy, look: g.look, hat: p.hat, seed: p.col * 1.7 });
+      { walk: g.walk, idle: !air && !g.walk, air, vy, look: g.look, hat: p.hat, seed: p.col * 1.7 });
     cx.globalAlpha = 1;
   }
 }
