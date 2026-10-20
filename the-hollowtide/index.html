@@ -139,8 +139,6 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
 #termLog .you { color: rgba(141,255,170,.6); }
 #termLog .you::before { content: "> "; }
 #termLog .them { color: #8dffaa; text-shadow: 0 0 6px rgba(108,255,143,.45); }
-#termLog .yes { font-size: 3.4rem; line-height: 1; letter-spacing: .25em; color: #c6ffd5; text-shadow: 0 0 18px rgba(108,255,143,.9); animation: yes .9s ease-out; }
-@keyframes yes { from { transform: scale(1.6); opacity: 0; } }
 #termLog a.site { color: #c6ffd5; text-decoration: underline; }
 #termLog a.site:focus-visible { outline: 2px solid #6cff8f; outline-offset: 2px; }
 #termForm { display: flex; gap: 8px; }
@@ -1404,7 +1402,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   // ================= the terminal: ask it anything =================
   const termLog = $('#termLog'), termInput = $('#termInput'), termState = $('#termState'), termHint = $('#termHint');
   const screenLines = [{ t: 'UNIA SYSTEMS  TERMINAL 003', who: 'sys' }];
-  let answerFlash = false, yesFlash = false;
+  let answerFlash = false;
   let termBusy = false, caretOn = true, termDraft = '';
   const turns = [];
   function wrap(g, text, max) {
@@ -1414,12 +1412,6 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   }
   function drawScreen() {
     const g = screenTex.userData.g, w = 512, h = 384;
-    if (yesFlash) { // the right word: a huge YES fills the screen
-      g.fillStyle = '#8dffaa'; g.fillRect(0, 0, w, h);
-      g.fillStyle = '#031006'; g.font = '170px "VT323", "Courier New", monospace'; g.textAlign = 'center';
-      g.fillText('YES.', w / 2, 250); g.textAlign = 'left';
-      termGlow.intensity = 1.2; screenTex.needsUpdate = true; return;
-    }
     if (answerFlash) { // the whole screen blinks until the phone is answered
       const on = Math.floor(performance.now() / 450) % 2 === 0;
       g.fillStyle = on ? '#8dffaa' : '#031006'; g.fillRect(0, 0, w, h);
@@ -1553,13 +1545,6 @@ Vocabulary: to be (am/is/are) = Om, go = Lon, come = Nol, want = Zhan, need = Zh
       'NAME: ' + (state.name || 'UNKNOWN') + '. ARRIVED: 03:12. LEFT: NEVER.',
       'STATUS: ON THE AIR.'] }
   ];
-  async function bigYes() {
-    yesFlash = true; drawScreen();
-    const p = addLog(termLog, 'YES.', 'yes');
-    if (ctx) { const k = now(); [60, 64, 67, 72, 76].forEach((n, i) => tone(null, hz(n), k + i * .07, 1.8, 'triangle', .07)); tone(null, hz(36), k, 1.6, 'sine', .25); }
-    await wait(reduce ? 300 : 1700);
-    yesFlash = false; drawScreen();
-  }
   function stationList() {
     return 'THE RADIO HAS FOUR STATIONS. STATION 7: MARINE WEATHER. STATION 13: NIGHT OWL \u00b7 \u201cNO PLACE LIKE HOME\u201d BY COSMOLYTE. STATION 49: THE HISTORY OF HOLLOWVALE HARBOR. STATION 72: SUNNY SIDE UP.';
   }
@@ -1596,6 +1581,11 @@ EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consisten
     // asking WHO Cosmolyte / Emmett Tendler is gets the bio; just the name opens cosmolyte.net (opened right here, while the keypress still counts as the viewer's own action)
     const cosmo = /cosmolyte|emmetttendler|emmettt$|^ert$/.test(code), askWho = cosmo && /who|what|tellme|about|bio/.test(code);
     const toSite = cosmo && !askWho;
+    // a way out to a game: opened right here, while the keypress still counts as the viewer's own action
+    const GAME_URL = 'https://steady-figolla-1c2f96.netlify.app';
+    const toGame = /^(game|jumperx|imbored|iambored|bored|imsobored)$/.test(code);
+    let gameWin = null;
+    if (toGame) { try { gameWin = window.open(GAME_URL, '_blank'); if (gameWin) gameWin.opener = null; } catch (e) {} }
     let siteWin = null;
     if (toSite) { try { siteWin = window.open('https://cosmolyte.net', '_blank'); if (siteWin) siteWin.opener = null; } catch (e) {} }
     const hit = WMAP[code];
@@ -1607,7 +1597,6 @@ EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consisten
       const file = FILES.findIndex(f => f.key.test(code));
       if (file >= 0 && (state.stage || 0) >= file) {
         await wait(600);
-        await bigYes();
         note('words', 'file' + (file + 1));
         const f = FILES[file];
         await termAnswer(f.title, 30);
@@ -1654,6 +1643,15 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
         }
         await wait(700);
         return await termAnswer(pick(yhFallback));
+      }
+      if (toGame) {
+        await wait(400); note('words', 'game');
+        await termAnswer('LOADING JUMPER X', 45);
+        const p = document.createElement('p'); p.className = 'them';
+        const a = document.createElement('a'); a.href = GAME_URL; a.target = '_blank'; a.rel = 'noopener'; a.className = 'site';
+        a.textContent = gameWin ? 'THE GAME IS OPEN IN A NEW TAB. CLICK HERE IF IT IS NOT.' : '>> CLICK HERE TO PLAY <<';
+        p.appendChild(a); termLog.appendChild(p); termLog.scrollTop = termLog.scrollHeight;
+        return;
       }
       if (askWho) {
         await wait(500); note('words', 'cosmolyte');
@@ -1857,7 +1855,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
 
   // ================= notes =================
   const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock'], ['dialed', 'A call that didn\u2019t go through'], ['opened', 'The open window'], ['sign', 'Home sweet home'], ['walker', 'Someone walking past']];
-  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['year', 'WHAT YEAR IT IS'], ['stations', 'EVERY STATION'], ['file1', 'FILE 01 \u00b7 WHERE YOU ARE'], ['file2', 'FILE 02 \u00b7 RUTH CALLOWAY'], ['file3', 'FILE 03 \u00b7 THE BELLS'], ['file4', 'FILE 04 \u00b7 VISITOR LOG'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET'], ['yehukan', 'SPOKE YE HUKAN']]);
+  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['year', 'WHAT YEAR IT IS'], ['stations', 'EVERY STATION'], ['file1', 'FILE 01 \u00b7 WHERE YOU ARE'], ['file2', 'FILE 02 \u00b7 RUTH CALLOWAY'], ['file3', 'FILE 03 \u00b7 THE BELLS'], ['file4', 'FILE 04 \u00b7 VISITOR LOG'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET'], ['game', 'JUMPER X'], ['yehukan', 'SPOKE YE HUKAN']]);
   const foundCount = () => state.radio.filter(id => S.some(x => x.id === id)).length + state.words.filter(id => TERM.some(x => x[0] === id)).length + state.calls.filter(id => CALLS[id]).length + state.room.filter(id => ROOM.some(x => x[0] === id)).length;
   const totalCount = () => S.length + TERM.length + Object.keys(CALLS).length + ROOM.length;
   function updateNotesCount() { $('#notesCount').textContent = `${foundCount()}`; }
