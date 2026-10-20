@@ -300,7 +300,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   })();
 
   // ================= audio =================
-  let ctx, master, ambGain, radioNoise, radioBus, songGain = null, speakerIn = null, windGain = null, rainGain = null, phoneIn = null, droneGain = null;
+  let ctx, master, ambGain, radioNoise, radioBus, songGain = null, speakerIn = null, windGain = null, rainGain = null, phoneIn = null, droneGain = null, radioDuck = null;
   // the man on the phone: every line pre-recorded, cut from two tapes (the second holds the newer calls)
   const phoneTapes = ['phone4', 'phone3', 'phone', 'phone2'].map(name => ({ name, buf: null, map: null }));
   let phoneSrc = null;
@@ -310,6 +310,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
       fetch(tp.name + '.json').then(r => { if (!r.ok) throw 0; return r.json(); })
     ]).then(([buf, map]) => { tp.buf = buf; tp.map = map; }).catch(() => {}));
   }
+  function duckRadio(on) { if (ctx && radioDuck) radioDuck.gain.setTargetAtTime(on ? .25 : 1, ctx.currentTime, .15); }
   function phoneStop() { if (phoneSrc) { try { phoneSrc.stop(); } catch (e) {} phoneSrc = null; } }
   function playPhone(text) {
     const tp = phoneTapes.find(t => t.buf && t.map && t.map[text]);
@@ -318,6 +319,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
     phoneStop();
     const src = ctx.createBufferSource(); src.buffer = tp.buf; src.connect(phoneIn);
     phoneSrc = src; src.start(0, cue[0], cue[1] + .05);
+    duckRadio(true); src.addEventListener('ended', () => duckRadio(false));
     return new Promise(res => { src.onended = res; });
   }
 
@@ -401,9 +403,10 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
       radioBus = ctx.createGain(); radioBus.gain.value = 0; radioBus.connect(eq).connect(master);
       {
         const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 160; speakerIn = hp;
+        radioDuck = ctx.createGain(); radioDuck.connect(master);
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5500;
         songGain = ctx.createGain(); songGain.gain.value = 0;
-        songGain.connect(hp).connect(lp).connect(master);
+        songGain.connect(hp).connect(lp).connect(radioDuck);
       }
       loadSong();
     } catch (e) { ctx = null; }
@@ -480,7 +483,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
       } catch (e) {}
     });
   }
-  const hush = () => { try { canSpeak && speechSynthesis.cancel(); } catch (e) {} };
+  const hush = () => { try { if (canSpeak) { speechSynthesis.cancel(); speechSynthesis.cancel(); } } catch (e) {} };
 
   // ================= scene =================
   if (typeof THREE === 'undefined' || !(() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } })()) {
@@ -934,9 +937,22 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   const years = () => Math.max(1, new Date().getFullYear() - 2015);
   const who = () => state.name ? state.name.charAt(0) + state.name.slice(1).toLowerCase() : 'caller';
   const S = [
-    { id: 'weather', band: 'am', f: 7, name: 'WKRS weather',
-      lines: () => ['WKRS marine weather for HollowVale Harbor.', 'Tonight: fog over the harbor, low near forty. Small craft should stay tied up.', 'Tomorrow: fog.', 'Every day after that: fog.', { t: 'Keep your lantern lit. Keep the radio on.', cls: 'dim' }],
-      voice: 'all', audio: program(4, (g, t) => tone(g, 60, t, 4, 'sine', .15)) },
+    { id: 'weather', band: 'am', f: 7, name: 'WKRS weather', rec: 'station7', header: 'STATION 7 \u00b7 WKRS Marine Weather',
+      script: [
+        ['W', 'WKRS marine weather for HollowVale Harbor and the waters off Gull Point.'],
+        ['W', 'Tonight: fog over the harbor, low near forty. Visibility under one hundred feet.'],
+        ['W', 'Small craft should stay tied up. All craft should stay tied up.'],
+        ['W', 'Winds calm. Seas calm. Too calm.'],
+        ['W', 'Tomorrow: fog.'],
+        ['W', 'The day after tomorrow: fog.'],
+        ['W', 'Every day after that: fog.'],
+        ['W', 'Tides: high tide at three twelve. Low tide at three twelve.'],
+        ['W', 'The lighthouse on Gull Point remains dark. Mariners are advised not to follow any light they see in the fog.'],
+        ['W', 'Keep your lantern lit. Keep the radio on. And keep your window shut.'],
+        ['W', 'This has been the WKRS marine weather. The next forecast will be the same.']
+      ],
+      lines: () => [{ t: 'STATION 7 \u00b7 WKRS Marine Weather', cls: 'big' }, 'WKRS marine weather for HollowVale Harbor.'],
+      audio: program(4, (g, t) => tone(g, 60, t, 4, 'sine', .08)) },
     { id: 'nightowl', band: 'am', f: 13, name: 'Night Owl with Ruth',
       lines: () => [{ t: 'A record spins through the crackle.', cls: 'dim' }, { t: 'STATION 13 \u00b7 \u266a \u201cNo Place Like Home\u201d \u00b7 Cosmolyte', cls: 'big' }, 'You are listening to Night Owl with Ruth Calloway, on WKRS. Ruth was playing this song when the fog came in.', { t: '\u201cNo Place Like Home\u201d by Cosmolyte, owned by UNIA Systems. On SHORT WAVE, somebody is reading numbers.', cls: 'dim' }] },
     { id: 'history', band: 'am', f: 49, name: 'The harbor\u2019s history', rec: 'station49', header: 'STATION 49 \u00b7 HollowVale Harbor Historical Society',
@@ -1036,7 +1052,8 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   const SPEAKERS = {
     N: { label: '', voice: 'male', rate: .82, pitch: .62 },          // the Historical Society narrator: slow and low
     M: { label: 'MARGE', voice: 'female', rate: 1.02, pitch: 1.12 }, // bright, quick
-    H: { label: 'HENRY', voice: 'male', rate: .94, pitch: .82 }      // warm, a little slower
+    H: { label: 'HENRY', voice: 'male', rate: .94, pitch: .82 },     // warm, a little slower
+    W: { label: '', voice: 'female', rate: .9, pitch: .9 }           // the weather reader: calm, flat
   };
   S.forEach(s => s.p = toP(s.band, s.f));
   const OWL = S.find(st => st.id === 'nightowl');
@@ -1164,7 +1181,11 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
     else if (st.voice) speak(st.voice.map(i => plain[i]).join(' ... '), st.sayOpts);
     typeTx(lines);
   }
-  function stopStation() { scriptRun++; Object.values(TRACKS).forEach(trackPause); if (stopAudio) stopAudio(); stopAudio = null; hush(); current = null; txRun++; }
+  function stopStation() {
+    scriptRun++;
+    Object.values(TRACKS).forEach(tr => { if (tr.gain) { tr.gain.gain.cancelScheduledValues(ctx.currentTime); tr.gain.gain.setValueAtTime(0, ctx.currentTime); } trackPause(tr); });
+    if (stopAudio) stopAudio(); stopAudio = null; hush(); current = null; txRun++;
+  }
   function setRadio(on) {
     radioOn = on; $('#powerBtn').setAttribute('aria-pressed', String(on));
     if (droneGain) droneGain.gain.setTargetAtTime(on ? 0 : 1, ctx.currentTime, .6); // the background drone gives way to the radio
@@ -1584,6 +1605,10 @@ EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consisten
     // a way out to a game: opened right here, while the keypress still counts as the viewer's own action
     const GAME_URL = 'https://steady-figolla-1c2f96.netlify.app';
     const toGame = /^(game|jumperx|imbored|iambored|bored|imsobored)$/.test(code);
+    const YT_URL = 'https://www.youtube.com/channel/UC7pZ-DpbpxlAUIVXtYp5dOA';
+    const toYT = /^(youtube|video|videos|yt|youtubechannel)$/.test(code);
+    let ytWin = null;
+    if (toYT) { try { ytWin = window.open(YT_URL, '_blank'); if (ytWin) ytWin.opener = null; } catch (e) {} }
     let gameWin = null;
     if (toGame) { try { gameWin = window.open(GAME_URL, '_blank'); if (gameWin) gameWin.opener = null; } catch (e) {} }
     let siteWin = null;
@@ -1643,6 +1668,15 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
         }
         await wait(700);
         return await termAnswer(pick(yhFallback));
+      }
+      if (toYT) {
+        await wait(400); note('words', 'youtube');
+        await termAnswer('OPENING THE VIDEO ARCHIVE', 45);
+        const p = document.createElement('p'); p.className = 'them';
+        const a = document.createElement('a'); a.href = YT_URL; a.target = '_blank'; a.rel = 'noopener'; a.className = 'site';
+        a.textContent = ytWin ? 'YOUTUBE IS OPEN IN A NEW TAB. CLICK HERE IF IT IS NOT.' : '>> CLICK HERE TO WATCH <<';
+        p.appendChild(a); termLog.appendChild(p); termLog.scrollTop = termLog.scrollHeight;
+        return;
       }
       if (toGame) {
         await wait(400); note('words', 'game');
@@ -1855,7 +1889,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
 
   // ================= notes =================
   const ROOM = [['writing', 'Words in the fog'], ['figure', 'Someone in the street'], ['hand', 'The handprint'], ['clock', 'The stopped clock'], ['dialed', 'A call that didn\u2019t go through'], ['opened', 'The open window'], ['sign', 'Home sweet home'], ['walker', 'Someone walking past']];
-  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['year', 'WHAT YEAR IT IS'], ['stations', 'EVERY STATION'], ['file1', 'FILE 01 \u00b7 WHERE YOU ARE'], ['file2', 'FILE 02 \u00b7 RUTH CALLOWAY'], ['file3', 'FILE 03 \u00b7 THE BELLS'], ['file4', 'FILE 04 \u00b7 VISITOR LOG'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET'], ['game', 'JUMPER X'], ['yehukan', 'SPOKE YE HUKAN']]);
+  const TERM = W.map(([id]) => [id, `\u201c${id.toUpperCase()}\u201d`]).concat([['year', 'WHAT YEAR IT IS'], ['stations', 'EVERY STATION'], ['file1', 'FILE 01 \u00b7 WHERE YOU ARE'], ['file2', 'FILE 02 \u00b7 RUTH CALLOWAY'], ['file3', 'FILE 03 \u00b7 THE BELLS'], ['file4', 'FILE 04 \u00b7 VISITOR LOG'], ['st13', 'STATION 13'], ['st49', 'STATION 49'], ['st72', 'STATION 72'], ['cosmolyte', 'COSMOLYTE.NET'], ['game', 'JUMPER X'], ['youtube', 'THE VIDEO ARCHIVE'], ['yehukan', 'SPOKE YE HUKAN']]);
   const foundCount = () => state.radio.filter(id => S.some(x => x.id === id)).length + state.words.filter(id => TERM.some(x => x[0] === id)).length + state.calls.filter(id => CALLS[id]).length + state.room.filter(id => ROOM.some(x => x[0] === id)).length;
   const totalCount = () => S.length + TERM.length + Object.keys(CALLS).length + ROOM.length;
   function updateNotesCount() { $('#notesCount').textContent = `${foundCount()}`; }
