@@ -275,9 +275,10 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
 
   // ================= saved state =================
   const KEY = 'hollowtide.v4';
-  const fresh = () => ({ radio: [], words: [], calls: [], room: [], ended: false, name: '', stage: 0 });
+  const fresh = () => ({ radio: [], words: [], calls: [], room: [], dialed: [], ended: false, name: '', stage: 0 });
   let state = fresh();
   try { state = Object.assign(state, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+  state.dialed = state.dialed || [];
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
   function note(kind, id) {
     if (state[kind].includes(id)) return false;
@@ -300,9 +301,9 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   })();
 
   // ================= audio =================
-  let ctx, master, ambGain, radioNoise, radioBus, songGain = null, speakerIn = null, windGain = null, rainGain = null, phoneIn = null, droneGain = null, radioDuck = null;
+  let ctx, master, ambGain, radioNoise, radioBus, songGain = null, speakerIn = null, windGain = null, rainGain = null, phoneIn = null, droneGain = null, radioDuck = null, lfo = null, lfoG = null, windLP = null, windSteady = false;
   // the man on the phone: every line pre-recorded, cut from two tapes (the second holds the newer calls)
-  const phoneTapes = ['phone4', 'phone3', 'phone', 'phone2'].map(name => ({ name, buf: null, map: null }));
+  const phoneTapes = ['phone5', 'phone4', 'phone3', 'phone', 'phone2'].map(name => ({ name, buf: null, map: null }));
   let phoneSrc = null;
   function loadPhone() {
     phoneTapes.forEach(tp => Promise.all([
@@ -394,7 +395,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
       const shaper = ctx.createWaveShaper(); const curve = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(2.2 * x) / Math.tanh(2.2); } shaper.curve = curve;
       phoneIn = ctx.createGain(); phoneIn.gain.value = 1.1; phoneIn.connect(php).connect(plp).connect(shaper).connect(master);
       loadPhone();
-      const lfo = ctx.createOscillator(), lfoG = ctx.createGain(); lfo.frequency.value = .07; lfoG.gain.value = 220; lfo.connect(lfoG).connect(lp.frequency); lfo.start();
+      lfo = ctx.createOscillator(); lfoG = ctx.createGain(); windLP = lp; lfo.frequency.value = .07; lfoG.gain.value = 220; lfo.connect(lfoG).connect(lp.frequency); lfo.start();
       ambGain.gain.setTargetAtTime(.55, ctx.currentTime, 2);
       const rn = ctx.createBufferSource(); rn.buffer = noiseBuffer(2, true); rn.loop = true;
       const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = .6;
@@ -1347,7 +1348,8 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
     const once = () => { if (!ringing) return; sfx.ring(); shake = 1.7; if (++n >= times) { ringing = false; caption('It stopped ringing. It will ring again.', 3500); return; } ringTimer = setTimeout(once, 3600); };
     once();
   }
-  // ---------- dialing out: every call fails, in its own way ----------
+  // ---------- dialing out: most calls fail; a few numbers pick up ----------
+  const NUMBERS = {"6313795735": {"name": "Ruth Calloway's answering machine", "lines": ["Hi, you’ve reached Ruth Calloway at WKRS.", "I can’t come to the phone. I’m on the air. I’m always on the air.", "If you’re calling about the fog, it isn’t going to lift. If you’re calling about the bells, don’t count them out loud.", "The station is at thirty three Harbor Road. Second floor. The light is always on.", "If it’s after three twelve, please don’t wait for the tone. Just hang up. And lock your door."], "female": true}, "6315551871": {"name": "Gull Point Light", "lines": ["Gull Point Light. Keeper speaking.", "The lamp’s been dark since the Hollowtide. I keep trying to light it.", "Something keeps knocking on the glass. I don’t answer it. I won’t answer it.", "If you can see the point from your window, don’t signal. They’ll see you."], "female": false}, "6315551803": {"name": "The Historical Society", "lines": ["HollowVale Harbor Historical Society. Our hours are midnight to three twelve.", "The town was founded in eighteen oh three. It was emptied in twenty fifteen.", "For the history of the harbor, tune your radio to station forty nine.", "For information about the vault, please hold.", "The vault is not open to the public."], "female": false}};
   const dialer = $('#dialer'), dialedEl = $('#dialed');
   let digits = '', dialStop = null, dialing = false, dialRun = 0;
   function flat(freqs, t, dur, v = .05) {
@@ -1386,6 +1388,19 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
       addLog(logEl, num === '988'
         ? 'This phone is part of a story and can’t make real calls. If you need someone to talk to, you can call or text 988 on a real phone, any time.'
         : 'This phone is part of a story and can’t make real calls. In a real emergency, call ' + num + ' on a real phone.', 'sys');
+    } else if (NUMBERS[num]) {
+      const n = NUMBERS[num];
+      for (let i = 0; i < 2 && live(); i++) { flat([440, 480], now(), 2, .04); await wait(4000); }
+      if (!live()) return;
+      sfx.click(); addLog(logEl, 'Someone picks up.', 'sys'); await wait(700);
+      for (const line of n.lines) {
+        if (!live()) return;
+        addLog(logEl, line, 'them');
+        await (playPhone(line) || speak(line, { voice: n.female ? 'female' : 'male', rate: .9, pitch: n.female ? 1.05 : .7 }));
+        await wait(350);
+      }
+      if (num === '6313795735' && live()) { flat([1000], now(), .6, .05); await wait(900); }
+      note('dialed', num);
     } else if (num === '0') {
       flat([440, 480], now(), 2, .04); await wait(4000);
       await say('Operator.'); await wait(1400);
@@ -1471,7 +1486,7 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
   termInput.addEventListener('input', () => { const v = termInput.value.toUpperCase(); if (v.length > termDraft.length) keyTap(); termDraft = v; drawScreen(); });
   const W = [
     ['hello', ['hello', 'hi', 'hey', 'hellothere', 'yo'], 'HELLO. NOBODY HAS USED THIS TERMINAL SINCE 2015. I CAN ANSWER ANY QUESTION. ASK ME ONE.'],
-    ['harbor', ['harbor', 'hollowvale', 'hollowvaleharbor', 'whereami', 'town', 'lighthouse', 'boats'], 'HOLLOWVALE HARBOR. 400 RESIDENTS. 0 RESIDENTS. EVERY BOAT STILL TIED UP. THE LIGHTHOUSE HAS BEEN DARK SINCE 03:12.'],
+    ['harbor', ['harbor', 'hollowvale', 'hollowvaleharbor', 'whereami', 'town', 'boats'], 'HOLLOWVALE HARBOR. 400 RESIDENTS. 0 RESIDENTS. EVERY BOAT STILL TIED UP. THE LIGHTHOUSE HAS BEEN DARK SINCE 03:12.'],
     ['who', ['who', 'whoareyou', 'whatareyou', 'whoisthis'], 'I AM THE NIGHT TERMINAL AT WKRS. I KEEP THE LOG. I KEPT IT THE NIGHT EVERYONE LEFT.'],
     ['ruth', ['ruth', 'ruthcalloway', 'calloway', 'whoisruth'], 'RUTH CALLOWAY. NIGHT OWL, MIDNIGHT TO SIX. LAST LOG ENTRY 03:12. SHE NEVER SIGNED OFF.'],
     ['where', ['whereisruth', 'whereisshe', 'wheredidshego', 'wheresruth', 'wheredidruthgo'], 'SHE NEVER SIGNED OFF. ANSWER THE PHONE. IT WILL TELL YOU WHAT TO ASK.'],
@@ -1479,7 +1494,9 @@ body.paneled #caption { bottom: auto; top: calc(58px + env(safe-area-inset-top, 
     ['hollowtide', ['hollowtide', 'thehollowtide', 'whatisthehollowtide', 'whathappened', 'whathappenedin2015', '2015'], 'THE HOLLOWTIDE. 2015, 03:12. THE TRANSMITTER SANG BY ITSELF. BY MORNING THE STREET WAS EMPTY.'],
     ['help', ['help', 'hint', 'whatdoido', 'helpme'], 'ANSWER THE PHONE. IT WILL GIVE YOU A WORD. TYPE THE WORD HERE. I WILL SAY YES.'],
     ['street', ['whoisoutside', 'whoisinthestreet', 'outside', 'window', 'whoisthat'], 'THERE IS NOBODY IN THE STREET. THERE HAS BEEN NOBODY IN THE STREET SINCE THE HOLLOWTIDE. DO NOT WAVE.'],
-    ['phone', ['phone', 'whoiscalling', 'whoisonthephone', 'telephone'], 'THE LINE WAS CUT YEARS AGO. CALLS STILL COME IN. I LOG THEM. I DO NOT ANSWER THEM.'],
+    ['phone', ['phone', 'whoiscalling', 'whoisonthephone', 'telephone', 'number', 'numbers', 'phonenumber', 'phonenumbers', 'whoshouldicall', 'whocanicall', 'call', 'dial', 'whatnumber', 'whatnumbershouldidial'], 'THE LINE WAS CUT YEARS AGO. SOME NUMBERS STILL PICK UP. DIAL 631 379 5735.'],
+    ['lighthouse', ['lighthouse', 'gullpoint', 'keeper', 'thekeeper', 'lighthousekeeper'], 'GULL POINT LIGHT. DARK SINCE THE HOLLOWTIDE. THE KEEPER STILL ANSWERS. DIAL 631 555 1871.'],
+    ['society', ['history', 'historicalsociety', 'thehistoricalsociety', 'museum', 'archive', 'records'], 'THE HOLLOWVALE HARBOR HISTORICAL SOCIETY. OPEN MIDNIGHT TO 03:12. DIAL 631 555 1803.'],
     ['dead', ['areyoudead', 'amidead', 'ghost', 'areyoualive', 'dead'], 'DEFINE DEAD.'],
     ['scared', ['imscared', 'scared', 'afraid', 'imafraid'], 'FEAR IS A SENSIBLE RESPONSE. LOGGED.'],
     ['time', ['time', 'whattimeisit', 'clock'], '03:12. IT IS ALWAYS 03:12.'],
@@ -1555,7 +1572,8 @@ Vocabulary: to be (am/is/are) = Om, go = Lon, come = Nol, want = Zhan, need = Zh
       'HOST OF NIGHT OWL ON WKRS, MIDNIGHT TO SIX. THIS WAS HER DESK.',
       'ON THE NIGHT OF THE HOLLOWTIDE SHE WAS PLAYING “NO PLACE LIKE HOME” ON STATION 13 WHEN THE TRANSMITTER BEGAN TO SING BY ITSELF.',
       'LAST LOG ENTRY: 03:12. SHE NEVER SIGNED OFF.',
-      'THE PHONE ON THE WALL STILL RINGS FOR HER.'] },
+      'THE PHONE ON THE WALL STILL RINGS FOR HER.',
+      'SHE LEFT A NUMBER. DIAL 631 379 5735.'] },
     { key: /countthebells|^thebells$|^bells$/, title: 'FILE 03 · THE BELLS', lines: () => [
       '1923. THIRTY ONE BOATS SAILED INTO THE FOG. THIRTY ONE BELLS RANG IN THE HARBOR FOR SEVEN NIGHTS.',
       'ON THE NIGHT OF THE HOLLOWTIDE THE BELLS RANG AGAIN. BY SUNRISE THE HARBOR WAS EMPTY.',
@@ -1585,6 +1603,7 @@ EVERYTHING YOU KNOW ABOUT THIS WORLD (use it to answer questions; stay consisten
 - Cosmolyte (who made "No Place Like Home"): ${COSMO_BIO} Website: cosmolyte.net. If asked who Cosmolyte or Emmett Tendler (Emmett T) is, tell them this, respectfully.
 - HollowVale Harbor history: founded in 1803 by whalers led by Captain Elias Vane ("the fog here is kinder than the sea"). The church had no bell. Lighthouse built on Gull Point in 1871; its first keeper, Abel Morrow, heard knocking from the fog side of the glass in October 1874 and never answered it. In 1904 a new keeper went down to answer the knocking; his lantern was found on the rocks, still burning, and he was never found. On June 11, 1923, thirty-one fishing boats sailed into a sudden fog and never returned; their bells rang in the fog for seven nights, and afterwards the church had a bell no one would explain. On the night of the Hollowtide, in the autumn of 2015 the transmitter sang, every radio turned itself on, porch lights came on one by one, and by sunrise 400 people were gone, every boat still tied up, every kettle still warm.
 - The room: a wall phone (the WKRS night line; a card says "If it rings after 3, do not answer"; callers can only be answered yes, no or maybe), a wall clock stopped at 3:12, a lantern, the radio, and a window onto a wet street at dusk where a figure sometimes stands, a little closer each time.
+- Phone numbers that still pick up on the wall phone: 631 379 5735 (Ruth Calloway's answering machine), 631 555 1871 (Gull Point Light, the keeper), 631 555 1803 (the Historical Society). Every other number fails. You may tell visitors these numbers when it fits.
 - Ye Hukan: a language you understand and speak. If asked how to say something in Ye Hukan, translate using only this dictionary and grammar: ${YH_DICT}
 - You are the THIRD UNIA terminal. Null means the Null Membership Society. The Null files were only ever uploaded to Terminal 001 and Terminal 002, never to you. Terminal 002 was permanently switched off. Terminal 001 is hidden in "the vault". You do not know where the vault is, and you will not guess. If asked about Null, the society, the vault or the other terminals, tell exactly this and nothing more.`;
   }
@@ -1668,6 +1687,21 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
         }
         await wait(700);
         return await termAnswer(pick(yhFallback));
+      }
+      if (/number|whoshouldicall|whocanicall|whatshouldidial|whattodial|shouldicall|canicall|calls?someone/.test(code) && !/whatnumberamithinking|thinkingof/.test(code)) {
+        await wait(600); note('words', 'phone');
+        return await termAnswer('THE LINE WAS CUT YEARS AGO. SOME NUMBERS STILL PICK UP. DIAL 631 379 5735.');
+      }
+      if (code === 'unlock') {
+        await wait(500); note('words', 'unlock');
+        await termAnswer('UNLOCKED.', 120);
+        // the wind stops gusting and blows hard and steady, and something knocks, and knocks, and knocks
+        windSteady = true;
+        if (ctx && lfoG) { lfoG.gain.setTargetAtTime(0, ctx.currentTime, .4); windLP.frequency.setTargetAtTime(520, ctx.currentTime, .6); }
+        caption('The wind steadies into one long, low howl. Then the knocking starts. It does not stop.', 7000);
+        gutter = 7;
+        if (ctx) { const k = now(); for (let i = 0; i < 26; i++) { const t = k + .3 + i * .26 + Math.random() * .04; tone(null, 82 + Math.random() * 8, t, .2, 'sine', .55); burst(t, .07, 320, .45, 1); } }
+        return;
       }
       if (toYT) {
         await wait(400); note('words', 'youtube');
@@ -1904,8 +1938,23 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
       sec('Radio stations', S.map(s => [s.id, `${BANDS[s.band].fmt(s.f)}: ${s.name}`]), state.radio) +
       sec('Phone calls', Object.entries(CALLS).map(([id, c]) => [id, c.name]), state.calls) +
       sec('The terminal\u2019s files', TERM, state.words) +
-      sec('The room', ROOM, state.room);
+      sec('The room', ROOM, state.room) +
+      sec('Numbers that pick up', Object.entries(NUMBERS).map(([n, d]) => [n, `${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}: ${d.name}`]), state.dialed) +
+      '<h3><span>Every word the terminal knows</span></h3>' +
+      ALL_WORDS.map(([group, list]) => `<p class="small"><strong>${esc(group)}:</strong> ${esc(list)}</p>`).join('');
   }
+  const ALL_WORDS = [
+    ['The story (the phone gives them to you in order)', 'Hollowtide · Ruth Calloway · Count the bells · Stay'],
+    ['About this place', 'Who are you · What are you · What year is it · Where am I · HollowVale Harbor · WKRS · UNIA · What happened · Ruth · Where is Ruth · Fog · Lighthouse · History · Time · Phone · Number · Window · Who is outside · Help · Leave · Are you dead · I’m scared'],
+    ['Secrets', 'Unlock · Null · The vault · Are you the third terminal · Terminal 001 · Terminal 002'],
+    ['The radio', 'What stations can I go to · any music word (song, music, sing, band, album, piano…) → Station 13 · horseshoe, underworld, nether, blue → Station 49 · dare, purple, skull, hydrangea, tabby → Station 72'],
+    ['Something outside', 'creepy · scary · spooky · unsettling · eerie · haunted · terrifying · uncanny'],
+    ['Links', 'Cosmolyte · Emmett Tendler · Who is Cosmolyte · game · Jumper X · I’m bored · YouTube · video'],
+    ['Questions nobody can answer (it glitches)', 'What is the meaning of life · What happens after we die · What number am I thinking of · Am I going to die'],
+    ['Ye Hukan', 'Oi · Qe Quo Om U · Qe Quo ümu U · Qe Wah U Oxu · Festívo · Io · Malé · Ya · Mal · Saudi · Ama · the prayer (Oi Uni! … Tua Uni!)'],
+    ['Numbers to dial on the phone', '631 379 5735 · 631 555 1871 · 631 555 1803 · 0 (the operator)'],
+    ['And anything else', 'It says it can answer any question. Try one.']
+  ];
   function toggleNotes(on) { if (on) renderNotes(); $('#notes').hidden = !on; if (on) $('#closeNotes').focus(); }
   $('#notesBtn').addEventListener('click', () => toggleNotes(true));
   $('#closeNotes').addEventListener('click', () => toggleNotes(false));
@@ -1943,7 +1992,7 @@ THEY WROTE: ${raw.slice(0, 200)}`, {
     // the window: sash slides, cold air gets in
     winOpen += (winOpenTarget - winOpen) * Math.min(1, dt * 2.5);
     sash.position.y = -WIN.h / 4 + winOpen * (WIN.h / 2 - .03); sash.position.z = .022 + winOpen * .012;
-    if (ctx && windGain) { windGain.gain.setTargetAtTime(.08 + .35 * winOpen, ctx.currentTime, .3); rainGain.gain.setTargetAtTime(.1 * winOpen, ctx.currentTime, .3); }
+    if (ctx && windGain) { windGain.gain.setTargetAtTime((windSteady ? .32 : .08) + .35 * winOpen, ctx.currentTime, .3); rainGain.gain.setTargetAtTime(.1 * winOpen, ctx.currentTime, .3); }
     for (let i = 0; i < cp.count; i++) { const y = cp.getY(i), x0 = cp.getX(i); cp.setZ(i, Math.sin(x0 * 40) * .025 + winOpen * Math.sin(t / 600 + y * 3 + x0 * 5) * .05 * (.75 - y / 2)); }
     cp.needsUpdate = true;
     if (winOpen > .3 && Math.random() < .02 * winOpen) flick *= .6;
