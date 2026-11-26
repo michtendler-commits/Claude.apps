@@ -748,7 +748,7 @@ SHOTS = [
     (S("n5"), S("m12"), push((0, -13, 3.5), (1, 1, 1.8), (0, -10, 3.0), (1, 1, 1.8))),
     (S("m12"), S("m13"), close(mayor, 2.8)),
     (S("m13"), LAUNCH_T, close(mayor, 4.2, up=-0.3, aim=-0.5)),
-    (LAUNCH_T, S("n6"), lambda t, u: (V((MPOS[0], MPOS[1] - 7, 1.0)), mayor.head_pos(t) if mayor.head_pos(t).z < 60 else V((MPOS[0], MPOS[1], 60)))),
+    (LAUNCH_T, S("n6"), lambda t, u: (V((MPOS[0] - 3.0, MPOS[1] - 6.5, 1.0)), mayor.head_pos(t) if mayor.head_pos(t).z < 60 else V((MPOS[0], MPOS[1], 60)))),
     (S("n6"), S("n7"), static((MPOS[0] + 2, MPOS[1] - 4, 0.5), (MPOS[0], MPOS[1] + 6, 40))),
     (S("n7"), S("j10") - 0.05, static((2.5, -6.5, 0.6), (2.5, 0, 2.4))),
     (S("j10") - 0.05, S("j11"), static((0, 0.5, 2.8), (0, 5.7, 2.4))),
